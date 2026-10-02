@@ -1,0 +1,133 @@
+
+
+@import "tailwindcss";
+
+/*
+ * Per-network color classes (text-${network}, bg-${network}, etc.) are built from a
+ * runtime variable across the app, so Tailwind's static scanner can't discover them from
+ * source text alone. Declare every variant actually used so they're always generated,
+ * instead of relying on the class name happening to appear literally somewhere else.
+ */
+@source inline("{text,bg,border,border-t}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}");
+@source inline("{bg,border,ring,shadow}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}/{10,20,50,80,90}");
+@source inline("{hover:bg,hover:text,group-hover:text}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}");
+@source inline("hover:bg-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}/{10,90}");
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-grotesk: "Space Grotesk", sans-serif;
+  --color-bitcoin: #f7931a;
+  --color-hedera: #000000;
+  --color-solana: #8c52ff;
+  --color-ethereum: #7581aa;
+  --color-polkadot: #000000;
+  --color-tron: #FF0013;
+  --color-hyperliquid: #0F3933;
+  --color-robinhood: #CCFF00;
+  --color-arbitrum: #28A0F0;
+  /* No --color-base: "base" literally collides with Tailwind's own reserved font-size scale
+   * key (text-base = 1rem), so defining a theme color named "base" silently hijacks the
+   * global .text-base utility (used ~140x app-wide for font/icon sizing, unrelated to any
+   * network) to mean "color: Base blue" instead of its real font-size meaning. Base's brand
+   * color is applied via literal arbitrary-value classes (bg-[#0052FF] etc.) everywhere
+   * instead of the usual bg-${network}/text-${network} pattern — see each call site. */
+  --color-secondary: #545c66;
+  --color-warning: var(--color-bitcoin);
+  --color-success: #057835;
+  --color-expired: #ff0000;
+  --color-pending: #fff3e4;
+  --shadow-buttonNav: 0px 5.76px 10.07px rgba(0, 0, 0, 0.05);
+
+
+  --color-current: var(--color-current);
+  --color-buttonBackground: var(--color-buttonBackground);
+  --color-buttonText: var(--color-buttonText);
+}
+
+@layer base {
+  body {
+    font-family: "Space Grotesk", sans-serif;
+    @apply text-base font-normal antialiased bg-white dark:bg-[#0a0a0a] text-black dark:text-white;
+  }
+
+  section {
+    @apply px-5;
+  }
+}
+
+
+@layer utilities {
+  .bgBox {
+    @apply p-5 rounded-xl border border-secondary/10 shadow-buttonNav;
+  }
+
+  .bgRound {
+    @apply rounded-full border border-secondary/10 shadow-buttonNav;
+  }
+
+  .glass-card {
+    @apply relative overflow-hidden bg-white/6 backdrop-blur-[10px] border border-white/20;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 0px 0px rgba(255, 255, 255, 0);
+  }
+
+  .glass-card:before {
+    content: "";
+    @apply absolute top-0 left-0 right-0 h-px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0),
+      transparent
+    );
+  }
+
+  .glass-card:after {
+    content: "";
+    @apply absolute top-0 left-0 w-px h-full;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0),
+      transparent,
+      rgba(255, 255, 255, 0)
+    );
+  }
+}
+
+/* NextTopLoader Theme-Adaptive Monochrome Progress Bar */
+#nprogress .bar {
+  background: #000000 !important;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.35), 0 0 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark #nprogress .bar {
+  background: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 5px rgba(255, 255, 255, 0.4) !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px #000000, 0 0 5px #000000 !important;
+}
+
+.dark #nprogress .peg {
+  box-shadow: 0 0 12px #ffffff, 0 0 6px #ffffff !important;
+}
+
+@theme inline {
+}
+
+:root {
+  --color-current: #000;
+  --color-buttonBackground: #000;
+  --color-buttonText: #fff;
+}
+
+.dark {
+  --color-current: #fff;
+  --color-buttonBackground: #fff;
+  --color-buttonText: #000;
+}

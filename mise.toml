@@ -1,0 +1,43 @@
+[tools]
+node = "22.22.1"
+pnpm = "11.13.0"
+
+[env]
+_.file = ".env"
+
+[settings]
+npm.package_manager = "pnpm"
+
+[tasks.dev]
+description = "Run Next.js dev server"
+run = "pnpm run dev"
+
+[tasks.build]
+description = "Build Next.js app"
+run = "pnpm run build"
+
+[tasks.start]
+description = "Prepare and start standalone production server"
+run = """
+cp -r .next/static .next/standalone/.next/static
+cp -r public .next/standalone/public
+node .next/standalone/server.js
+"""
+
+# CHECK DOCKER IS RUNNING
+[tasks.check-docker]
+run = "docker info >/dev/null 2>&1 || (echo 'Docker is not running' && exit 1)"
+
+[tasks.docker-build]
+description = "Build Docker image for paradapp-client-v2"
+run = "docker build -t renrensan/paradapp-client-v2 ."
+depends = ["check-docker"]
+
+[tasks.docker-push]
+description = "Build and push Docker image for server (linux/amd64) to registry"
+run = "docker buildx build --platform linux/amd64 -t renrensan/paradapp-client-v2:latest --push ."
+depends = ["check-docker"]
+
+[tasks.docker-local]
+description = "Run local docker-compose setup"
+run = "docker compose up"

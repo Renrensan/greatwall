@@ -1,0 +1,200 @@
+"use client";
+
+// "base" literally collides with Tailwind's own reserved text-base (font-size) utility, so
+// unlike every other chain's connect button, this one can't use bg-base/text-base/etc. —
+// globals.css deliberately has no --color-base theme token. Uses arbitrary-value hex classes
+// instead wherever another chain's button would use its generated color class.
+
+import { useBaseWallet } from "@/components/base/base-provider";
+import { base } from "..";
+import { METAMASK_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
+import { METAMASK_BROWSE_LINK } from "./wallet-connect/wallet-browse-links";
+import { WalletInstallItem } from "./wallet-connect/WalletInstallItem";
+import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { VscDebugDisconnect } from "react-icons/vsc";
+import { IoCopyOutline, IoWalletOutline } from "react-icons/io5";
+import ButtonContrast from "./ButtonContrast";
+import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
+import { ellipsifyAddress } from "./wallet-connect/ellipsify";
+import { ConnectingButton } from "./wallet-connect/ConnectingButton";
+import { ConnectedWalletPill } from "./wallet-connect/ConnectedWalletPill";
+import { WalletListItem } from "./wallet-connect/WalletListItem";
+import { NetworkStatusCard, SettingsRow } from "./wallet-connect/WalletSettingsRows";
+import { MainnetToggleRow } from "./wallet-connect/MainnetToggleRow";
+import { BASE_WALLET_ICONS } from "./wallet-connect/wallet-icons";
+import { detectEvmWallets } from "./wallet-connect/evm-wallet-detection";
+import { useNetwork } from "@/app/network-provider";
+
+interface BaseConnectButtonProps {
+  isOpen?: boolean;
+  setIsOpen?: (open: boolean) => void;
+}
+
+export function BaseConnectButton({ isOpen, setIsOpen }: BaseConnectButtonProps) {
+  const t = useTranslations("All");
+  const { baseMainnet, setBaseMainnet } = useNetwork();
+
+  const { connected, isConnecting, address, connect, disconnect, walletType } = useBaseWallet();
+
+  const [walletSheetOpen, setWalletSheetOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [detected, setDetected] = useState(false);
+
+  const settingsOpen = isOpen ?? internalOpen;
+  const toggleSettings = () => {
+    if (setIsOpen) setIsOpen(!settingsOpen);
+    else setInternalOpen((prev) => !prev);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    detectEvmWallets().then((result) => {
+      if (!cancelled) setDetected(result.metamask);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleConnect = async () => {
+    setWalletSheetOpen(false);
+    await connect("metamask");
+  };
+
+  const handleCopy = () => {
+    if (address) navigator.clipboard.writeText(address);
+    if (settingsOpen) toggleSettings();
+  };
+
+  const handleDisconnect = () => {
+    disconnect(true);
+    if (settingsOpen) toggleSettings();
+  };
+
+  if (isConnecting) {
+    return (
+      <ConnectingButton
+        label={t("text3")}
+        className="text-[8px] md:text-xs flex bg-[#0052FF]! hover:bg-[#0052FF]/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+      />
+    );
+  }
+
+  return (
+    <>
+      {!connected && (
+        <button
+          onClick={() => setWalletSheetOpen(true)}
+          className="text-[8px] md:text-xs flex bg-[#0052FF]! hover:bg-[#0052FF]/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        >
+          {t("text2")}
+        </button>
+      )}
+
+      {connected && (
+        <ConnectedWalletPill
+          icon={walletType ? BASE_WALLET_ICONS[walletType] : base}
+          alt="icon"
+          label={ellipsifyAddress(address!)}
+          isMainnet={baseMainnet}
+          className="text-[8px] md:text-xs flex items-center hover:bg-[#0052FF]/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          onClick={toggleSettings}
+        />
+      )}
+
+      <BaseSettingsSheet
+        isOpen={settingsOpen && connected}
+        isMainnet={baseMainnet}
+        address={address!}
+        onCopy={handleCopy}
+        onDisconnect={handleDisconnect}
+        onClose={toggleSettings}
+      />
+
+      <BaseWalletSheet
+        isOpen={walletSheetOpen}
+        title={t("text35")}
+        subtitle={t("text36")}
+        detected={detected}
+        isMainnet={baseMainnet}
+        setIsMainnet={setBaseMainnet}
+        onSelect={handleConnect}
+        onClose={() => setWalletSheetOpen(false)}
+      />
+    </>
+  );
+}
+
+function BaseWalletSheet({
+  isOpen,
+  title,
+  subtitle,
+  detected,
+  isMainnet,
+  setIsMainnet,
+  onSelect,
+  onClose,
+}: any) {
+  const t = useTranslations("All");
+
+  return (
+    <AnimatedModalNavbar isOpen={isOpen} onClose={onClose} maxWidthClass="lg:w-[320px]">
+      <div className="flex flex-col p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0">
+        <div className="flex flex-col gap-1 pb-5">
+          <h2 className="text-xl font-bold">{title}</h2>
+          <p className="text-[12px] opacity-70">{subtitle}</p>
+        </div>
+
+        <MainnetToggleRow
+          heading={t("text37")}
+          isMainnet={isMainnet}
+          onChange={setIsMainnet}
+          testnetLabel="Sepolia"
+        />
+
+        <hr className="border-black/5 dark:border-white/5 mb-6" />
+
+        <div className="flex flex-col gap-3 py-2">
+          {detected ? (
+            <WalletListItem icon={BASE_WALLET_ICONS.metamask} name="MetaMask" detected detectedLabel={t("text39")} onClick={onSelect} />
+          ) : (
+            <WalletInstallItem icon={BASE_WALLET_ICONS.metamask} name="MetaMask" links={METAMASK_INSTALL_LINKS} browseLink={METAMASK_BROWSE_LINK} />
+          )}
+        </div>
+      </div>
+
+      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+        <ButtonContrast onClick={onClose} buttonText={t("text55")} />
+      </div>
+    </AnimatedModalNavbar>
+  );
+}
+
+function BaseSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onClose }: any) {
+  const t = useTranslations("All");
+
+  return (
+    <AnimatedModalNavbar isOpen={isOpen} onClose={onClose} maxWidthClass="lg:w-[300px]">
+      <div className="flex flex-col p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0">
+        <div className="flex flex-col gap-1 pb-4">
+          <h2 className="text-xl font-bold">{t("text40")}</h2>
+          <p className="text-[12px] opacity-70">{t("text150")}</p>
+        </div>
+
+        <div className="flex flex-col gap-3 py-2">
+          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-[#0052FF]/20" />
+
+          <hr className="border-black/5 dark:border-white/5 my-2" />
+
+          <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
+          <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
+        </div>
+      </div>
+
+      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+        <ButtonContrast buttonText={t("text22")} onClick={onClose} />
+      </div>
+    </AnimatedModalNavbar>
+  );
+}

@@ -1,0 +1,4 @@
+export const IPOW_NETWORK_ID = 1;
+export const IPOW_CONTRACT_ACCOUNT_ID_TESTNET = "0.0.9860061";
+export const IPOW_GAS_LIMIT =1_000_000;;
+
