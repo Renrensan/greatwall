@@ -9,6 +9,7 @@ import FrameGuard from "@/components/ui/FrameGuard";
 import BgComponent from "@/subcomponents/BgComponent";
 import NextTopLoader from "nextjs-toploader";
 import { Space_Grotesk } from "next/font/google";
+import { greatwallFontClassNames } from "@/lib/greatwall-fonts";
 import "../globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -45,7 +46,11 @@ export default async function LocaleLayout({
   }
 
   return (
-    <html lang={locale} className={spaceGrotesk.variable} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${spaceGrotesk.variable} ${greatwallFontClassNames}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="preload" href="/assets/black.webm" as="video" type="video/webm" />
         <link rel="preload" href="/assets/white.webm" as="video" type="video/webm" />

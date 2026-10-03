@@ -17,6 +17,14 @@
 
 @theme {
   --font-grotesk: "Space Grotesk", sans-serif;
+  --font-headline: var(--font-instrument-serif), ui-serif, serif;
+  --font-body-brand: var(--font-bdo-grotesk), ui-sans-serif, sans-serif;
+  --color-gw-charcoal: #181818;
+  --color-gw-warm-dark: #2f2c25;
+  --color-gw-muted: #6b6b6b;
+  --color-gw-off-white: #fbf9f1;
+  --color-gw-bg: #f1eadd;
+  --color-gw-surface: #fefaf3;
   --color-bitcoin: #f7931a;
   --color-hedera: #000000;
   --color-solana: #8c52ff;
@@ -58,6 +66,30 @@
 
 
 @layer utilities {
+  .font-headline {
+    font-family: var(--font-headline);
+  }
+
+  .font-body-brand {
+    font-family: var(--font-body-brand);
+  }
+
+  .bg-gw-page {
+    background-color: var(--color-gw-bg);
+  }
+
+  .bg-gw-surface {
+    background-color: var(--color-gw-surface);
+  }
+
+  .text-gw-primary {
+    color: var(--color-gw-charcoal);
+  }
+
+  .text-gw-secondary {
+    color: var(--color-gw-muted);
+  }
+
   .bgBox {
     @apply p-5 rounded-xl border border-secondary/10 shadow-buttonNav;
   }
