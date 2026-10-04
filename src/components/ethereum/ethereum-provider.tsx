@@ -16,13 +16,12 @@ import { useNetwork } from "@/app/network-provider";
 import { ethereumnetwork } from "@/index";
 import { appConfig, EthereumWalletContextType, EthereumWalletType } from "./config";
 import { getEvmWalletProvider } from "@/subcomponents/wallet-connect/evm-wallet-detection";
-import { IPOW_CONTRACT_ADDRESS_TESTNET, IPOW_GAS_LIMIT, IPOW_NETWORK_ID } from "./config/constants";
+import { IPOW_NETWORK_ID } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
-import IPOW_ABI_JSON from "../integrator/ipow/evm/abi.json";
 import { mainnet, sepolia } from "@reown/appkit/networks";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { appKit } from "../walletconnect/wallet-connect-provider";
-import { TxPhase, TypeFilter } from "../integrator/ipow/evm/type";
+import { evmConvertMethods } from "../integrator/ipow/convertMethods";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
 import { fetchErc20Balances, fetchErc20UsdPrices, fetchVerifiedTokenLogos } from "./erc20-balances";
 
@@ -53,8 +52,6 @@ const EthereumWalletContext = createContext<EthereumWalletContextType>({
   networkExplorer: {},
   ipowConvert: "testnet",
   ipowNetworkId: 2,
-  dappList: [],
-  toggleFavoriteDapp: () => {},
   setFeeSelection: () => {},
   connect: async () => {},
   disconnect: () => {},
@@ -63,6 +60,7 @@ const EthereumWalletContext = createContext<EthereumWalletContextType>({
   sendTokenTo: async () => null,
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
+  getSigner: async () => { throw new Error("ethereum: no wallet"); },
   estimateErc20SendFee: async () => null,
   fetchETA: async () => null,
   estimateBitcoinFromNative: async () => null,
@@ -109,7 +107,6 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
   ],
   fetched: false,
 });
-  const [dappList, setDappList] = useState<any[] | null>(null);
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -422,14 +419,6 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
     }
   };
 
-  const getReadOnlyConvertContract = () => {
-    return new ethers.Contract(
-      IPOW_CONTRACT_ADDRESS_TESTNET,
-      IPOW_ABI_JSON,
-      new ethers.JsonRpcProvider(fullRpcUrl),
-    );
-  };
-
 const readOnlyProvider = useMemo(() => {
     return new ethers.JsonRpcProvider(fullRpcUrl);
   }, [fullRpcUrl]);
@@ -468,13 +457,6 @@ const readOnlyProvider = useMemo(() => {
     },
     [address, estimatedFee, readOnlyProvider],
   );
-
-  const getSignerConvertContract = async () =>
-    new ethers.Contract(
-      IPOW_CONTRACT_ADDRESS_TESTNET,
-      IPOW_ABI_JSON,
-      await getActiveSigner(),
-    );
 
   const getActiveSigner = async () => {
 
@@ -570,367 +552,13 @@ const readOnlyProvider = useMemo(() => {
     throw new Error("No active wallet session found. Please reconnect.");
   };
 
-  const priceCache = useRef({ ethPriceUsd: 0, btcPriceUsd: 0, lastFetched: 0 });
-
-  const fetchMarketPrices = async () => {
-
-    if (Date.now() - priceCache.current.lastFetched < 30000) {
-      return priceCache.current;
-    }
-
-    try {
-      const [ethRes, btcRes] = await Promise.all([
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT").then(r => r.json()),
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").then(r => r.json())
-      ]);
-
-      priceCache.current = {
-        ethPriceUsd: parseFloat(ethRes.price),
-        btcPriceUsd: parseFloat(btcRes.price),
-        lastFetched: Date.now(),
-      };
-
-      return priceCache.current;
-    } catch (error) {
-      console.error("Failed to fetch market prices:", error);
-      
-      try {
-         const cgResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd");
-         const cgData = await cgResponse.json();
-         return {
-            ethPriceUsd: cgData.ethereum.usd,
-            btcPriceUsd: cgData.bitcoin.usd,
-         };
-      } catch (fallbackError) {
-         throw new Error("All pricing oracles failed");
-      }
-    }
-  };
-
-  const estimateBitcoinFromNative = async (
-    ethAmount: number,
-  ): Promise<string | null> => {
-    try {
-      const { ethPriceUsd, btcPriceUsd } = await fetchMarketPrices();
-      
-      const btcAmount = (ethAmount * ethPriceUsd) / btcPriceUsd * 0.99;
-      
-      const sats = Math.floor(btcAmount * 1e8);
-      
-      return sats.toString();
-    } catch (e) {
-      console.error("estimateBitcoinFromNative error:", e);
-      return null;
-    }
-  };
-
-  const estimateNativeFromBitcoin = async (
-    btcSats: string,
-  ): Promise<string | null> => {
-    try {
-      const { ethPriceUsd, btcPriceUsd } = await fetchMarketPrices();
-      
-      const btcAmount = Number(btcSats) / 1e8;
-      
-      const ethAmount = (btcAmount * btcPriceUsd) / ethPriceUsd * 0.99;
-      
-      return ethAmount.toFixed(18);
-    } catch (e) {
-      console.error("estimateNativeFromBitcoin error:", e);
-      return null;
-    }
-  };
-
-
-const commitNativeToBitcoin = async (
-    userProgram: string,
-    ethAmount: number,
-    bitcoinAmountSats: number,
-    destination?: { networkId: number; networkAddress: string },
-  ) => {
-    try {
-      const c = await getSignerConvertContract();
-      const weiAmount = ethers.parseEther(ethAmount.toString());
-      
-
-      const fee = (weiAmount * BigInt(50)) / BigInt(10000);
-
-      const isCrossChain = destination && destination.networkId > 0;
-      let finalNetworkId = 0;
-      let finalNetworkAddress = "0x";
-      let finalUserProgram = "0x";
-
-      if (isCrossChain) {
-        finalNetworkId = destination!.networkId;
-        finalNetworkAddress = destination!.networkAddress.startsWith("0x")
-          ? destination!.networkAddress
-          : ethers.hexlify(ethers.toUtf8Bytes(destination!.networkAddress));
-        finalUserProgram = "0x";
-      } else {
-        if (!userProgram) throw new Error("Bitcoin Program required for direct swap");
-        finalNetworkId = 0;
-        finalNetworkAddress = "0x";
-        finalUserProgram = userProgram.startsWith("0x") ? userProgram : `0x${userProgram}`;
-      }
-
-      const tx = await c.commitNativeToBitcoin(
-        weiAmount,
-        bitcoinAmountSats.toString(),
-        finalNetworkId.toString(),
-        finalNetworkAddress,
-        finalUserProgram,
-        {
-          value: fee,
-          gasLimit: IPOW_GAS_LIMIT,
-        },
-      );
-
-      return tx.hash;
-    } catch (e) {
-      console.error("commitNativeToBitcoin error:", e);
-      return null;
-    }
-  };
-
-  const commitBitcoinToNative = async (
-    btcSats: string | number,
-    ethAmount: number,
-    userProgram: string,
-  ) => {
-    try {
-      if (!userProgram) throw new Error("Bitcoin Program required for direct swap");
-      const finalUserProgram = userProgram.startsWith("0x") ? userProgram : `0x${userProgram}`;
-
-      const c = await getSignerConvertContract();
-      const weiAmount = ethers.parseEther(ethAmount.toString());
-      
-
-      const fee = (weiAmount * BigInt(50)) / BigInt(10000);
-
-      const tx = await c.commitBitcoinToNative(
-        btcSats.toString(),     // 1. bitcoinAmount
-        weiAmount.toString(),   // 2. nativeAmount
-        0,                      // 3. networkId
-        finalUserProgram,       // 4. userProgram
-        ethers.ZeroAddress,     // 5. destAddress
-        "0x",                   // 6. networkAddress
-        0,                      // 7. dutyWindowSeconds
-        "0x",                   // 8. ipowReceiveProgram
-        0,                      // 9. lockedAnchorHeight
-        { 
-          value: fee,
-          gasLimit: IPOW_GAS_LIMIT 
-        },
-      );
-      
-      return tx.hash;
-    } catch (error) {
-      console.error("commitBitcoinToNative error:", error);
-      return null;
-    }
-  };
-
-  const depositApprovedConversion = async (txId: bigint) => {
-    const c = await getSignerConvertContract();
-    const conversionData = await c.conversions(txId);
-    const amountToDeposit = conversionData.nativeAmount;
-
-    const tx = await c.depositApprovedConversion(txId, {
-      value: amountToDeposit,
-      gasLimit: IPOW_GAS_LIMIT,
-    });
-
-    return tx.hash;
-  };
-
-  const submitBitcoinMerkleProofWithTx = async (
-    txId: bigint,
-    txRaw: BytesLike,
-    voutIndex: bigint,
-    blockHashLE: BytesLike,
-    blockHeight: bigint,
-    branch: BytesLike[],
-    index: bigint,
-  ) =>
-    (
-      await (
-        await getSignerConvertContract()
-      ).submitBitcoinMerkleProofWithTx(
-        txId,
-        txRaw,
-        voutIndex,
-        blockHashLE,
-        blockHeight,
-        branch,
-        index,
-      )
-    ).hash;
-
-  const getMyTxIds = async (
-    phase: TxPhase = 0,
-    typeFilter: TypeFilter = 0,
-    bitcoinProgramFilter: string = "",
-    isUserBitcoinProgramFilter: boolean = true,
-  ) => {
-    try {
-      if (!address && !bitcoinProgramFilter) return [];
-      const c = getReadOnlyConvertContract();
-
-      let evmUserFilter = address;
-      if (bitcoinProgramFilter && bitcoinProgramFilter !== "") {
-        evmUserFilter = ethers.ZeroAddress;
-      }
-
-      let programBytes = "0x";
-      if (bitcoinProgramFilter) {
-        programBytes = bitcoinProgramFilter.startsWith("0x")
-          ? bitcoinProgramFilter
-          : `0x${bitcoinProgramFilter}`;
-      }
-
-      const next: bigint = await c.nextTxId();
-
-      return next <= BigInt(1)
-        ? []
-        : c.getTxIdsByFilter(
-            typeFilter,
-            phase ?? 0,
-            evmUserFilter,
-            programBytes,
-            isUserBitcoinProgramFilter,
-            0,
-            false,
-            BigInt(1),
-            next - BigInt(1),
-            200,
-          );
-    } catch (e) {
-      console.error("Eth getMyTxIds error:", e);
-      return [];
-    }
-  };
-
-  const getConversion = async (txId: bigint): Promise<any> => {
-    try {
-      const c = getReadOnlyConvertContract();
-      const result = await c.getConversionWithPhase(txId);
-
-      const raw = result[0];
-      const phase = Number(result[1]);
-
-      if (!raw || raw.user === "0x0000000000000000000000000000000000000000")
-        return null;
-
-      return {
-        id: txId.toString(),
-        phase: phase,
-        user: raw.user,
-        isNativeToBitcoin: raw.isNativeToBitcoin,
-        slippage: Number(raw.slippage),
-        networkId: Number(raw.networkId),
-        userProgram: raw.userProgram,
-        ipowReceiveProgram: raw.ipowReceiveProgram,
-        networkAddress: raw.networkAddress,
-        nativeAmount: raw.nativeAmount?.toString() || "0",
-        bitcoinAmount: raw.bitcoinAmount?.toString() || "0",
-        commitFee: raw.commitFee?.toString() || "0",
-        reservedNative: raw.reservedNative?.toString() || "0",
-        createdAt: Number(raw.createdAt),
-        approvedAt: Number(raw.approvedAt),
-        depositedAt: Number(raw.depositedAt),
-        operatorDutyExpiresAt: Number(raw.operatorDutyExpiresAt),
-        approved: raw.approved,
-        deposited: raw.deposited,
-        completed: raw.completed,
-        refunded: raw.refunded,
-      };
-    } catch (e) {
-      console.error("getConversion error:", e);
-      return null;
-    }
-  };
-
-  const anchorInfo = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().anchorInfo(txId);
-    } catch (e) {
-      console.error("anchorInfo error:", e);
-      return null;
-    }
-  };
-
-  const proofInfo = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().proofInfo(txId);
-    } catch (e) {
-      console.error("proofInfo error:", e);
-      return null;
-    }
-  };
-
-  const windowsFor = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().windowsFor(txId);
-    } catch (e) {
-      console.error("windowsFor error:", e);
-      return null;
-    }
-  };
-
-  const globalHeightToHashLE = async (h: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().globalHeightToHashLE(h);
-    } catch (e) {
-      console.error("globalHeightToHashLE error:", e);
-      return null;
-    }
-  };
-
-  const globalHeaders = async (hashLE: any): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().globalHeaders(hashLE);
-    } catch (e) {
-      console.error("globalHeaders error:", e);
-      return null;
-    }
-  };
-
-  const refundIfNotApproved = async (txId: bigint): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.refundIfNotApproved(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("refundIfNotApproved error:", e);
-      return null;
-    }
-  };
-
-  const claimNativeAfterOperatorExpired = async (
-    txId: bigint,
-  ): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.claimNative_AfterOperatorExpired(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("claimNativeAfterOperatorExpired error:", e);
-      return null;
-    }
-  };
-
-  const refundAfterNoProofNativeToBitcoin = async (
-    txId: bigint,
-  ): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.refundAfterNoProof_NativeToBitcoin(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("refundAfterNoProofNativeToBitcoin error:", e);
-      return null;
-    }
-  };
+  // The convert screens' methods, on the new protocol's Conversion.
+  const signerRef = useRef(getActiveSigner);
+  signerRef.current = getActiveSigner;
+  const convert = useMemo(
+    () => evmConvertMethods({ chain: "ethereum", getSigner: () => signerRef.current(), address, uiNetworkId: IPOW_NETWORK_ID }),
+    [address]
+  );
 
 const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => {
     if (!address) return;
@@ -1061,60 +689,6 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) {
-      clearTimeout(favoriteTimers.current[dappId]);
-    }
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: address,
-            network: "ETHEREUM",
-            dappId: dappId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId
-                ? { ...dapp, favoriteCount: result.favoriteCount }
-                : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
-
   const fetchPrice = async () => {
     try {
       const envMode = isMainnet ? "MAINNET" : "TESTNET";
@@ -1214,37 +788,6 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
       }
     }
   }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(
-          `/api/dapphub/list?network=ETHEREUM${addressQuery}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          },
-        );
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList(result.data);
-        } else {
-          setDappList([]);
-        }
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address, connected]);
 
 useEffect(() => {
     setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
@@ -1475,8 +1018,6 @@ useEffect(() => {
         selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
-        toggleFavoriteDapp,
         connect,
         setFeeSelection,
         disconnect,
@@ -1485,24 +1026,10 @@ useEffect(() => {
         sendTokenTo,
         checkAddress,
         isValidAddress,
+        getSigner: getActiveSigner,
         estimateErc20SendFee,
         fetchETA,
-        estimateBitcoinFromNative,
-        estimateNativeFromBitcoin,
-        commitNativeToBitcoin,
-        submitBitcoinMerkleProofWithTx,
-        commitBitcoinToNative,
-        depositApprovedConversion,
-        getMyTxIds,
-        getConversion,
-        refundIfNotApproved,
-        claimNativeAfterOperatorExpired,
-        refundAfterNoProofNativeToBitcoin,
-        anchorInfo,
-        proofInfo,
-        windowsFor,
-        globalHeightToHashLE,
-        globalHeaders,
+        ...convert,
       }}
     >
       {children}

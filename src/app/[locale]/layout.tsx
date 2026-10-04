@@ -1,21 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { ThemeProvider } from "next-themes";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { ReactQueryProvider } from "src/app/react-query-provider";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import FrameGuard from "@/components/ui/FrameGuard";
-import BgComponent from "@/subcomponents/BgComponent";
 import NextTopLoader from "nextjs-toploader";
-import { Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "../globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-grotesk",
+// The TASA fonts are bundled (src/assets/fonts, SIL Open Font License), so a
+// build never depends on reaching Google Fonts. Both are variable: 400 to 800.
+
+// Headlines and the wordmark.
+const explorer = localFont({
+  src: "../../assets/fonts/TASAExplorer-Variable.ttf",
+  weight: "400 800",
+  variable: "--font-tasa-explorer",
   display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+});
+
+// Everything read.
+const orbiter = localFont({
+  src: "../../assets/fonts/TASAOrbiter-Variable.ttf",
+  weight: "400 800",
+  variable: "--font-tasa-orbiter",
+  display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
 export const viewport: Viewport = {
@@ -26,9 +38,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Paradapp",
+  title: "Greatwall",
   description:
-    "Paradapp is built on a parallel architecture that connects real-word to blockchain, blockchain to blockchain, Artificial Intelligent, and dApps into one unified experience.",
+    "Greatwall: convert, move and basket coins across networks, settled on Bitcoin through the iPoW protocol.",
 };
 
 export default async function LocaleLayout({
@@ -45,12 +57,8 @@ export default async function LocaleLayout({
   }
 
   return (
-    <html lang={locale} className={spaceGrotesk.variable} suppressHydrationWarning>
-      <head>
-        <link rel="preload" href="/assets/black.webm" as="video" type="video/webm" />
-        <link rel="preload" href="/assets/white.webm" as="video" type="video/webm" />
-      </head>
-      <body className="font-grotesk antialiased bg-white dark:bg-[#0a0a0a] text-black dark:text-white">
+    <html lang={locale} className={`${explorer.variable} ${orbiter.variable}`} suppressHydrationWarning>
+      <body className="font-orbiter antialiased bg-paper text-ink">
         <NextTopLoader
           showSpinner={false}
           crawl={true}
@@ -60,21 +68,11 @@ export default async function LocaleLayout({
           zIndex={99999}
         />
         <FrameGuard />
-        <ThemeProvider
-          attribute="class" // adds .dark to <html>
-          defaultTheme="system" // light | dark | system
-          enableSystem
-          disableTransitionOnChange
-        >
-          <NextIntlClientProvider>
-            <ReactQueryProvider>
-              {children}
-              <div className="fixed inset-0 -z-20 pointer-events-none">
-                <BgComponent />
-              </div>
-            </ReactQueryProvider>
-          </NextIntlClientProvider>
-        </ThemeProvider>
+        <NextIntlClientProvider>
+          <ReactQueryProvider>
+            {children}
+          </ReactQueryProvider>
+        </NextIntlClientProvider>
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID!} />
       </body>
     </html>

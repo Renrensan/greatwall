@@ -32,7 +32,7 @@ import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
-import { useTronWallet } from "@/components/tron/tron-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
@@ -75,8 +75,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   const network = networkOverride || params.network || "solana";
   const locale = params.locale || "en";
 
-  const colorFlip =
-    (network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
+  const colorFlip = "text-black";
   const router = useRouter();
   const searchParams = useSearchParams();
   const { startOnboarding } = useOnboarding();
@@ -102,7 +101,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
   const polkadotNetwork = usePolkadotWallet();
-  const tronNetwork = useTronWallet();
+  const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
   const baseNetwork = useBaseWallet();
@@ -119,8 +118,8 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
     setSolanaMainnet,
     polkadotMainnet,
     setPolkadotMainnet,
-    tronMainnet,
-    setTronMainnet,
+    tempoMainnet,
+    setTempoMainnet,
     hyperliquidMainnet,
     setHyperliquidMainnet,
     robinhoodMainnet,
@@ -192,17 +191,17 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
     price = polkadotNetwork.price;
     isMainnet = polkadotMainnet;
     networkBanner = polkadotNetwork.networkLogo;
-  } else if (network === "tron") {
-    networkName = tronNetwork.networkName;
-    connected = tronNetwork.connected;
-    address = tronNetwork.address;
-    balance = tronNetwork.balance;
-    currencyTicker = tronNetwork.currencyTicker;
-    selfCustodyParameter = tronNetwork.selfCustodyParameter;
-    decimals = tronNetwork.decimals;
-    price = tronNetwork.price;
-    isMainnet = tronMainnet;
-    networkBanner = tronNetwork.networkLogo;
+  } else if (network === "tempo") {
+    networkName = tempoNetwork.networkName;
+    connected = tempoNetwork.connected;
+    address = tempoNetwork.address;
+    balance = tempoNetwork.balance;
+    currencyTicker = tempoNetwork.currencyTicker;
+    selfCustodyParameter = tempoNetwork.selfCustodyParameter;
+    decimals = tempoNetwork.decimals;
+    price = tempoNetwork.price;
+    isMainnet = tempoMainnet;
+    networkBanner = tempoNetwork.networkLogo;
   } else if (network === "hyperliquid") {
     networkName = hyperliquidNetwork.networkName;
     connected = hyperliquidNetwork.connected;
@@ -296,10 +295,10 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         setter: setPolkadotMainnet,
       },
       {
-        key: "tron",
-        isMainnet: tronMainnet,
-        params: tronNetwork.selfCustodyParameter as any,
-        setter: setTronMainnet,
+        key: "tempo",
+        isMainnet: tempoMainnet,
+        params: tempoNetwork.selfCustodyParameter as any,
+        setter: setTempoMainnet,
       },
       {
         key: "hyperliquid",
@@ -350,13 +349,13 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
     ethereumMainnet,
     solanaMainnet,
     polkadotMainnet,
-    tronMainnet,
+    tempoMainnet,
     bitcoinNetwork,
     hederaNetwork,
     ethereumNetwork,
     solanaNetwork,
     polkadotNetwork,
-    tronNetwork,
+    tempoNetwork,
     hyperliquidMainnet,
     hyperliquidNetwork,
     robinhoodMainnet,
@@ -487,7 +486,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
       if (network === "ethereum") localLogo = ethereum;
       if (network === "hedera") localLogo = hedera;
       if (network === "polkadot") localLogo = isMainnet ? polkadot : paseo;
-      if (network === "tron") localLogo = networkBanner;
+      if (network === "tempo") localLogo = networkBanner;
       if (network === "hyperliquid") localLogo = networkBanner;
       if (network === "robinhood") localLogo = networkBanner;
       if (network === "base") localLogo = networkBanner;
@@ -868,7 +867,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           solana: solanaNetwork,
           hedera: hederaNetwork,
           polkadot: polkadotNetwork,
-          tron: tronNetwork,
+          tempo: tempoNetwork,
           hyperliquid: hyperliquidNetwork,
           robinhood: robinhoodNetwork,
           base: baseNetwork,
@@ -1367,7 +1366,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
             </h2>
             <button
               onClick={() => setIsMainInfoOpen(true)}
-              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
+              className="p-1 hover:bg-black/5 rounded-full transition-colors"
             >
               <Icon
                 icon="mingcute:information-line"
@@ -1393,7 +1392,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                 <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">
                   {t("text292")}
                 </p>
-                <p className="text-[11px] font-bold leading-relaxed text-orange-700 dark:text-orange-300">
+                <p className="text-[11px] font-bold leading-relaxed text-orange-700">
                   {dynamicMessageText}
                 </p>
               </div>
@@ -1403,7 +1402,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         {/* SWAP-STYLE INPUT WRAPPER */}
         <div className="relative flex flex-col gap-1 z-0">
           {/* TOP BOX: YOU PAY (IDR) */}
-          <div className="glass-card rounded-2xl border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 transition-all duration-300 shadow-sm">
+          <div className="glass-card rounded-2xl border border-black/5 bg-white/40 transition-all duration-300 shadow-sm">
             <div className="py-4 px-4 md:py-6 md:px-6 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
@@ -1424,14 +1423,14 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                         handleAmountChange(val);
                       }
                     }}
-                    className={`w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate transition-all ${(network === "hedera" || network === "polkadot") ? "" : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                    className={`w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate transition-all`}
                     placeholder="0"
                   />
                 </div>
 
                 {/* Static IDR Label */}
-                <div className="shrink-0 flex items-center gap-2 px-3 py-2 glass-card rounded-full shadow-md bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 opacity-90 cursor-default">
-                  <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-black/5 dark:bg-white/10 rounded-full overflow-hidden shrink-0">
+                <div className="shrink-0 flex items-center gap-2 px-3 py-2 glass-card rounded-full shadow-md bg-white/60 border border-white/20 opacity-90 cursor-default">
+                  <div className="relative w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center bg-black/5 rounded-full overflow-hidden shrink-0">
                     <span className={`font-bold text-[10px] ${colorFlip}`}>
                       Rp
                     </span>
@@ -1447,14 +1446,14 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           {/* CENTERED INDICATOR ICON */}
           <div className="h-0 flex items-center justify-center z-10 pointer-events-none">
             <div
-              className={`w-10 h-10 rounded-xl glass-card shadow-2xl flex items-center justify-center transform scale-75 md:scale-85 ${(network === "hedera" || network === "polkadot") ? "bg-black dark:bg-white text-white dark:text-black" : network === "robinhood" ? `bg-${network}! text-black` : network === "base" ? "bg-[#0052FF]! text-white" : `bg-${network}! text-white`}`}
+              className={`w-10 h-10 rounded-xl glass-card shadow-2xl flex items-center justify-center transform scale-75 md:scale-85 bg-black text-white`}
             >
               <Icon icon="solar:arrow-down-linear" className="text-xl" />
             </div>
           </div>
 
           {/* BOTTOM BOX: YOU RECEIVE (CRYPTO) */}
-          <div className="glass-card rounded-2xl border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 transition-all duration-300 shadow-sm">
+          <div className="glass-card rounded-2xl border border-black/5 bg-white/40 transition-all duration-300 shadow-sm">
             <div className="py-4 px-4 md:py-6 md:px-6 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
@@ -1464,7 +1463,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                   <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-bold opacity-40">
                     <Icon icon="solar:wallet-linear" />
                     {isBalanceLoading || getUserBalance(activeSelectedToken?.mint || activeSelectedToken?.symbol, activeSelectedToken?.isNative) === null ? (
-                      <span className="inline-block w-12 h-3.5 bg-black/10 dark:bg-white/10 rounded animate-pulse" />
+                      <span className="inline-block w-12 h-3.5 bg-black/10 rounded animate-pulse" />
                     ) : (
                       <span>
                         {getUserBalance(
@@ -1500,13 +1499,13 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                     </div>
                   ) : estimateError && idrAmount > 0 && approxCryptoValue === 0 ? (
                     <div className="flex items-center gap-2 h-10 py-1">
-                      <span className="text-xs sm:text-sm font-semibold text-red-500/80 dark:text-red-400/80">
+                      <span className="text-xs sm:text-sm font-semibold text-red-500/80">
                         {locale === "en" ? "Rate unavailable" : "Estimasi gagal"}
                       </span>
                       <button
                         type="button"
                         onClick={() => setRetryTrigger((n) => n + 1)}
-                        className="px-2 py-1 text-[11px] font-bold rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-all cursor-pointer flex items-center gap-1"
+                        className="px-2 py-1 text-[11px] font-bold rounded-lg bg-black/5 hover:bg-black/10 transition-all cursor-pointer flex items-center gap-1"
                       >
                         <Icon icon="solar:restart-bold" className="text-xs" />
                         <span>{locale === "en" ? "Retry" : "Ulangi"}</span>
@@ -1527,9 +1526,9 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                 <button
                   disabled={!!lockToken}
                   onClick={() => setIsTokenSelectorOpen(true)}
-                  className={`shrink-0 flex items-center gap-2 px-2.5 py-1.5 glass-card rounded-full shadow-md bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 active:scale-95 transition-all group ${lockToken ? "cursor-default opacity-90" : "hover:bg-white/80 dark:hover:bg-white/10"}`}
+                  className={`shrink-0 flex items-center gap-2 px-2.5 py-1.5 glass-card rounded-full shadow-md bg-white/60 border border-white/20 active:scale-95 transition-all group ${lockToken ? "cursor-default opacity-90" : "hover:bg-white/80"}`}
                 >
-                  <div className="relative w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-full overflow-hidden shrink-0">
+                  <div className="relative w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center bg-black/5 rounded-full overflow-hidden shrink-0">
                     {activeSelectedToken?.logo ? (
                       <Image
                         src={activeSelectedToken.logo}
@@ -1598,7 +1597,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
 
               {/* Collapsible Fee Breakdown Area */}
               {showFeeBreakdown && groupedFees && (
-                <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 flex flex-col gap-2 animate-fade-in">
+                <div className="mt-3 pt-3 border-t border-black/5 flex flex-col gap-2 animate-fade-in">
                   
                   {selectedPaymentMethod === "qris" && approxCryptoValue > 0 && (
                     <div className="flex justify-between items-center">
@@ -1661,14 +1660,14 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           </div>
 
           {/* Top-Level Tabs: Virtual Account vs QRIS */}
-          <div className="grid grid-cols-2 p-1 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 w-full">
+          <div className="grid grid-cols-2 p-1 rounded-2xl bg-black/5 border border-black/5 w-full">
             <button
               type="button"
               onClick={() => setSelectedPaymentMethod("va")}
               className={`h-9 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border ${
                 selectedPaymentMethod === "va"
-                  ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-neutral-100 shadow-sm border-black/5 dark:border-white/10"
-                  : "border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+                  ? "bg-white text-neutral-900 shadow-sm border-black/5"
+                  : "border-transparent text-neutral-500 hover:text-neutral-900"
               }`}
             >
               <Icon icon="solar:card-2-bold" className="text-base" />
@@ -1680,8 +1679,8 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
               onClick={() => setSelectedPaymentMethod("qris")}
               className={`h-9 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border ${
                 selectedPaymentMethod === "qris"
-                  ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-neutral-100 shadow-sm border-black/5 dark:border-white/10"
-                  : "border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+                  ? "bg-white text-neutral-900 shadow-sm border-black/5"
+                  : "border-transparent text-neutral-500 hover:text-neutral-900"
               }`}
             >
               <div className="w-4 h-4 overflow-hidden shrink-0 flex items-center justify-center">
@@ -1696,10 +1695,10 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
             <button
               type="button"
               onClick={() => setIsVaSelectorOpen(true)}
-              className="w-full min-h-[62px] px-3.5 py-3 glass-card rounded-2xl border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 shadow-sm hover:border-black/15 dark:hover:border-white/15 transition-all text-left flex items-center justify-between gap-3 cursor-pointer group"
+              className="w-full min-h-[62px] px-3.5 py-3 glass-card rounded-2xl border border-black/5 bg-white/40 shadow-sm hover:border-black/15 transition-all text-left flex items-center justify-between gap-3 cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-black/5 dark:bg-white/10 text-neutral-700 dark:text-neutral-200 border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 overflow-hidden p-1 shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-black/5 text-neutral-700 border border-black/5 flex items-center justify-center shrink-0 overflow-hidden p-1 shadow-sm">
                   {currentVa?.logo ? (
                     <Image
                       src={currentVa.logo}
@@ -1712,17 +1711,17 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                 </div>
                 <div className="flex flex-col min-w-0 flex-1 leading-tight">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 truncate">
+                    <span className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
                       {currentVa?.name || "Bank INA"}
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 font-semibold opacity-60">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/5 font-semibold opacity-60">
                       Virtual Account
                     </span>
                   </div>
                   <span className="text-[10px] opacity-50 truncate mt-0.5">
                     {currentVa?.detailName || "Bank INA Virtual Account"}
                   </span>
-                  <span className="text-[10px] text-amber-500 dark:text-amber-400 font-semibold mt-0.5">
+                  <span className="text-[10px] text-amber-500 font-semibold mt-0.5">
                     +Rp {(((currentVa as any)?.fee) || 3000).toLocaleString("id-ID")} transfer fee
                   </span>
                 </div>
@@ -1739,17 +1738,17 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
               </div>
             </button>
           ) : (
-            <div className="w-full h-[62px] px-3.5 glass-card rounded-2xl border border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 shadow-sm flex items-center justify-between gap-3">
+            <div className="w-full h-[62px] px-3.5 glass-card rounded-2xl border border-black/5 bg-white/40 shadow-sm flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-white dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 p-1 shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-white border border-black/5 flex items-center justify-center shrink-0 p-1 shadow-sm">
                   <Image src={qris} alt="QRIS" className="w-full h-full object-contain" />
                 </div>
                 <div className="flex flex-col min-w-0 flex-1 leading-tight">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 truncate">
+                    <span className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
                       QRIS
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 font-semibold opacity-60">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-black/5 font-semibold opacity-60">
                       QR Code
                     </span>
                   </div>
@@ -1825,7 +1824,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
               <Icon
                 icon="solar:magnifer-linear"
-                className="text-xl opacity-40 group-focus-within:opacity-100 group-focus-within:text-solana transition-all"
+                className="text-xl opacity-40 group-focus-within:opacity-100 transition-all"
               />
             </div>
             <input
@@ -1837,7 +1836,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
               }
               value={tokenSearchQuery}
               onChange={(e) => setTokenSearchQuery(e.target.value)}
-              className="w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-solana/50 focus:bg-solana/5 transition-all"
+              className="w-full bg-black/5 border border-black/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-black/50 focus:bg-black/10 transition-all"
             />
           </div>
 
@@ -1858,10 +1857,10 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                     key={idx}
                     type="button"
                     onClick={() => handleTokenSelect(token)}
-                    className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${isSelected ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10" : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"}`}
+                    className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${isSelected ? "border-black/20 bg-black/5" : "border-black/5 hover:bg-black/5"}`}
                   >
                     <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm relative shrink-0 flex items-center justify-center bg-black/5 dark:bg-white/5">
+                      <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm relative shrink-0 flex items-center justify-center bg-black/5">
                         {token.logo ? (
                           <Image
                             src={token.logo}
@@ -1891,11 +1890,11 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="flex flex-col items-end leading-tight">
                         {isBalanceLoading ? (
-                          <span className="inline-block w-10 h-3 bg-black/10 dark:bg-white/10 rounded animate-pulse" />
+                          <span className="inline-block w-10 h-3 bg-black/10 rounded animate-pulse" />
                         ) : (
                           userBal !== null && userBal > 0 && (
                             <span
-                              className={`font-bold text-sm tracking-tight ${(network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                              className={`font-bold text-sm tracking-tight text-black`}
                             >
                               {userBal}
                             </span>
@@ -1909,7 +1908,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                         )}
                       </div>
                       {isSelected && (
-                        <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400 shrink-0" />
+                        <FaCheckCircle className="text-[18px] text-green-500 shrink-0" />
                       )}
                     </div>
                   </button>
@@ -1919,7 +1918,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
 
             {network === "solana" && verifiedTokensData?.length <= 2 && (
               <div className="flex items-center justify-center gap-2 py-2.5 opacity-40 text-xs font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-solana animate-ping" />
+                <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
                 <span>{locale === "en" ? "Discovering more tokens..." : "Memuat lebih banyak token..."}</span>
               </div>
             )}
@@ -1940,7 +1939,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           </div>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex justify-center w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -1979,7 +1978,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
               <Icon
                 icon="solar:magnifer-linear"
-                className="text-xl opacity-40 group-focus-within:opacity-100 group-focus-within:text-solana transition-all"
+                className="text-xl opacity-40 group-focus-within:opacity-100 transition-all"
               />
             </div>
             <input
@@ -1989,7 +1988,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
               }
               value={vaSearchQuery}
               onChange={(e) => setVaSearchQuery(e.target.value)}
-              className="w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-solana/50 focus:bg-solana/5 transition-all"
+              className="w-full bg-black/5 border border-black/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-black/50 focus:bg-black/10 transition-all"
             />
           </div>
 
@@ -2009,12 +2008,12 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                   }}
                   className={`w-full p-3.5 rounded-2xl border transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${
                     isSelected
-                      ? "bg-black/5 dark:bg-white/10 border-black/20 dark:border-white/25 shadow-sm ring-1 ring-black/10 dark:ring-white/15"
-                      : "bg-white/40 dark:bg-white/5 border-black/5 dark:border-white/5 hover:border-black/15 dark:hover:border-white/15"
+                      ? "bg-black/5 border-black/20 shadow-sm ring-1 ring-black/10"
+                      : "bg-white/40 border-black/5 hover:border-black/15"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-black/5 flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
                       {va.logo ? (
                         <Image
                           src={va.logo}
@@ -2022,17 +2021,17 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                           className="w-full h-full object-contain"
                         />
                       ) : (
-                        <Icon icon="solar:card-2-bold" className="text-xl text-neutral-700 dark:text-neutral-200" />
+                        <Icon icon="solar:card-2-bold" className="text-xl text-neutral-700" />
                       )}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-sm text-neutral-900 dark:text-neutral-100">
+                      <span className="font-bold text-sm text-neutral-900">
                         {va.name}
                       </span>
                       <span className="text-xs opacity-50 truncate">
                         {va.detailName}
                       </span>
-                      <span className="text-[11px] text-amber-500 dark:text-amber-400 font-semibold mt-0.5">
+                      <span className="text-[11px] text-amber-500 font-semibold mt-0.5">
                         +Rp {(((va as any).fee) || 3000).toLocaleString("id-ID")} transfer fee
                       </span>
                     </div>
@@ -2041,7 +2040,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                   {isSelected && (
                     <Icon
                       icon="solar:check-circle-bold"
-                      className="text-xl text-neutral-900 dark:text-neutral-100 shrink-0"
+                      className="text-xl text-neutral-900 shrink-0"
                     />
                   )}
                 </button>
@@ -2056,7 +2055,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           </div>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex justify-center w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -2093,7 +2092,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         onClose={() => setShowLimitModal(false)}
         maxWidthClass="lg:w-105"
       >
-        <div className="p-6 flex flex-col gap-4 text-black dark:text-white">
+        <div className="p-6 flex flex-col gap-4 text-black">
           <div className="flex items-start gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center shrink-0">
               <Icon icon="solar:danger-circle-bold" className="text-2xl" />
@@ -2104,7 +2103,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                   ? "Buy Limit Reached"
                   : "Batas Transaksi Beli Tercapai"}
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+              <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
                 {locale === "en"
                   ? "You have reached the maximum limit of 3 active buy orders. Please complete your existing payment or cancel an ongoing transaction in your History to start a new one."
                   : "Anda telah mencapai batas maksimal 3 transaksi beli yang sedang berjalan. Silakan selesaikan pembayaran atau batalkan transaksi yang ada di menu Riwayat untuk membuat transaksi baru."}
@@ -2112,10 +2111,10 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
             </div>
           </div>
 
-          <div className="flex justify-end items-center gap-3 pt-3 border-t border-black/5 dark:border-white/10">
+          <div className="flex justify-end items-center gap-3 pt-3 border-t border-black/5">
             <button
               onClick={() => setShowLimitModal(false)}
-              className="px-4 py-2.5 rounded-xl border border-black/10 dark:border-white/15 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-black/10 text-xs font-semibold hover:bg-black/5 text-neutral-600 transition-colors cursor-pointer"
             >
               {locale === "en" ? "Close" : "Tutup"}
             </button>
@@ -2124,7 +2123,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
                 setShowLimitModal(false);
                 router.push(`/${network}/vault/history`);
               }}
-              className="px-5 py-2.5 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+              className="px-5 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
             >
               {locale === "en" ? "View Active Orders" : "Lihat Riwayat"}
             </button>

@@ -73,7 +73,7 @@ export const AnimatedModal = ({
           <div
             className={
               isCorner
-                ? "fixed inset-0 z-50 flex items-end lg:items-start lg:justify-end pointer-events-none lg:pt-20 lg:pr-10"
+                ? "fixed inset-0 z-50 flex items-end lg:items-start lg:justify-end pointer-events-none lg:pt-[66px] lg:pr-16"
                 : "fixed inset-0 z-50 flex items-end lg:items-center justify-center pointer-events-none"
             }
           >
@@ -101,13 +101,13 @@ export const AnimatedModal = ({
                   : { y: "100%" }
               }
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`w-full max-w-full ${resolvedMaxWidthClass} bg-white dark:bg-[#121212] rounded-t-[32px] lg:rounded-2xl z-50 flex flex-col ${resolvedMaxHeightClass} ${overflowVisible ? "overflow-visible" : "overflow-y-auto overflow-x-hidden"} text-black dark:text-white pointer-events-auto shadow-2xl ${isCorner ? "lg:shadow-xl" : ""} border border-black/5 dark:border-white/10 relative`}
+              className={`w-full max-w-full ${resolvedMaxWidthClass} bg-paper rounded-t-[24px] lg:rounded-md z-50 flex flex-col ${resolvedMaxHeightClass} ${overflowVisible ? "overflow-visible" : "overflow-y-auto overflow-x-hidden"} text-ink pointer-events-auto shadow-2xl ${isCorner ? "lg:shadow-xl" : ""} border border-sand relative`}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
               {!hideDragHandle && (
-                <div className="flex lg:hidden justify-center w-full pt-4 pb-2 shrink-0">
-                  <hr className="w-10 border-2 border-black/20 dark:border-white/20 rounded-full" />
+                <div className="flex lg:hidden justify-center w-full pt-3 pb-1 shrink-0">
+                  <span className="h-1 w-12 rounded-full bg-stone/70" />
                 </div>
               )}
 

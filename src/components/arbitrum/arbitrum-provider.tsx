@@ -42,8 +42,6 @@ const ArbitrumWalletContext = createContext<ArbitrumWalletContextType>({
   networkExplorer: {},
   ipowConvert: "comingsoon",
   ipowNetworkId: 0,
-  dappList: [],
-  toggleFavoriteDapp: () => {},
   connect: async () => {},
   disconnect: () => {},
   switchWallet: async () => {},
@@ -51,6 +49,7 @@ const ArbitrumWalletContext = createContext<ArbitrumWalletContextType>({
   sendTokenTo: async () => null,
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
+  getSigner: async () => { throw new Error("arbitrum: no wallet"); },
   estimateErc20SendFee: async () => null,
   fetchETA: async () => null,
   commitNativeToBitcoin: notSupported,
@@ -97,7 +96,6 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
     tokens: [],
     fetched: false,
   });
-  const [dappList, setDappList] = useState<any[] | null>(null);
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -483,46 +481,6 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited ? dapp.favoriteCount + 1 : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) clearTimeout(favoriteTimers.current[dappId]);
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: address, network: "ARBITRUM", dappId }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) => (dapp.id === dappId ? { ...dapp, favoriteCount: result.favoriteCount } : dapp)),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
-
   const fetchPrice = async () => {
     try {
       const envMode = isMainnet ? "MAINNET" : "TESTNET";
@@ -543,28 +501,6 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMainnet]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(`/api/dapphub/list?network=ARBITRUM${addressQuery}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        const result = await response.json();
-        setDappList(result.success ? result.data : []);
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address]);
 
   useEffect(() => {
     setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
@@ -707,8 +643,6 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         selfCustodyParameter,
         ipowConvert: "comingsoon",
         ipowNetworkId: 0,
-        dappList,
-        toggleFavoriteDapp,
         connect,
         setFeeSelection,
         disconnect,
@@ -717,6 +651,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         sendTokenTo,
         checkAddress,
         isValidAddress,
+        getSigner: getActiveSigner,
         estimateErc20SendFee,
         fetchETA,
         commitNativeToBitcoin: notSupported,

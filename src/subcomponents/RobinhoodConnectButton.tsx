@@ -1,9 +1,5 @@
 "use client";
 
-// Dynamic per-network classes (`` `bg-${network}` `` etc. in Assets.tsx/BuyToken.tsx/
-// Navbar.tsx) are generated for "robinhood" via the @source inline(...) directives in
-// globals.css — see that file.
-
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { robinhood } from "..";
 import { METAMASK_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
@@ -75,7 +71,7 @@ export function RobinhoodConnectButton({ isOpen, setIsOpen }: RobinhoodConnectBu
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-robinhood! hover:bg-robinhood/80 cursor-pointer text-black items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -85,7 +81,7 @@ export function RobinhoodConnectButton({ isOpen, setIsOpen }: RobinhoodConnectBu
       {!connected && (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-robinhood! hover:bg-robinhood/80! cursor-pointer text-black items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -97,7 +93,7 @@ export function RobinhoodConnectButton({ isOpen, setIsOpen }: RobinhoodConnectBu
           alt="icon"
           label={ellipsifyAddress(address!)}
           isMainnet={robinhoodMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-robinhood/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -152,7 +148,7 @@ function RobinhoodWalletSheet({
           testnetLabel="Testnet"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected ? (
@@ -163,7 +159,7 @@ function RobinhoodWalletSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text55")} />
       </div>
     </AnimatedModalNavbar>
@@ -182,16 +178,16 @@ function RobinhoodSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onClo
         </div>
 
         <div className="flex flex-col gap-3 py-2">
-          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-robinhood/20" />
+          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-black/20" />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
           <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>

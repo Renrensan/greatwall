@@ -430,7 +430,7 @@ export default function LiveFaceScannerModal({
     <AnimatedModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-xl">
       <div className="flex flex-col gap-4 text-left p-1">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-black/10 dark:border-white/10">
+        <div className="flex items-center justify-between pb-2 border-b border-black/10">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
               <Icon icon="solar:face-scan-bold" className="text-xl" />
@@ -439,7 +439,7 @@ export default function LiveFaceScannerModal({
               <h3 className="text-base font-bold tracking-tight">
                 {isId ? "Verifikasi Wajah Langsung" : "Live Face Verification"}
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-neutral-500">
                 {isId
                   ? "Posisikan wajah Anda di dalam bingkai oval"
                   : "Position your face inside the oval frame"}
@@ -449,7 +449,7 @@ export default function LiveFaceScannerModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+            className="p-2 rounded-xl hover:bg-black/5 text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
           >
             <Icon icon="solar:close-circle-bold" className="text-xl" />
           </button>
@@ -638,7 +638,7 @@ export default function LiveFaceScannerModal({
               stopCamera();
               onClose();
             }}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-neutral-400 hover:text-neutral-700 hover:bg-black/5 transition-all cursor-pointer"
           >
             {isId ? "Batal" : "Cancel"}
           </button>

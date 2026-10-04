@@ -18,12 +18,17 @@ import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { usePolkadotWallet } from '@/components/polkadot/polkadot-provider';
+import { useBaseWallet } from '@/components/base/base-provider';
+import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
+import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
 import { SupportedChain, useNetwork } from '@/app/network-provider';
-import ButtonContrast from "@/subcomponents/ButtonContrast"; 
+import ButtonContrast from "@/subcomponents/ButtonContrast";
+import Button from "@/subcomponents/Button"; 
 import { color } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { AnimatedModal } from './AnimatedModal';
 import { TxPhase, TypeFilter } from '@/components/integrator/ipow/evm/type';
+import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
 
 
 
@@ -47,6 +52,9 @@ export default function ConvertHistory() {
   const bitcoinWallet = useBitcoinWallet();
   const solanaWallet = useSolanaWallet();
   const polkadotWallet = usePolkadotWallet();
+  const baseWallet = useBaseWallet();
+  const robinhoodWallet = useRobinhoodWallet();
+  const hyperliquidWallet = useHyperliquidWallet();
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
   // here reads ipowDecimals — not each chain's own `.decimals` (wallet balance/transfer
@@ -63,7 +71,10 @@ export default function ConvertHistory() {
       // The network stays "Polkadot" (logo above) — but ipow convert only ever runs on
       // its testnet (Paseo), so the token itself (nativeToken.logo) is PAS, not DOT.
       { id: polkadotWallet.ipowNetworkId, key: "polkadot", name: polkadotWallet.networkName, logo: polkadotWallet.networkLogo, nativeToken: { symbol: polkadotWallet.currencyTicker, decimals: polkadotWallet.ipowDecimals, logo: paseo } },
-    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet]
+      { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
+      { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
+      { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
+    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
   );
 
 
@@ -166,9 +177,25 @@ const handleSwitchAll = () => {
           case 'solana': return solanaWallet;
           case 'bitcoin': return bitcoinWallet;
           case 'polkadot': return polkadotWallet;
+          case 'base': return baseWallet;
+          case 'robinhood': return robinhoodWallet;
+          case 'hyperliquid': return hyperliquidWallet;
           default: return hederaWallet;
       }
-  }, [network, hederaWallet, ethereumWallet, solanaWallet, bitcoinWallet, polkadotWallet]);
+  }, [network, hederaWallet, ethereumWallet, solanaWallet, bitcoinWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
+
+  // The fees of the user's untaken jobs, held by the protocol: withdrawn in
+  // one transaction, apart from any refund.
+  const [feeCredit, setFeeCredit] = useState<bigint>(BigInt(0));
+  const [withdrawing, setWithdrawing] = useState(false);
+  const readFeeCredit = useCallback(async () => {
+      try { setFeeCredit(activeProvider?.feeCredit ? await activeProvider.feeCredit() : BigInt(0)); } catch { setFeeCredit(BigInt(0)); }
+  }, [activeProvider]);
+  useEffect(() => { readFeeCredit(); }, [readFeeCredit]);
+  const withdrawFeeCredit = async () => {
+      setWithdrawing(true);
+      try { await activeProvider.withdrawFeeCredit(); await readFeeCredit(); } catch (e) { console.error(e); } finally { setWithdrawing(false); }
+  };
 
   const { connected, networkName } = activeProvider;
 
@@ -197,10 +224,11 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   try { btcScript = bitcoinWallet.addressToScriptPubKeyHex(bitcoinWallet.address); } catch(e) {}
                   if (btcScript) {
                       const programmableProviders: { key: string; wallet: any }[] = [
-                          { key: 'hedera', wallet: hederaWallet },
+                          // The networks whose Convert runs on the new protocol.
                           { key: 'ethereum', wallet: ethereumWallet },
-                          { key: 'solana', wallet: solanaWallet },
-                          { key: 'polkadot', wallet: polkadotWallet },
+                          { key: 'base', wallet: baseWallet },
+                          { key: 'robinhood', wallet: robinhoodWallet },
+                          { key: 'hyperliquid', wallet: hyperliquidWallet },
                       ];
                       const promises = programmableProviders.map(async ({ key, wallet: p }) => {
                           if (!p.getMyTxIds) return [];
@@ -244,6 +272,9 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
                   if (id === solanaWallet.ipowNetworkId) return solanaWallet;
                   if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
+                  if (id === baseWallet.ipowNetworkId) return baseWallet;
+                  if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
+                  if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
                   return null;
               };
 
@@ -251,6 +282,20 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   currentTx.userProgram && 
                   currentTx.userProgram !== "0x" && 
                   currentTx.userProgram.length > 2; 
+
+              if (currentTx.partnerTxId && currentTx.networkId !== 0) {
+                  const other = getProviderById(currentTx.networkId);
+                  try {
+                      const otherTx = other ? await other.getConversion(BigInt(currentTx.partnerTxId)) : null;
+                      if (otherTx) {
+                          if (currentTx.isNativeToBitcoin) currentTx.destinationTx = otherTx;
+                          else currentTx.originTx = otherTx;
+                      }
+                  } catch(e) {}
+                  return currentTx;
+              }
+
+              if (currentTx.tunnel) return currentTx;
 
               if (currentTx.isNativeToBitcoin && currentTx.networkId !== 0) {
                   const destProvider = getProviderById(currentTx.networkId);
@@ -297,6 +342,9 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
                   if (id === solanaWallet.ipowNetworkId) return solanaWallet;
                   if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
+                  if (id === baseWallet.ipowNetworkId) return baseWallet;
+                  if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
+                  if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
                   return null;
               };
 
@@ -457,13 +505,15 @@ const handleTxClick = (tx: any) => {
     router.push(`/${locale}/${network}/convert/transaction/${tx.id}${queryParam}`);
 };
 
-  const getAssetInfo = (netId: number) => {
+  // A token swap is shown as its token (the swap's tokenSymbol), not the
+  // network's coin.
+  const getAssetInfo = (netId: number, swap?: any) => {
       const config = networkConfigs.find(n => n.id === netId);
       if (config) {
           return {
-              tokenSymbol: config.nativeToken.symbol,
-              tokenDecimals: config.nativeToken.decimals,
-              tokenLogo: config.nativeToken.logo,
+              tokenSymbol: swap?.tokenSymbol ?? config.nativeToken.symbol,
+              tokenDecimals: swap?.tokenDecimals ?? config.nativeToken.decimals,
+              tokenLogo: swap?.tokenSymbol ? null : config.nativeToken.logo,
               networkName: config.name,
               networkLogo: config.logo,
               providerKey: config.key
@@ -474,9 +524,9 @@ const handleTxClick = (tx: any) => {
 
   
 
-  const colorFlip = (network === 'hedera' || network === 'polkadot') ? 'text-black dark:text-white' : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
-const bgFlip = (network === 'hedera' || network === 'polkadot') ? 'bg-black/10 dark:bg-white/10' : (network === "base" ? "bg-[#0052FF]/10" : `bg-${network}/10`);
-const borderFlip = (network === 'hedera' || network === 'polkadot') ? 'border-black dark:border-white' : (network === "base" ? "border-[#0052FF]" : `border-${network}`);
+  const colorFlip = 'text-black';
+const bgFlip = 'bg-black/10';
+const borderFlip = 'border-black';
 
 
 
@@ -490,7 +540,23 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
 
     const isBtcInbound = !isOutbound && isBitcoin;
 
-     const destinationNetworkName = networkConfigs[isOutbound ? localTx.networkId : localTx.contractChainId].name;
+     const destinationId = isOutbound ? localTx.networkId : localTx.contractChainId;
+     const destinationNetworkName = networkConfigs.find((n) => n.id === destinationId)?.name ?? "";
+
+    // A tunnel's swap: the shared words (convertStatus.ts), styled here.
+    const sourceNetworkName = networkConfigs.find((n) => n.id === (isOutbound ? localTx.contractChainId : localTx.networkId))?.name ?? "";
+    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t, locale);
+    if (tunnel) {
+        const style = {
+            wait: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-pulse"/> },
+            action: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaLink className="animate-pulse"/> },
+            progress: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-spin"/> },
+            ok: { color: "text-green-600", bg: "bg-green-50", border: "border-green-100", icon: <FaCheckCircle/> },
+            fail: { color: "text-red-500", bg: "bg-red-50", border: "border-red-100", icon: <FaExclamationCircle/> },
+            closed: { color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-100", icon: <FaWallet /> },
+        }[tunnel.kind];
+        return { label: tunnel.label, desc: tunnel.desc, ...style };
+    }
     
 
     if (sourceTx.phase === TxPhase.WAITING_OPERATOR_APPROVAL || (isBtcInbound && destTx.phase === TxPhase.WAITING_OPERATOR_APPROVAL)) {
@@ -678,7 +744,17 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
       </div>
     )}
 
-      
+      {feeCredit > BigInt(0) && (
+        <div className="p-4 rounded-xl border border-black/10 bg-white flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{locale === "en" ? "Refund available" : "Pengembalian tersedia"}</p>
+            <p className="text-sm">{(Number(feeCredit) / 10 ** (activeProvider?.ipowDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 8 })} {activeProvider?.currencyTicker}</p>
+            <p className="text-[11px] opacity-70">{locale === "en" ? "The fees of your conversions that nobody took, in one claim." : "Biaya konversi Anda yang tidak diambil siapa pun, dalam satu klaim."}</p>
+          </div>
+          <Button chain={network} buttonText={withdrawing ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")} onClick={() => withdrawFeeCredit()} disabled={withdrawing} />
+        </div>
+      )}
+
         <div className="flex flex-col gap-2">
           <button
             type="button"
@@ -704,8 +780,8 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
                         const partnerId = tx.networkId; 
                        
 
-    const sourceAsset = getAssetInfo(isOutbound ? tx.contractChainId : partnerId)!;
-    const destAsset = getAssetInfo(isOutbound ? partnerId : tx.contractChainId)!;
+    const sourceAsset = getAssetInfo(isOutbound ? tx.contractChainId : partnerId, isOutbound ? tx : (tx.originTx ?? undefined))!;
+    const destAsset = getAssetInfo(isOutbound ? partnerId : tx.contractChainId, isOutbound ? (tx.destinationTx ?? undefined) : tx)!;
 
     const partnerTx = isOutbound ? tx.destinationTx : tx.originTx;
 
@@ -721,11 +797,27 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
     let outputRaw = "0";
     let isEstimated = false;
 
+    // A tunnel's swap: what is sold and what is bought are both fixed on
+    // chain (the buy's amount, the sale's or the tunnel's record), not
+    // estimates.
+    const tn = tx.tunnel?.tunnel;
+    if (tn && tx.tunnel.leg === "buy") {
+        inputRaw = partnerTx?.nativeAmount ?? tn.amountIn;
+        if (!partnerTx) { sourceAsset.tokenSymbol = tn.fromSymbol ?? sourceAsset.tokenSymbol; sourceAsset.tokenDecimals = tn.fromDecimals ?? sourceAsset.tokenDecimals; }
+        outputRaw = tx.nativeAmount;
+    } else if (tn) {
+        inputRaw = tx.nativeAmount;
+        outputRaw = partnerTx?.nativeAmount ?? tn.amountOut;
+        if (!partnerTx) { destAsset.tokenSymbol = tn.toSymbol ?? destAsset.tokenSymbol; destAsset.tokenDecimals = tn.toDecimals ?? destAsset.tokenDecimals; }
+    }
+
     const isDestCompleted = isOutbound 
         ? (partnerTx && partnerTx.phase === TxPhase.COMPLETED)
         : (tx.phase === TxPhase.COMPLETED);
 
-    if (isDestCompleted) {
+    if (tn) {
+        // Set above.
+    } else if (isDestCompleted) {
         outputRaw = isOutbound ? partnerTx.nativeAmount : tx.nativeAmount;
     } else {
         let btcSats = "0";
@@ -752,7 +844,8 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
     }
                       
                         return (
-                         <button key={key} onClick={() => handleTxClick(tx)} className="w-full text-left bgBox glass-card hover:bg-secondary/5 cursor-pointer px-3 py-3 rounded-lg border border-transparent hover:border-gray-100 transition-all">
+                         <div key={key} className="flex flex-col gap-1">
+                         <button onClick={() => handleTxClick(tx)} className="w-full text-left bgBox glass-card hover:bg-secondary/5 cursor-pointer px-3 py-3 rounded-lg border border-transparent hover:border-gray-100 transition-all">
     
 
     <div className="flex items-center justify-between pb-2 border-b border-gray-50/50 mb-2">
@@ -817,15 +910,20 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
   
         <div className="text-right flex flex-col justify-center shrink-0">
             <p className="font-medium text-[10px] sm:text-xs whitespace-nowrap">{sourceAmountStr}</p>
-            <p className={`text-xs sm:text-sm font-bold ${
-    (network === 'hedera' || network === 'polkadot')
-      ? ''
-      : (network === "base" ? "text-[#0052FF]" : `text-${network}`)
-  } whitespace-nowrap`}>{destAmountStr}</p>
+            <p className={`text-xs sm:text-sm font-bold whitespace-nowrap`}>{destAmountStr}</p>
         </div>
 
     </div>
 </button>
+                         {/* A closed conversion whose fee waits in the user's credit: its refund, claimed here. */}
+                         {(feeCredit > BigInt(0) && (tx.phase === TxPhase.REFUNDED || tx.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED) && tx.swap?.job?.stage === "Expired") && (
+                           <div className="flex justify-end px-3">
+                             <button type="button" disabled={withdrawing} onClick={() => withdrawFeeCredit()} className="text-[11px] font-bold underline disabled:opacity-50">
+                               {withdrawing ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")}
+                             </button>
+                           </div>
+                         )}
+                         </div>
                         )
                     })}
                 </div>
@@ -882,14 +980,14 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
                   }}
                   className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
                     isActive
-                      ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                      : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
+                      ? "border-black/20 bg-black/5"
+                      : "border-black/5 hover:bg-black/5"
                   }`}
                 >
                   <span className={`font-bold lg:text-sm ${isActive ? '' : 'opacity-80'}`}>
                     {opt.label}
                   </span>
-                  {isActive && <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400" />}
+                  {isActive && <FaCheckCircle className="text-[18px] text-green-500" />}
                 </button>
               );
             })}
@@ -897,7 +995,7 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
            <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:w-auto min-w-[50%]">
               <ButtonContrast

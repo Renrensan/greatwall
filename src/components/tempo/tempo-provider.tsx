@@ -43,15 +43,14 @@ const TempoWalletContext = createContext<TempoWalletContextType>({
   currencyTicker: "USD",
   decimals: 18,
   ipowDecimals: 18,
+  selfCustodyParameter: {},
   networkName: "Tempo",
   networkDescription: {},
   networkLogo: temponetwork,
   price: {},
   networkExplorer: {},
   ipowConvert: "comingsoon",
-  ipowNetworkId: 2,
-  dappList: [],
-  toggleFavoriteDapp: () => {},
+  ipowNetworkId: 9,
   setFeeSelection: () => {},
   connect: async () => {},
   disconnect: () => {},
@@ -94,7 +93,6 @@ export function TempoProvider({ children }: { children: ReactNode }) {
   }, [isMainnet]);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const fullRpcUrl = `${origin}${currentNetworkConfig.jsonRpcUrl}`;
-  const [dappList, setDappList] = useState<any[] | null>(null);
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -939,60 +937,6 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) {
-      clearTimeout(favoriteTimers.current[dappId]);
-    }
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: address,
-            network: "TEMPO",
-            dappId: dappId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId
-                ? { ...dapp, favoriteCount: result.favoriteCount }
-                : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
-
   const fetchPrice = async () => {
     try {
       const envMode = isMainnet ? "MAINNET" : "TESTNET";
@@ -1092,35 +1036,6 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
       }
     }
   }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(
-          `/api/dapphub/list?network=TEMPO${addressQuery}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          },
-        );
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList(result.data);
-        } else {
-          setDappList([]);
-        }
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-  }, [address, connected]);
 
 useEffect(() => {
   }, [isMainnet]);
@@ -1297,6 +1212,7 @@ useEffect(() => {
         currencyTicker: "USD",
         decimals: 18,
         ipowDecimals: 18,
+        selfCustodyParameter: {},
         networkName: "Tempo",
         networkLogo: temponetwork,
         networkDescription: {
@@ -1305,8 +1221,6 @@ useEffect(() => {
         },
         ipowConvert: "comingsoon",
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
-        toggleFavoriteDapp,
         connect,
         setFeeSelection,
         disconnect,

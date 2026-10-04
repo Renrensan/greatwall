@@ -40,7 +40,7 @@ const Accordion = ({
         const cardClasses =
           variant === "glass"
             ? `bgBox glass-card p-4 rounded-2xl flex flex-col transition-all cursor-pointer border ${
-                isExpanded ? "border-black/5 dark:border-white/5" : "border-transparent"
+                isExpanded ? "border-black/5" : "border-transparent"
               }`
             : `flex flex-col bg-white shadow-sm p-5 rounded-2xl cursor-pointer transition-all`;
 
@@ -53,7 +53,7 @@ const Accordion = ({
             <div className="flex justify-between items-center group px-1">
               <span
                 className={`transition-all ${
-                  isExpanded && variant === "classic" ? "text-primary" : "text-black dark:text-white"
+                  isExpanded && variant === "classic" ? "text-primary" : "text-black"
                 } ${titleClassName || "font-bold text-sm"}`}
                 style={{ color: isExpanded ? activeColor : undefined }}
               >
@@ -87,10 +87,10 @@ const Accordion = ({
                         {item.points && (
                           <div className="flex flex-col gap-3">
                             {item.points.map((point, i) => (
-                              <div key={i} className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2 last:border-0 last:pb-0">
+                              <div key={i} className="flex items-center justify-between border-b border-black/5 pb-2 last:border-0 last:pb-0">
                                 {typeof point === "string" ? (
                                   <div className="flex items-start gap-2 py-0.5">
-                                    <div className="w-1 h-1 rounded-full bg-black/20 dark:bg-white/20 mt-1.5 shrink-0" />
+                                    <div className="w-1 h-1 rounded-full bg-black/20 mt-1.5 shrink-0" />
                                     <span>{point}</span>
                                   </div>
                                 ) : (
@@ -99,7 +99,7 @@ const Accordion = ({
                                     <span className="text-[10px] font-bold uppercase tracking-wider opacity-40 shrink-0">
                                       {point.label}
                                     </span>
-                                    <span className="text-[11px] font-bold text-black dark:text-white text-right pl-4">
+                                    <span className="text-[11px] font-bold text-black text-right pl-4">
                                       {point.text}
                                     </span>
                                   </>

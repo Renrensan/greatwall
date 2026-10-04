@@ -73,9 +73,8 @@ const PolkadotWalletContext = createContext<PolkadotWalletContextType>({
   selectedAccount: null,
   price: {},
   networkExplorer: {},
-  ipowConvert: "testnet",
+  ipowConvert: "comingsoon",
   ipowNetworkId: IPOW_NETWORK_ID,
-  dappList: [],
   detectedWallets: [],
   setFeeSelection: () => {},
   setSelectedAccount: () => {},
@@ -87,7 +86,6 @@ const PolkadotWalletContext = createContext<PolkadotWalletContextType>({
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
   fetchETA: async () => null,
-  toggleFavoriteDapp: () => {},
   getEvmAddress: async () => null,
   commitNativeToBitcoin: async () => null,
   commitBitcoinToNative: async () => null,
@@ -265,7 +263,6 @@ export function PolkadotProvider({ children }: { children: ReactNode }) {
   }>({ low: 0, medium: 0, high: 0, selectedFee: "medium", fetched: false });
 
   const [price, setPrice] = useState(null);
-  const [dappList, setDappList] = useState<any[] | null>(null);
   const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
     network: "POLKADOT",
     env: isMainnet ? "MAINNET" : "TESTNET",
@@ -559,50 +556,6 @@ export function PolkadotProvider({ children }: { children: ReactNode }) {
   };
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
-
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) clearTimeout(favoriteTimers.current[dappId]);
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: address, network: "POLKADOT", dappId }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId ? { ...dapp, favoriteCount: result.favoriteCount } : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
 
   // Chain metadata (ticker/decimals) — read from the connected Asset Hub client rather
   // than hardcoded, since Paseo Asset Hub's decimals differ from Polkadot Asset Hub's.
@@ -1270,33 +1223,6 @@ export function PolkadotProvider({ children }: { children: ReactNode }) {
   }, [chainMeta.ticker, isMainnet]);
 
   useEffect(() => {
-    // Reset immediately on account/network change — `null` is this context's "loading"
-    // state; leaving the previous account's dapp list (with its own favorite/heart state)
-    // on screen would misattribute that state to whichever account is now selected.
-    setDappList(null);
-
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(`/api/dapphub/list?network=POLKADOT${addressQuery}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        const result = await response.json();
-        setDappList(result.success ? result.data : []);
-      } catch (error) {
-        console.error("[DAppHub] Fetch Error:", error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address]);
-
-  useEffect(() => {
     // Reset to an empty (most conservative) limit immediately on network switch — this
     // gates real transaction-amount validation, so using the previous network's limits
     // during the switch window isn't just a cosmetic staleness issue. `fetched: false` here
@@ -1381,9 +1307,8 @@ export function PolkadotProvider({ children }: { children: ReactNode }) {
           address: `${currentNetworkConfig.networkExplorer}/account/`,
           transaction: `${currentNetworkConfig.networkExplorer}/extrinsic/`,
         },
-        ipowConvert: "testnet",
+        ipowConvert: "comingsoon",
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
         detectedWallets,
         setFeeSelection,
         setSelectedAccount: setSelectedAccountAndStore,
@@ -1395,7 +1320,6 @@ export function PolkadotProvider({ children }: { children: ReactNode }) {
         checkAddress,
         isValidAddress,
         fetchETA,
-        toggleFavoriteDapp,
         getEvmAddress,
         commitNativeToBitcoin,
         commitBitcoinToNative,

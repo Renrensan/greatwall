@@ -6,7 +6,7 @@ import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
 import { useHederaWallet } from '@/components/hedera/hedera-provider';
 import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
-import { useTronWallet } from '@/components/tron/tron-provider';
+import { useTempoWallet } from '@/components/tempo/tempo-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
@@ -25,7 +25,7 @@ const HeadlineConvert = () => {
   const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
-  const tronNetwork = useTronWallet();
+  const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
   const baseNetwork = useBaseWallet();
@@ -43,9 +43,9 @@ const HeadlineConvert = () => {
   } else if (network === 'ethereum') {
     networkName = ethereumNetwork.networkName;
     networkDescription = ethereumNetwork.networkDescription;
-  } else if (network === 'tron') {
-    networkName = tronNetwork.networkName;
-    networkDescription = tronNetwork.networkDescription;
+  } else if (network === 'tempo') {
+    networkName = tempoNetwork.networkName;
+    networkDescription = tempoNetwork.networkDescription;
   } else if (network === 'hyperliquid') {
     networkName = hyperliquidNetwork.networkName;
     networkDescription = hyperliquidNetwork.networkDescription;
@@ -86,7 +86,7 @@ const HeadlineConvert = () => {
             <span className="text-[9px] uppercase tracking-wide">
               Interoperable Proof of Work
             </span>
-            <span className="text-xs font-bold text-bitcoin whitespace-nowrap">
+            <span className="text-xs font-bold text-black whitespace-nowrap">
               {"Powered by Bitcoin"}
             </span>
           </div>

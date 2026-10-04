@@ -17,7 +17,7 @@ export function NetworkStatusCard({
 }) {
   return (
     <div
-      className={`w-full p-3 rounded-xl border ${borderClassName} bgBox glass-card opacity-80 flex items-center justify-between`}
+      className="w-full px-4 py-3 rounded-md border border-sand bg-snow flex items-center justify-between"
     >
       <div className="flex items-center gap-2">
         <IoPulseOutline
@@ -55,10 +55,10 @@ export function SettingsRow({
   return (
     <button
       onClick={onClick}
-      className="w-full p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10 flex items-center gap-3"
+      className="gw-row"
     >
       {icon}
-      <p className="font-bold text-sm">{label}</p>
+      <p>{label}</p>
     </button>
   );
 }

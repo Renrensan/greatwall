@@ -16,12 +16,14 @@ import ButtonContrast from "./ButtonContrast";
 import { paseo } from "@/index";
 import { SupportedChain, useNetwork } from "@/app/network-provider";
 import { CONVERT_NETWORK_ORDER, resolveToChain } from "@/components/integrator/ipow/convert-networks";
+import { NATIVE, fromUnits, registerTunnel, removeTunnel, saveTunnel, toUnits, tunnelAssets, tunnelMessage, tunnelQuote, type TunnelAssets } from "@/components/integrator/ipow/tunnel";
+import { isEvmChain } from "@/components/integrator/ipow/sdk";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
-import { useTronWallet } from "@/components/tron/tron-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
@@ -32,6 +34,9 @@ import { HederaConnectButton } from "./HederaConnectButton";
 import { EthereumConnectButton } from "./EthereumConnectButton";
 import { SolanaConnectButton } from "./SolanaConnectButton";
 import { PolkadotConnectButton } from "./PolkadotConnectButton";
+import { BaseConnectButton } from "./BaseConnectButton";
+import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
+import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { IoSwapVertical } from "react-icons/io5";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
@@ -50,13 +55,22 @@ type Asset = {
   decimals: number;
   icon: any;
   native: boolean;
+  /** `native`, or the token's address: what the operator trades it as. */
+  token: string;
 };
 
 const TESTNET_LIMITS: Record<string, { min: number; max: number }> = {
   hedera: { min: 30, max: 100 },
-  ethereum: { min: 0.001, max: 0.003 },
-  solana: { min: 0.02, max: 1 },
+  ethereum: { min: 0.002, max: 0.003 },
+  // Within the operator's 2,000 sats a tunnel at its test rates (its
+  // /assets): 0.003 ETH is 900 sats, 0.06 SOL is 900 sats, 0.9 HYPE is
+  // 1,800 sats. A sell must also pay at least Bitcoin's dust (546 sats):
+  // from about 0.002 ETH or 0.04 SOL.
+  solana: { min: 0.04, max: 0.06 },
   polkadot: { min: 2, max: 10 },
+  base: { min: 0.002, max: 0.003 },
+  robinhood: { min: 0.002, max: 0.003 },
+  hyperliquid: { min: 0.1, max: 0.9 },
 };
 
 export default function ConvertToken() {
@@ -77,7 +91,7 @@ export default function ConvertToken() {
   const ethereumWallet = useEthereumWallet();
   const solanaWallet = useSolanaWallet();
   const polkadotWallet = usePolkadotWallet();
-  const tronWallet = useTronWallet();
+  const tempoWallet = useTempoWallet();
   const hyperliquidWallet = useHyperliquidWallet();
   const robinhoodWallet = useRobinhoodWallet();
   const baseWallet = useBaseWallet();
@@ -165,16 +179,16 @@ export default function ConvertToken() {
         price: polkadotWallet.price,
       },
       {
-        key: "tron" as SupportedChain,
-        name: tronWallet.networkName,
-        logo: tronWallet.networkLogo,
-        currencyTicker: tronWallet.currencyTicker,
-        decimals: tronWallet.decimals,
-        networkExplorer: tronWallet.networkExplorer,
-        ipowConvert: tronWallet.ipowConvert,
-        ipowNetworkId: tronWallet.ipowNetworkId,
-        connected: tronWallet.connected,
-        price: tronWallet.price,
+        key: "tempo" as SupportedChain,
+        name: tempoWallet.networkName,
+        logo: tempoWallet.networkLogo,
+        currencyTicker: tempoWallet.currencyTicker,
+        decimals: tempoWallet.decimals,
+        networkExplorer: tempoWallet.networkExplorer,
+        ipowConvert: tempoWallet.ipowConvert,
+        ipowNetworkId: tempoWallet.ipowNetworkId,
+        connected: tempoWallet.connected,
+        price: tempoWallet.price,
       },
       {
         key: "hyperliquid" as SupportedChain,
@@ -225,8 +239,20 @@ export default function ConvertToken() {
         price: arbitrumWallet.price,
       },
     ],
-    [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, tronWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet],
+    [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, tempoWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet],
   );
+
+  /** The wallet of a network that converts, with the convert methods. */
+  const walletOf = (chain: string): any => {
+    if (chain === "hedera") return hederaWallet;
+    if (chain === "ethereum") return ethereumWallet;
+    if (chain === "solana") return solanaWallet;
+    if (chain === "polkadot") return polkadotWallet;
+    if (chain === "base") return baseWallet;
+    if (chain === "robinhood") return robinhoodWallet;
+    if (chain === "hyperliquid") return hyperliquidWallet;
+    return null;
+  };
 
   const getNativeAsset = (chain: SupportedChain): Asset => {
     const tokenInfo = networkOptions.find((n) => n.key === chain)!;
@@ -234,12 +260,31 @@ export default function ConvertToken() {
     const symbol = tokenInfo?.currencyTicker;
     const icon = (tokenInfo as any)?.tokenLogo ?? tokenInfo?.logo;
     const decimals = tokenInfo?.decimals;
-    return { id: symbol, symbol, name, chain, decimals, icon, native: true };
+    return { id: symbol, symbol, name, chain, decimals, icon, native: true, token: NATIVE };
   };
+
+  // What the operator trades on each network (its tunnel API's assets): the
+  // coin, and the test RWA tokens, with its prices.
+  const [operatorAssets, setOperatorAssets] = useState<TunnelAssets>({ byChain: {}, maxSats: BigInt(0) });
+  useEffect(() => {
+    let active = true;
+    tunnelAssets().then((a) => active && setOperatorAssets(a));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const getAssetsForChain = (chain: SupportedChain): Asset[] => [
     getNativeAsset(chain),
+    ...(operatorAssets.byChain[chain] ?? [])
+      .filter((a) => a.token !== NATIVE)
+      .map((a) => ({ id: a.symbol, symbol: a.symbol, name: `${a.symbol} (test RWA)`, chain, decimals: a.decimals, icon: null, native: false, token: a.token })),
   ];
+
+  /** The picked token on each side; the coin by default, and again when the
+   *  network changes. */
+  const [fromToken, setFromToken] = useState(NATIVE);
+  const [toToken, setToToken] = useState(NATIVE);
 
   const buildSearchParams = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -376,13 +421,15 @@ export default function ConvertToken() {
   }, [rawTo, fromChain, networkOptions, pathname, searchParams, router]);
 
   const fromAsset = useMemo(
-    () => getNativeAsset(fromChain),
-    [fromChain, networkOptions],
+    () => getAssetsForChain(fromChain).find((a) => a.token === fromToken) ?? getNativeAsset(fromChain),
+    [fromChain, fromToken, networkOptions, operatorAssets],
   );
   const toAsset = useMemo(
-    () => getNativeAsset(toChain),
-    [toChain, networkOptions],
+    () => getAssetsForChain(toChain).find((a) => a.token === toToken) ?? getNativeAsset(toChain),
+    [toChain, toToken, networkOptions, operatorAssets],
   );
+  useEffect(() => setFromToken(NATIVE), [fromChain]);
+  useEffect(() => setToToken(NATIVE), [toChain]);
 
   const [fromAmount, setFromAmount] = useState(
     searchParams.get("amount") || "",
@@ -446,8 +493,13 @@ export default function ConvertToken() {
     return false;
   };
 
+  // Into SOL waits for the user's own payment proof on Solana
+  // (solanaConvertMethods.ts).
+  const intoSolana = toChain === "solana";
+
   const isSupportedRoute = useMemo(() => {
     if (fromChain === toChain) return false;
+    if (toChain === "solana") return false;
 
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
@@ -473,12 +525,28 @@ export default function ConvertToken() {
   ]);
 
 
+  /** A token's limits at the operator's price: from Bitcoin's dust (546
+   *  sats, with room) to the cap, the operator's per tunnel, or
+   *  Conversion's (100,000 sats) for a swap against BTC. */
+  const tokenLimit = (rate: bigint, tunnel: boolean) => {
+    const r = Number(rate);
+    if (!r) return { min: 0, max: Infinity };
+    const cap = tunnel ? Number(operatorAssets.maxSats || BigInt(100_000)) : 100_000;
+    return { min: Math.ceil((600 / r) * 1e6) / 1e6, max: Math.floor((cap / r) * 1e6) / 1e6 };
+  };
+
   const currentLimit = useMemo(() => {
     const isMainnetMode = getIsMainnet(fromChain);
     if (isMainnetMode) return { min: 0, max: Infinity };
+    if (fromToken !== NATIVE) {
+      const a = operatorAssets.byChain[fromChain]?.find((x) => x.token === fromToken);
+      if (a) return tokenLimit(a.paySats, toChain !== "bitcoin");
+    }
 
     return TESTNET_LIMITS[fromChain] || { min: 0, max: Infinity };
   }, [
+    fromToken,
+    operatorAssets,
     fromChain,
     bitcoinMainnet,
     hederaMainnet,
@@ -488,16 +556,22 @@ export default function ConvertToken() {
   ]);
 
   const destLimit = useMemo(() => {
+    if (toToken !== NATIVE && !getIsMainnet(toChain)) {
+      const a = operatorAssets.byChain[toChain]?.find((x) => x.token === toToken);
+      if (a) return tokenLimit(a.askSats, fromChain !== "bitcoin");
+    }
     const isMainnetMode = getIsMainnet(toChain);
     if (isMainnetMode) return { min: 0, max: Infinity };
 
-    const limits = TESTNET_LIMITS[toChain];
+    const limits = TESTNET_LIMITS[toChain] ?? { min: 0, max: Infinity };
 
     return {
       min: limits.min * 1.05,
       max: limits.max * 0.95,
     };
-  }, [toChain, bitcoinMainnet, hederaMainnet, ethereumMainnet, solanaMainnet, polkadotMainnet]);
+  }, [
+    toToken,
+    operatorAssets,toChain, bitcoinMainnet, hederaMainnet, ethereumMainnet, solanaMainnet, polkadotMainnet]);
 
   const canConvert = useMemo(() => {
     if (!isSupportedRoute) return false;
@@ -519,6 +593,10 @@ export default function ConvertToken() {
 
     if (toChain === "bitcoin" && !toChainConnected && !derivedDestScriptPubKey)
       return false;
+    // Between two networks: the coin goes to the destination's own wallet,
+    // and the user signs the sell with the source's.
+    if (fromChain !== "bitcoin" && toChain !== "bitcoin" && !toChainConnected)
+      return false;
     return true;
   }, [
     isSupportedRoute,
@@ -536,6 +614,8 @@ export default function ConvertToken() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  /** Why the last conversion failed, shown in the error modal. */
+  const [convertError, setConvertError] = useState<string | null>(null);
 
   const mismatches = useMemo(() => {
     const checks = [
@@ -623,10 +703,11 @@ export default function ConvertToken() {
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
     return (
+      intoSolana ||
       fromConfig?.ipowConvert === "comingsoon" ||
       toConfig?.ipowConvert === "comingsoon"
     );
-  }, [fromChain, toChain, networkOptions]);
+  }, [fromChain, toChain, networkOptions, intoSolana]);
 
   const buttonText = useMemo(() => {
     if (isComingSoon) return "Coming Soon";
@@ -671,13 +752,7 @@ export default function ConvertToken() {
       }
 
 
-      const getWallet = (chain: string) => {
-        if (chain === "hedera") return hederaWallet;
-        if (chain === "ethereum") return ethereumWallet;
-        if (chain === "solana") return solanaWallet;
-        if (chain === "polkadot") return polkadotWallet;
-        return null;
-      };
+      const getWallet = (chain: string) => walletOf(chain);
 
       try {
         if (fromChain === "bitcoin") {
@@ -685,6 +760,7 @@ export default function ConvertToken() {
           const sats = Math.floor(amt * 10 ** bitcoinWallet.decimals);
           const out = await targetWallet?.estimateNativeFromBitcoin(
             sats.toString(),
+            toToken,
           );
 
           if (isActive) {
@@ -699,7 +775,7 @@ export default function ConvertToken() {
           }
         } else if (toChain === "bitcoin") {
           const sourceWallet = getWallet(fromChain);
-          const sats = await sourceWallet?.estimateBitcoinFromNative(amt);
+          const sats = await sourceWallet?.estimateBitcoinFromNative(amt, fromToken);
 
           if (isActive) {
             const n = Number(sats?.toString() ?? "0");
@@ -710,16 +786,19 @@ export default function ConvertToken() {
             );
           }
         } else {
-          const sourceWallet = getWallet(fromChain);
-          const targetWallet = getWallet(toChain);
-          const btcSats = await sourceWallet?.estimateBitcoinFromNative(amt);
+          // Between two networks: the operator's own quote, which it honours
+          // when it opens the tunnel.
+          const q = await tunnelQuote(
+            fromChain,
+            fromToken,
+            toUnits(fromAmount, fromAsset.decimals),
+            toChain,
+            toToken,
+          );
 
-          if (btcSats) {
-            const out = await targetWallet?.estimateNativeFromBitcoin(
-              btcSats.toString(),
-            );
+          if (q.sats > BigInt(0)) {
             if (isActive) {
-              const outNum = Number(out ?? "0");
+              const outNum = fromUnits(q.amountOut, toAsset.decimals);
               const fracDigits =
                 toChain === "solana" ? 6 : toChain === "ethereum" ? 6 : 4;
               setToAmount(
@@ -746,12 +825,17 @@ export default function ConvertToken() {
     fromAmount,
     fromChain,
     toChain,
+    fromToken,
+    toToken,
     isSupportedRoute,
     currentLimit,
     hederaWallet,
     ethereumWallet,
     solanaWallet,
     polkadotWallet,
+    baseWallet,
+    robinhoodWallet,
+    hyperliquidWallet,
     bitcoinWallet.decimals,
   ]);
 
@@ -789,8 +873,29 @@ export default function ConvertToken() {
     setChainModalOpen(false);
   };
 
-  const pickToken = (_asset: Asset) => {
+  const pickToken = (asset: Asset) => {
+    if (tokenModalSide === "from") setFromToken(asset.token);
+    else setToToken(asset.token);
+    setToAmount("");
     setTokenModalOpen(false);
+  };
+
+  // The test RWA tokens' faucet, from the picker.
+  const [faucetMsg, setFaucetMsg] = useState<string | null>(null);
+  const [faucetBusy, setFaucetBusy] = useState(false);
+  const claimFaucet = async (asset: Asset) => {
+    setFaucetBusy(true);
+    setFaucetMsg(null);
+    try {
+      const w = walletOf(asset.chain);
+      if (!w?.connected) throw new Error(`Connect your ${asset.chain} wallet first`);
+      await w.faucet(asset.token);
+      setFaucetMsg(`${asset.symbol} sent to your wallet`);
+    } catch (e: any) {
+      setFaucetMsg(e?.shortMessage ?? e?.message ?? String(e));
+    } finally {
+      setFaucetBusy(false);
+    }
   };
 
   const swap = () => {
@@ -822,15 +927,10 @@ export default function ConvertToken() {
       setShowErrorModal(false);
 
       const isDirectToBitcoin = toChain === "bitcoin";
-      const targetNetworkConfig = networkOptions.find((n) => n.key === toChain);
-
-      let statusWallet: any;
+      // The network the swap is made on: the one that is not Bitcoin. A
+      // route between two networks starts with a swap on the first.
       const activeNativeChain = fromChain === "bitcoin" ? toChain : fromChain;
-
-      if (activeNativeChain === "hedera") statusWallet = hederaWallet;
-      else if (activeNativeChain === "ethereum") statusWallet = ethereumWallet;
-      else if (activeNativeChain === "solana") statusWallet = solanaWallet;
-      else if (activeNativeChain === "polkadot") statusWallet = polkadotWallet;
+      const statusWallet = walletOf(activeNativeChain);
 
       let idsBefore: any[] = [];
       try {
@@ -839,7 +939,7 @@ export default function ConvertToken() {
       } catch (e) {
         console.warn("Snapshot failed, assuming 0", e);
       }
-      const countBefore = idsBefore.length;
+      const known = new Set(idsBefore.map((id: any) => id.toString()));
 
       let txHash = null;
       const amountArg = Number(fromAmount);
@@ -852,130 +952,69 @@ export default function ConvertToken() {
         const sats = Math.floor(
           amountArg * 10 ** bitcoinWallet.decimals,
         ).toString();
-        const expectedNativeAmount = destAmountNumber;
-
-        if (toChain === "hedera") {
-          txHash = await hederaWallet.commitBitcoinToNative(
-            sats,
-            expectedNativeAmount,
-            derivedSourceScriptPubKey,
-          );
-        } else if (toChain === "ethereum") {
-          txHash = await ethereumWallet.commitBitcoinToNative(
-            sats,
-            expectedNativeAmount,
-            derivedSourceScriptPubKey,
-          );
-        } else if (toChain === "solana") {
-          txHash = await solanaWallet.commitBitcoinToNative(
-            sats,
-            expectedNativeAmount,
-            derivedSourceScriptPubKey,
-          );
-        } else if (toChain === "polkadot") {
-          txHash = await polkadotWallet.commitBitcoinToNative(
-            sats,
-            expectedNativeAmount,
-            derivedSourceScriptPubKey,
-          );
+        // A buy pays at most the network's Conversion.maxSats.
+        const max = await walletOf(toChain)?.maxSats?.();
+        if (max && BigInt(sats) > max) throw new Error(`At most ${max} sats per conversion to ${toChain}`);
+        txHash = await walletOf(toChain)?.commitBitcoinToNative(
+          sats,
+          destAmountNumber,
+          derivedSourceScriptPubKey,
+          toToken,
+        );
+      } else if (isDirectToBitcoin) {
+        txHash = await statusWallet?.commitNativeToBitcoin(
+          derivedDestScriptPubKey!,
+          amountArg,
+          Math.floor(destAmountNumber * 1e8),
+          undefined,
+          fromToken,
+        );
+      } else {
+        // A tunnel: the user opens the buy on the destination at the
+        // operator's quote, paying its job fees, and the operator is told
+        // of it. Once the operator locks the coin there, the user signs the
+        // sell on this network, on the buy's page.
+        const destination = walletOf(toChain);
+        const recipient = destination?.address;
+        if (!recipient) throw new Error(`Connect your ${toChain} wallet: the coin goes to it`);
+        const amountIn = toUnits(fromAmount, fromAsset.decimals);
+        const q = await tunnelQuote(fromChain, fromToken, amountIn, toChain, toToken);
+        const max = await destination?.maxSats?.();
+        if (max && q.sats > max) throw new Error(`At most ${max} sats per conversion to ${toChain}`);
+        const buyId: bigint = await destination.tunnelBuy({ token: toToken, amount: q.amountOut, sats: q.sats });
+        saveTunnel({
+          fromChain,
+          fromToken,
+          fromSymbol: fromAsset.symbol,
+          fromDecimals: fromAsset.decimals,
+          sender: walletOf(fromChain)?.address ?? null,
+          toChain,
+          token: toToken,
+          toSymbol: toAsset.symbol,
+          toDecimals: toAsset.decimals,
+          buyId: buyId.toString(),
+          amountIn: amountIn.toString(),
+          sats: q.sats.toString(),
+          amountOut: q.amountOut.toString(),
+          recipient,
+        });
+        try {
+          // Signed by the wallet that opened the buy: its owner sets the terms.
+          const terms = { to: toChain, buyId, from: fromChain, fromToken, amountIn };
+          const signature: string = await destination.signTunnel(tunnelMessage(terms));
+          await registerTunnel({ ...terms, signature });
+        } catch (e: any) {
+          // Without the operator's word it is an ordinary buy of the coin
+          // for BTC, which the operator may still take and fund: the user
+          // then pays it in BTC, or lets it end by its own rules.
+          removeTunnel(toChain, buyId.toString());
+          throw new Error(`Your buy ${buyId} on ${toChain} is open, but the operator did not take it as a tunnel: ${e?.message ?? e}. It is now an ordinary buy of ${toAsset.symbol} for BTC: see it in your ${toChain} history.`);
         }
-      }
-
-      else {
-        const scriptArg = isDirectToBitcoin ? derivedDestScriptPubKey! : "";
-        let crossChainOptions = undefined;
-        let bitcoinAmountSats = 0;
-
-        if (isDirectToBitcoin) {
-          bitcoinAmountSats = Math.floor(destAmountNumber * 1e8);
-        } else {
-          const estimatedSatsStr =
-            await statusWallet?.estimateBitcoinFromNative(amountArg);
-          bitcoinAmountSats = Number(estimatedSatsStr);
-        }
-
-        if (!isDirectToBitcoin) {
-          let destAddr = "";
-          if (toChainConnected) {
-            if (toChain === "hedera") {
-              const rawAddress = hederaWallet.address || "";
-              if (rawAddress)
-                destAddr = (await hederaWallet.getEvmAddress(rawAddress)) || "";
-            } else if (toChain === "ethereum") {
-              destAddr = ethereumWallet.address || "";
-            } else if (toChain === "solana") {
-              destAddr = solanaWallet.address || "";
-            } else if (toChain === "polkadot") {
-              const rawAddress = polkadotWallet.address || "";
-              if (rawAddress)
-                destAddr = (await polkadotWallet.getEvmAddress(rawAddress)) || "";
-            }
-          } else {
-            if (addressError || !manualAddress)
-              throw new Error("Invalid destination address");
-            destAddr = manualAddress;
-
-            if (toChain === "hedera" && destAddr.startsWith("0.0.")) {
-              const converted = await hederaWallet.getEvmAddress(destAddr);
-              if (converted) destAddr = converted;
-            } else if (toChain === "polkadot" && !destAddr.startsWith("0x")) {
-              // A manually-entered Polkadot destination is normally its SS58 address —
-              // resolve it to the pallet-revive fallback EVM address the ipow contract
-              // actually understands (same idea as Hedera's 0.0.x conversion above).
-              const converted = await polkadotWallet.getEvmAddress(destAddr);
-              if (converted) destAddr = converted;
-            }
-          }
-
-          if (!destAddr) throw new Error(`Invalid recipient address.`);
-
-          if (toChain === "solana") {
-            try {
-              const decodedBytes = bs58.decode(destAddr);
-              destAddr = "0x" + Buffer.from(decodedBytes).toString("hex");
-            } catch (e) {
-              throw new Error("Failed to decode Solana Base58 address");
-            }
-          }
-
-          if (targetNetworkConfig?.ipowNetworkId === undefined)
-            throw new Error("Destination Network ID not found");
-
-          crossChainOptions = {
-            networkId: targetNetworkConfig.ipowNetworkId,
-            networkAddress: destAddr,
-          };
-        }
-
-        if (fromChain === "hedera") {
-          txHash = await hederaWallet.commitNativeToBitcoin(
-            scriptArg,
-            amountArg,
-            bitcoinAmountSats,
-            crossChainOptions,
-          );
-        } else if (fromChain === "ethereum") {
-          txHash = await ethereumWallet.commitNativeToBitcoin(
-            scriptArg,
-            amountArg,
-            bitcoinAmountSats,
-            crossChainOptions,
-          );
-        } else if (fromChain === "solana") {
-          txHash = await solanaWallet.commitNativeToBitcoin(
-            scriptArg,
-            amountArg,
-            bitcoinAmountSats,
-            crossChainOptions,
-          );
-        } else if (fromChain === "polkadot") {
-          txHash = await polkadotWallet.commitNativeToBitcoin(
-            scriptArg,
-            amountArg,
-            bitcoinAmountSats,
-            crossChainOptions,
-          );
-        }
+        router.push(`/${locale}/${toChain}/convert/transaction/${buyId}?linked=${fromChain}`);
+        setFromAmount("");
+        setToAmount("");
+        setManualAddress("");
+        return;
       }
 
       if (!txHash) {
@@ -983,21 +1022,20 @@ export default function ConvertToken() {
         return;
       }
 
-      let newIdFound = null;
+      // The swap the transaction made: named by it, or else the one that is
+      // new in the list.
+      let newIdFound: string | null = (await statusWallet?.swapMadeBy?.(txHash).catch(() => null))?.toString() ?? null;
       let attempts = 0;
       const MAX_ATTEMPTS = 40;
 
-      while (attempts < MAX_ATTEMPTS) {
+      while (!newIdFound && attempts < MAX_ATTEMPTS) {
         attempts++;
         await new Promise((r) => setTimeout(r, 1500));
         try {
           const currentIds =
             (await statusWallet?.getMyTxIds(TxPhase.NONE, TypeFilter.ANY)) ||
             [];
-
-          const newlyAddedIds = currentIds.filter(
-            (id: any) => !idsBefore.includes(id),
-          );
+          const newlyAddedIds = currentIds.map((id: any) => id.toString()).filter((id: string) => !known.has(id));
 
           if (newlyAddedIds.length > 0) {
             newIdFound = newlyAddedIds.reduce(
@@ -1011,9 +1049,8 @@ export default function ConvertToken() {
       }
 
       if (newIdFound) {
-        const destinationParam = toChain;
         router.push(
-          `/${network}/convert/transaction/${newIdFound}?linked=${destinationParam}`,
+          `/${locale}/${network}/convert/transaction/${newIdFound}?linked=${toChain}`,
         );
       }
 
@@ -1022,6 +1059,7 @@ export default function ConvertToken() {
       setManualAddress("");
     } catch (e: any) {
       console.error(e);
+      setConvertError(e?.shortMessage ?? e?.reason ?? e?.message ?? String(e));
       setShowErrorModal(true);
     } finally {
       setIsProcessing(false);
@@ -1058,7 +1096,7 @@ export default function ConvertToken() {
           </button>
         </div>
       )}
-      <div className="relative flex p-4 flex-col gap-6 mt-4 rounded-2xl border-white/30  shadow  border dark:bg-white/5  bg-white/50">
+      <div className="relative flex p-4 flex-col gap-6 mt-4 rounded-2xl border-white/30  shadow  border  bg-white/50">
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none blur-sm" />
         {/* ================= FROM ================= */}
         <div>
@@ -1080,6 +1118,12 @@ export default function ConvertToken() {
                 <SolanaConnectButton />
               ) : fromChain === "polkadot" ? (
                 <PolkadotConnectButton />
+              ) : fromChain === "base" ? (
+                <BaseConnectButton />
+              ) : fromChain === "robinhood" ? (
+                <RobinhoodConnectButton />
+              ) : fromChain === "hyperliquid" ? (
+                <HyperliquidConnectButton />
               ) : null}
             </div>
 
@@ -1092,7 +1136,7 @@ export default function ConvertToken() {
               <div className="w-1" />
               <button
                 onClick={() => openChainPicker("from")}
-                className={`p-2 cursor-pointer shadow-buttonNav ${fromChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${fromChain}/10`} rounded-full glass-card text-base`}
+                className={`p-2 cursor-pointer shadow-buttonNav hover:bg-black/10 rounded-full glass-card text-base`}
               >
                 <Image
                   className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
@@ -1114,7 +1158,7 @@ export default function ConvertToken() {
                     type="text"
                     inputMode="decimal"
                     className={`w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate ${
-                      (network === "hedera" || network === "polkadot") ? "" : (network === "base" ? "text-[#0052FF]" : `text-${network}`)
+                      ""
                     }`}
                     placeholder="0"
                     value={fromAmount}
@@ -1172,7 +1216,7 @@ export default function ConvertToken() {
                 <button
                   type="button"
                   onClick={() => openTokenPicker("from")}
-                  className={`${fromChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${fromChain}/10`} shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
+                  className={`hover:bg-black/10 shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
                 >
                   {fromAsset?.icon ? (
                     <Image
@@ -1231,6 +1275,12 @@ export default function ConvertToken() {
                 <SolanaConnectButton />
               ) : toChain === "polkadot" ? (
                 <PolkadotConnectButton />
+              ) : toChain === "base" ? (
+                <BaseConnectButton />
+              ) : toChain === "robinhood" ? (
+                <RobinhoodConnectButton />
+              ) : toChain === "hyperliquid" ? (
+                <HyperliquidConnectButton />
               ) : null}
             </div>
 
@@ -1244,7 +1294,7 @@ export default function ConvertToken() {
               <button
                 onClick={() => openChainPicker("to")}
                 key={toChain}
-                className={`p-2 cursor-pointer shadow-buttonNav ${toChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${toChain}/10`} rounded-full glass-card text-base`}
+                className={`p-2 cursor-pointer shadow-buttonNav hover:bg-black/10 rounded-full glass-card text-base`}
               >
                 <Image
                   className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
@@ -1298,7 +1348,7 @@ export default function ConvertToken() {
                     type="text"
                     readOnly
                     className={`${
-                      (toChain === "hedera" || toChain === "polkadot") ? "" : (toChain === "base" ? "text-[#0052FF]" : `text-${toChain}`)
+                      ""
                     } w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate`}
                     placeholder="0"
                     value={toAmount}
@@ -1312,7 +1362,7 @@ export default function ConvertToken() {
                 <button
                   type="button"
                   onClick={() => openTokenPicker("to")}
-                  className={`${toChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${toChain}/10`} shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
+                  className={`hover:bg-black/10 shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
                 >
                   {toAsset?.icon ? (
                     <Image
@@ -1398,10 +1448,11 @@ export default function ConvertToken() {
 
           <h2 className="text-2xl font-bold mb-2">{t("text33")}</h2>
           <p className="text-sm mb-4">{t("text34")}</p>
+          {convertError && <p className="text-xs break-words mb-4 opacity-80">{convertError}</p>}
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -1447,8 +1498,8 @@ export default function ConvertToken() {
                   onClick={() => pickChain(c.key)}
                   className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
                     isSelected
-                      ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10" 
-                      : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10" 
+                      ? "border-black/20 bg-black/5" 
+                      : "border-black/5 hover:bg-black/5" 
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -1464,7 +1515,7 @@ export default function ConvertToken() {
                     </span>
                   </div>
                   {isSelected && (
-                    <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400" />
+                    <FaCheckCircle className="text-[18px] text-green-500" />
                   )}
                 </button>
               );
@@ -1473,7 +1524,7 @@ export default function ConvertToken() {
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex justify-center w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -1511,14 +1562,14 @@ export default function ConvertToken() {
                   : toAsset?.id === a.id;
 
               return (
+                <div key={a.id} className="flex items-center gap-2">
                 <button
-                  key={a.id}
                   type="button"
                   onClick={() => pickToken(a)}
-                  className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
+                  className={`flex-1 text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
                     isSelected
-                      ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10" 
-                      : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10" 
+                      ? "border-black/20 bg-black/5" 
+                      : "border-black/5 hover:bg-black/5" 
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -1529,7 +1580,7 @@ export default function ConvertToken() {
                         className="w-8 h-8 rounded-full object-contain shrink-0"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 shrink-0" />
+                      <div className="w-8 h-8 rounded-full bg-black/5 shrink-0" />
                     )}
                     <div className="flex flex-col leading-tight">
                       <span
@@ -1541,16 +1592,29 @@ export default function ConvertToken() {
                     </div>
                   </div>
                   {isSelected && (
-                    <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400 shrink-0" />
+                    <FaCheckCircle className="text-[18px] text-green-500 shrink-0" />
                   )}
                 </button>
+                {/* The test RWA tokens' faucet, beside the row. */}
+                {!a.native && isEvmChain(a.chain) && (
+                  <button
+                    type="button"
+                    disabled={faucetBusy}
+                    onClick={() => claimFaucet(a)}
+                    className="text-[11px] font-bold px-3 py-2 rounded-lg border border-black/10 hover:bg-black/5 disabled:opacity-50 shrink-0"
+                  >
+                    {faucetBusy ? "…" : "Faucet"}
+                  </button>
+                )}
+                </div>
               );
             })}
           </div>
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
+          {faucetMsg && <p className="text-[11px] mb-3 opacity-80">{faucetMsg}</p>}
           <div className="flex justify-center w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast

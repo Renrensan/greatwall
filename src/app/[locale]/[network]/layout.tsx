@@ -3,12 +3,10 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { UiLayout } from "@/components/ui/ui-layout";
 import { ScopedDappProviders } from "@/components/providers/dapp-providers";
-import ChatbotLazy from "@/components/integrator/para-ai/ChatbotLazy";
-import { ChatbotProvider } from "@/components/integrator/para-ai/chatbot-context";
 import { BrandPulseLoader } from "@/components/ui/BrandPulseLoader";
 
 
-const VALID_NETWORKS = ["bitcoin", "ethereum", "hedera", "solana", "polkadot", "tron", "hyperliquid", "robinhood", "base", "arbitrum"];
+const VALID_NETWORKS = ["bitcoin", "ethereum", "hedera", "solana", "polkadot", "tempo", "hyperliquid", "robinhood", "base", "arbitrum"];
 const FALLBACK_NETWORK = "solana";
 // Mirrors PREFERRED_CHAIN_KEY in @/app/network-provider — duplicated (rather than
 // imported from that 'use client' module) to keep this server component clean of
@@ -29,7 +27,7 @@ export default async function NetworkLayout({
     const cookieStore = await cookies();
     const preferred = cookieStore.get(PREFERRED_CHAIN_COOKIE)?.value;
     const defaultNetwork = preferred && VALID_NETWORKS.includes(preferred) ? preferred : FALLBACK_NETWORK;
-    redirect(`/${locale}/${defaultNetwork}/vault/buy`);
+    redirect(`/${locale}/${defaultNetwork}/vault/assets`);
   }
 
   return (
@@ -41,13 +39,7 @@ export default async function NetworkLayout({
       }
     >
       <ScopedDappProviders>
-        <UiLayout>
-          <ChatbotProvider>
-            {children}
-            <ChatbotLazy />
-          </ChatbotProvider>
-
-        </UiLayout>
+        <UiLayout>{children}</UiLayout>
       </ScopedDappProviders>
     </Suspense>
   );

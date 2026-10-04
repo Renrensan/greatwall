@@ -8,7 +8,7 @@ import { useHederaWallet } from '@/components/hedera/hedera-provider';
 import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { usePolkadotWallet } from '@/components/polkadot/polkadot-provider';
-import { useTronWallet } from '@/components/tron/tron-provider';
+import { useTempoWallet } from '@/components/tempo/tempo-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
@@ -25,7 +25,7 @@ const HeadlineVault = () => {
       network: SupportedChain
     }>();
   
-const colorFlip = (network === 'hedera' || network === 'polkadot') ? 'text-black dark:text-white' : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
+const colorFlip = 'text-black';
 
 
     const bitcoinNetwork = useBitcoinWallet();
@@ -33,7 +33,7 @@ const colorFlip = (network === 'hedera' || network === 'polkadot') ? 'text-black
     const ethereumNetwork = useEthereumWallet();
     const solanaNetwork = useSolanaWallet();
     const polkadotNetwork = usePolkadotWallet();
-    const tronNetwork = useTronWallet();
+    const tempoNetwork = useTempoWallet();
     const hyperliquidNetwork = useHyperliquidWallet();
     const robinhoodNetwork = useRobinhoodWallet();
     const baseNetwork = useBaseWallet();
@@ -57,9 +57,9 @@ const colorFlip = (network === 'hedera' || network === 'polkadot') ? 'text-black
        networkName = polkadotNetwork.networkName;
          networkDescription = polkadotNetwork.networkDescription;
 
-    } else if (network === "tron") {
-       networkName = tronNetwork.networkName;
-         networkDescription = tronNetwork.networkDescription;
+    } else if (network === "tempo") {
+       networkName = tempoNetwork.networkName;
+         networkDescription = tempoNetwork.networkDescription;
 
     } else if (network === "hyperliquid") {
        networkName = hyperliquidNetwork.networkName;

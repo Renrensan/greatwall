@@ -1,0 +1,45 @@
+// What a Solana token is, for showing it: a name the app knows (wrapped SOL,
+// a vault receipt of an EVM network's coin) or its short address, and its
+// decimals from its mint. Read once per token and kept.
+
+import { PublicKey } from "@solana/web3.js";
+import { WRAPPED_SOL } from "@ipow/sdk";
+
+import { EVM_CHAINS, TICKER, solanaConnection, solanaVaultWith, type EvmChain } from "./sdk";
+
+export type SolanaToken = { mint: string; symbol: string; decimals: number };
+
+/** The receipts made here of each EVM network's coin (its asset 0). */
+export function receiptMints(): { peer: EvmChain; mint: string; symbol: string }[] {
+  return EVM_CHAINS.map((peer) => ({
+    peer,
+    mint: solanaVaultWith(peer, null).receiptMint(0).toBase58(),
+    symbol: `v${TICKER[peer]} · ${peer.charAt(0).toUpperCase() + peer.slice(1)}`,
+  }));
+}
+
+export function solanaSymbol(mint: string): string {
+  if (mint === WRAPPED_SOL) return "SOL";
+  const receipt = receiptMints().find((r) => r.mint === mint);
+  return receipt ? receipt.symbol : `${mint.slice(0, 4)}…${mint.slice(-4)}`;
+}
+
+const known = new Map<string, Promise<SolanaToken>>();
+
+/** A token's symbol and decimals; refused when `mint` is no token here. */
+export function solanaToken(mint: string): Promise<SolanaToken> {
+  let info = known.get(mint);
+  if (!info) {
+    info = solanaConnection()
+      .getTokenSupply(new PublicKey(mint))
+      .then((s) => ({ mint, symbol: solanaSymbol(mint), decimals: s.value.decimals }));
+    info.catch(() => known.delete(mint));
+    known.set(mint, info);
+  }
+  return info;
+}
+
+/** Whether a receipt's mint has been made yet (by its first carried lock). */
+export async function mintExists(mint: string): Promise<boolean> {
+  return (await solanaConnection().getAccountInfo(new PublicKey(mint))) !== null;
+}

@@ -10,7 +10,7 @@ export const CONVERT_NETWORK_ORDER: readonly SupportedChain[] = [
   "ethereum",
   "solana",
   "polkadot",
-  "tron",
+  "tempo",
   "hyperliquid",
   "robinhood",
   "base",

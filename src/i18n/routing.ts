@@ -7,15 +7,4 @@ export const routing = defineRouting({
   // Used when no locale matches
   defaultLocale: "id",
 
-  // custom pathnames
-  pathnames: {
-    "/landing-usdc": {
-      en: "/buy-usdc-and-earn-yield",
-      id: "/beli-usdc-dan-dapat-bunga",
-    },
-    "/learn-blockchain": {
-      en: "/learn-blockchain",
-      id: "/belajar-blockchain",
-    },
-  },
 });

@@ -8,15 +8,15 @@ const BitcoinConnectButton = dynamic(() => import('@/subcomponents/BitcoinConnec
 const EthereumConnectButton = dynamic(() => import('@/subcomponents/EthereumConnectButton').then(m => m.EthereumConnectButton), { ssr: false })
 const SolanaConnectButton = dynamic(() => import('@/subcomponents/SolanaConnectButton').then(m => m.SolanaConnectButton), { ssr: false })
 const HederaConnectButton = dynamic(() => import('@/subcomponents/HederaConnectButton').then(m => m.HederaConnectButton), { ssr: false })
-const TronConnectButton = dynamic(() => import('@/subcomponents/TronConnectButton').then(m => m.TronConnectButton), { ssr: false })
+const TempoConnectButton = dynamic(() => import('@/subcomponents/TempoConnectButton').then(m => m.TempoConnectButton), { ssr: false })
 const HyperliquidConnectButton = dynamic(() => import('@/subcomponents/HyperliquidConnectButton').then(m => m.HyperliquidConnectButton), { ssr: false })
 const RobinhoodConnectButton = dynamic(() => import('@/subcomponents/RobinhoodConnectButton').then(m => m.RobinhoodConnectButton), { ssr: false })
 const BaseConnectButton = dynamic(() => import('@/subcomponents/BaseConnectButton').then(m => m.BaseConnectButton), { ssr: false })
 const ArbitrumConnectButton = dynamic(() => import('@/subcomponents/ArbitrumConnectButton').then(m => m.ArbitrumConnectButton), { ssr: false })
 
-export type SupportedChain = 'polkadot' | 'bitcoin' | 'hedera' | 'ethereum' | 'solana' | 'tron' | 'hyperliquid' | 'robinhood' | 'base' | 'arbitrum'
+export type SupportedChain = 'polkadot' | 'bitcoin' | 'hedera' | 'ethereum' | 'solana' | 'tempo' | 'hyperliquid' | 'robinhood' | 'base' | 'arbitrum'
 
-export const SUPPORTED_CHAINS: SupportedChain[] = ['polkadot', 'bitcoin', 'hedera', 'ethereum', 'solana', 'tron', 'hyperliquid', 'robinhood', 'base', 'arbitrum']
+export const SUPPORTED_CHAINS: SupportedChain[] = ['polkadot', 'bitcoin', 'hedera', 'ethereum', 'solana', 'tempo', 'hyperliquid', 'robinhood', 'base', 'arbitrum']
 export const DEFAULT_CHAIN: SupportedChain = 'solana'
 const PREFERRED_CHAIN_KEY = 'preferred-default-chain'
 
@@ -60,8 +60,8 @@ interface NetworkContextType {
   setEthereumMainnet: (val: boolean) => void
   solanaMainnet: boolean
   setSolanaMainnet: (val: boolean) => void
-  tronMainnet: boolean
-  setTronMainnet: (val: boolean) => void
+  tempoMainnet: boolean
+  setTempoMainnet: (val: boolean) => void
   hyperliquidMainnet: boolean
   setHyperliquidMainnet: (val: boolean) => void
   robinhoodMainnet: boolean
@@ -100,31 +100,11 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
     savePreferredChain(chain)
   }
 
-  const [networkModes, setNetworkModes] = useState<Record<SupportedChain, boolean>>(() => {
-    const defaults = {
-      polkadot: true,
-      bitcoin: true,
-      hedera: true,
-      ethereum: true,
-      solana: true,
-      tron: true,
-      hyperliquid: true,
-      robinhood: true,
-      base: true,
-      arbitrum: true,
-    }
-
-    if (typeof window === 'undefined') return defaults
-
-    try {
-      const saved = localStorage.getItem('network-modes-isolated')
-      return saved ? { ...defaults, ...JSON.parse(saved) } : defaults
-    } catch (e) {
-      console.error("Failed to parse network modes", e)
-      return defaults
-    }
-  })
-
+  // Greatwall runs the iPoW protocol's test networks: every network is its
+  // testnet, but Bitcoin, which is always mainnet (the light client accepts
+  // only real Bitcoin). The setters are kept for callers and change nothing.
+  const isMainnet = (chain: SupportedChain) => chain === 'bitcoin'
+  const updateNetwork = (_chain: SupportedChain, _val: boolean) => {}
 
   useEffect(() => {
     if (initialChain && initialChain !== selectedChain) {
@@ -138,21 +118,6 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
     }
   }, [selectedChain])
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('network-modes-isolated', JSON.stringify(networkModes))
-    }
-  }, [networkModes])
-
-
-  const updateNetwork = (chain: SupportedChain, val: boolean) => {
-    setNetworkModes((prev) => ({
-      ...prev,
-      [chain]: val,
-    }))
-  }
-
-  
   const value = useMemo(() => ({
     selectedChain,
     setSelectedChain,
@@ -160,39 +125,39 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
     preferredChain,
     setPreferredChain,
 
-    polkadotMainnet: networkModes.polkadot,
+    polkadotMainnet: isMainnet('polkadot'),
     setPolkadotMainnet: (val: boolean) => updateNetwork('polkadot', val),
 
-    bitcoinMainnet: networkModes.bitcoin,
+    bitcoinMainnet: isMainnet('bitcoin'),
     setBitcoinMainnet: (val: boolean) => updateNetwork('bitcoin', val),
     
-    hederaMainnet: networkModes.hedera,
+    hederaMainnet: isMainnet('hedera'),
     setHederaMainnet: (val: boolean) => updateNetwork('hedera', val),
     
-    ethereumMainnet: networkModes.ethereum,
+    ethereumMainnet: isMainnet('ethereum'),
     setEthereumMainnet: (val: boolean) => updateNetwork('ethereum', val),
     
-    solanaMainnet: networkModes.solana,
+    solanaMainnet: isMainnet('solana'),
     setSolanaMainnet: (val: boolean) => updateNetwork('solana', val),
 
-    tronMainnet: networkModes.tron,
-    setTronMainnet: (val: boolean) => updateNetwork('tron', val),
+    tempoMainnet: isMainnet('tempo'),
+    setTempoMainnet: (val: boolean) => updateNetwork('tempo', val),
 
-    hyperliquidMainnet: networkModes.hyperliquid,
+    hyperliquidMainnet: isMainnet('hyperliquid'),
     setHyperliquidMainnet: (val: boolean) => updateNetwork('hyperliquid', val),
 
-    robinhoodMainnet: networkModes.robinhood,
+    robinhoodMainnet: isMainnet('robinhood'),
     setRobinhoodMainnet: (val: boolean) => updateNetwork('robinhood', val),
 
-    baseMainnet: networkModes.base,
+    baseMainnet: isMainnet('base'),
     setBaseMainnet: (val: boolean) => updateNetwork('base', val),
 
-    arbitrumMainnet: networkModes.arbitrum,
+    arbitrumMainnet: isMainnet('arbitrum'),
     setArbitrumMainnet: (val: boolean) => updateNetwork('arbitrum', val),
 
-    isMainnet: (chain: SupportedChain) => networkModes[chain],
+    isMainnet,
     setMainnet: updateNetwork,
-  }), [selectedChain, preferredChain, networkModes])
+  }), [selectedChain, preferredChain])
 
   return (
     <NetworkContext.Provider value={value}>
@@ -221,8 +186,8 @@ export function DynamicConnectButton({
       return <SolanaConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'hedera':
       return <HederaConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
-    case 'tron':
-      return <TronConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
+    case 'tempo':
+      return <TempoConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'hyperliquid':
       return <HyperliquidConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'robinhood':

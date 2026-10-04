@@ -4,7 +4,7 @@
 
 import "./globals.css";
 import Image from "next/image";
-import logos from "@/assets/logos.svg";
+import greatwallLogo from "@/assets/greatwall-logo.png";
 
 export default function GlobalError({
   error,
@@ -19,8 +19,8 @@ export default function GlobalError({
         <div className="font-grotesk w-full min-h-screen flex flex-col justify-center items-center bg-white px-5">
           <div className="bgBox w-full max-w-md flex flex-col items-center gap-5 text-center border-black/5">
             <div className="flex items-center gap-1.5">
-              <Image src={logos} alt="paradapp" className="w-auto h-auto max-w-7.5" />
-              <p className="text-lg font-black">Paradapp</p>
+              <Image src={greatwallLogo} alt="Greatwall" className="w-auto h-6" />
+              <p className="text-lg font-black">Greatwall</p>
             </div>
 
             <div className="flex items-center justify-center w-14 h-14 rounded-full bg-black/5">
@@ -48,6 +48,7 @@ export default function GlobalError({
                 An unexpected error occurred. You can try again, or reload
                 the page if the problem continues.
               </p>
+            {error?.message && <p className="text-xs break-words opacity-70 font-mono">{error.message}{error.digest ? ` (${error.digest})` : ""}</p>}
             </div>
 
             {error?.digest && (

@@ -79,8 +79,6 @@ export interface HederaWalletContextType {
   selfCustodyParameter: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: HederaWalletType) => Promise<void>;
   disconnect: (hardDisconnect: boolean) => void;
   switchWallet: (wallet: HederaWalletType) => Promise<void>;

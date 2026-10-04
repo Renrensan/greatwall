@@ -17,7 +17,7 @@ import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
-import { useTronWallet } from "@/components/tron/tron-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
@@ -31,7 +31,7 @@ import { HederaConnectButton } from "@/subcomponents/HederaConnectButton";
 import { EthereumConnectButton } from "@/subcomponents/EthereumConnectButton";
 import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
 import { PolkadotConnectButton } from "@/subcomponents/PolkadotConnectButton";
-import { TronConnectButton } from "@/subcomponents/TronConnectButton";
+import { TempoConnectButton } from "@/subcomponents/TempoConnectButton";
 import { HyperliquidConnectButton } from "@/subcomponents/HyperliquidConnectButton";
 import { RobinhoodConnectButton } from "@/subcomponents/RobinhoodConnectButton";
 import { BaseConnectButton } from "@/subcomponents/BaseConnectButton";
@@ -224,12 +224,9 @@ export default function VaultTransactionPage() {
     id: string;
   }>();
 
-  const colorFlip =
-    (network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
-  const bgFlip =
-    (network === "hedera" || network === "polkadot") ? "bg-black dark:bg-white" : (network === "base" ? "bg-[#0052FF]" : `bg-${network}`);
-  const activeStepText =
-    (network === "hedera" || network === "polkadot") ? "text-white dark:text-black" : "text-white";
+  const colorFlip = "text-black";
+  const bgFlip = "bg-black";
+  const activeStepText = "text-white";
 
   const router = useRouter();
 
@@ -238,7 +235,7 @@ export default function VaultTransactionPage() {
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
   const polkadotNetwork = usePolkadotWallet();
-  const tronNetwork = useTronWallet();
+  const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
   const baseNetwork = useBaseWallet();
@@ -255,8 +252,8 @@ export default function VaultTransactionPage() {
     setSolanaMainnet,
     polkadotMainnet,
     setPolkadotMainnet,
-    tronMainnet,
-    setTronMainnet,
+    tempoMainnet,
+    setTempoMainnet,
     hyperliquidMainnet,
     setHyperliquidMainnet,
     robinhoodMainnet,
@@ -308,10 +305,10 @@ export default function VaultTransactionPage() {
         setter: setPolkadotMainnet,
         name: polkadotNetwork?.networkName,
       },
-      tron: {
-        isMainnet: tronMainnet,
-        setter: setTronMainnet,
-        name: tronNetwork?.networkName,
+      tempo: {
+        isMainnet: tempoMainnet,
+        setter: setTempoMainnet,
+        name: tempoNetwork?.networkName,
       },
       hyperliquid: {
         isMainnet: hyperliquidMainnet,
@@ -342,7 +339,7 @@ export default function VaultTransactionPage() {
     ethereumMainnet,
     solanaMainnet,
     polkadotMainnet,
-    tronMainnet,
+    tempoMainnet,
     hyperliquidMainnet,
     robinhoodMainnet,
     baseMainnet,
@@ -352,7 +349,7 @@ export default function VaultTransactionPage() {
     ethereumNetwork,
     solanaNetwork,
     polkadotNetwork,
-    tronNetwork,
+    tempoNetwork,
     hyperliquidNetwork,
     robinhoodNetwork,
     baseNetwork,
@@ -395,12 +392,8 @@ const handleConfirmSend = async (toAddress: string, amountToken: number) => {
       let resultTxid;
 
       if (network === "solana") {
-        if (!gaslessQuote || !gaslessQuote.transactionBase64) {
-           throw new Error("Transaction payload missing or fee calculation failed");
-        }
-        
-
-        resultTxid = await executeGaslessSend(gaslessQuote.transactionBase64);
+        // Signed by the wallet (paradapp's relayer was removed).
+        resultTxid = await activeProvider.sendTokenTo(toAddress, amountToken, undefined, txTokenDetails?.isNative === false ? txTokenDetails?.mint : undefined, txTokenDetails?.decimals);
       } else {
     
         resultTxid = await activeProvider.sendTokenTo(toAddress, amountToken);
@@ -435,9 +428,9 @@ const handleConfirmSend = async (toAddress: string, amountToken: number) => {
   } else if (network == "polkadot") {
     fetchETA = polkadotNetwork.fetchETA;
     networkExplorer = polkadotNetwork.networkExplorer;
-  } else if (network == "tron") {
-    fetchETA = tronNetwork.fetchETA;
-    networkExplorer = tronNetwork.networkExplorer;
+  } else if (network == "tempo") {
+    fetchETA = tempoNetwork.fetchETA;
+    networkExplorer = tempoNetwork.networkExplorer;
   } else if (network == "hyperliquid") {
     fetchETA = hyperliquidNetwork.fetchETA;
     networkExplorer = hyperliquidNetwork.networkExplorer;
@@ -478,7 +471,7 @@ const handleConfirmSend = async (toAddress: string, amountToken: number) => {
   const [payoutNote, setPayoutNote] = useState<PayoutNote | null>(null);
   const [sendMode, setSendMode] = useState<"AUTO" | "MANUAL">("AUTO");
 
-let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
+let connected, address;
 
   if (network === "bitcoin") {
     connected = bitcoinNetwork.connected;
@@ -492,9 +485,9 @@ let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
   } else if (network === "polkadot") {
     connected = polkadotNetwork.connected;
     address = polkadotNetwork.address;
-  } else if (network === "tron") {
-    connected = tronNetwork.connected;
-    address = tronNetwork.address;
+  } else if (network === "tempo") {
+    connected = tempoNetwork.connected;
+    address = tempoNetwork.address;
   } else if (network === "hyperliquid") {
     connected = hyperliquidNetwork.connected;
     address = hyperliquidNetwork.address;
@@ -510,8 +503,6 @@ let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
   } else {
     connected = solanaNetwork.connected;
     address = solanaNetwork.address;
-    fetchGaslessSendQuote = solanaNetwork.fetchGaslessSendQuote;
-    executeGaslessSend = solanaNetwork.executeGaslessSend;
   }
 
   const activeProvider: any = useMemo(() => {
@@ -526,8 +517,8 @@ let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
         return solanaNetwork;
       case "polkadot":
         return polkadotNetwork;
-      case "tron":
-        return tronNetwork;
+      case "tempo":
+        return tempoNetwork;
       case "hyperliquid":
         return hyperliquidNetwork;
       case "robinhood":
@@ -539,7 +530,7 @@ let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
       default:
         return null;
     }
-  }, [network, bitcoinNetwork, hederaNetwork, ethereumNetwork, solanaNetwork, polkadotNetwork, tronNetwork, hyperliquidNetwork, robinhoodNetwork, baseNetwork, arbitrumNetwork]);
+  }, [network, bitcoinNetwork, hederaNetwork, ethereumNetwork, solanaNetwork, polkadotNetwork, tempoNetwork, hyperliquidNetwork, robinhoodNetwork, baseNetwork, arbitrumNetwork]);
 
   const isAuthorized = useMemo(() => {
     if (!transaction || !activeProvider || !activeProvider.connected)
@@ -703,55 +694,7 @@ let connected, address, fetchGaslessSendQuote: any, executeGaslessSend: any;
     }
   };
 
-useEffect(() => {
-    let isCancelled = false;
-    
-
-    const paradappAddress = transaction?.paymentDetails?.paradappAddress;
-    const amtStr = transaction?.tokenAmount;
-
-
-    if (network !== "solana" || !transaction || !amtStr || !paradappAddress) {
-      setGaslessQuote(null);
-      setIsFetchingGasless(false);
-      return;
-    }
-
-    const fetchQuote = async () => {
-      setIsFetchingGasless(true);
-      const amt = parseFloat(amtStr);
-      try {
-        const res = await fetchGaslessSendQuote(
-          paradappAddress, 
-          txTokenDetails?.mint, 
-          amt, 
-          txTokenDetails?.decimals
-        );
-        if (!isCancelled) {
-          setGaslessQuote(res?.success ? res : null);
-        }
-      } catch (err) {
-        if (!isCancelled) setGaslessQuote(null);
-      } finally {
-        if (!isCancelled) setIsFetchingGasless(false);
-      }
-    };
-
-
-    const timeoutId = setTimeout(fetchQuote, 500);
-    return () => { 
-      isCancelled = true; 
-      clearTimeout(timeoutId);
-    };
-  }, [
-    
-    transaction?.tokenAmount, 
-    transaction?.paymentDetails?.paradappAddress, 
-    txTokenDetails?.mint, 
-    txTokenDetails?.decimals, 
-    network, 
-    fetchGaslessSendQuote
-  ]);
+// Solana sends are signed by the wallet (paradapp's relayer was removed): no relayer quote.
   useEffect(() => {
     fetchTransaction();
     const txInterval = setInterval(fetchTransaction, 10000);
@@ -989,7 +932,7 @@ useEffect(() => {
       <div className="flex justify-center items-center h-[60vh]">
         <div className="text-center space-y-3">
           <div
-            className={`animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} rounded-full`}
+            className={`animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent rounded-full`}
           ></div>
           <p className="text-sm ">{t("text74")}</p>
         </div>
@@ -1022,8 +965,8 @@ useEffect(() => {
             <SolanaConnectButton />
           ) : network === "polkadot" ? (
             <PolkadotConnectButton />
-          ) : network === "tron" ? (
-            <TronConnectButton />
+          ) : network === "tempo" ? (
+            <TempoConnectButton />
           ) : network === "hyperliquid" ? (
             <HyperliquidConnectButton />
           ) : network === "robinhood" ? (
@@ -1047,7 +990,7 @@ useEffect(() => {
                   <p className="text-xs font-bold text-red-500 uppercase tracking-widest">
                     {t("text26")}
                   </p>
-                  <p className="text-[11px] font-bold leading-relaxed text-red-700 dark:text-red-300">
+                  <p className="text-[11px] font-bold leading-relaxed text-red-700">
                     {dynamicMismatchText}
                   </p>
                 </div>
@@ -1323,8 +1266,8 @@ useEffect(() => {
           <SolanaConnectButton />
         ) : network === "polkadot" ? (
           <PolkadotConnectButton />
-        ) : network === "tron" ? (
-          <TronConnectButton />
+        ) : network === "tempo" ? (
+          <TempoConnectButton />
         ) : network === "hyperliquid" ? (
           <HyperliquidConnectButton />
         ) : network === "robinhood" ? (
@@ -1359,7 +1302,7 @@ useEffect(() => {
               <p>
                 {t("text76")}{" "}
                 <span
-                  className={`font-semibold ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                  className={`font-semibold`}
                 >
                   {timeLeft}
                 </span>
@@ -1368,7 +1311,7 @@ useEffect(() => {
                 <button
                   onClick={() => setShowCancelModal(true)}
                   disabled={isCancelling}
-                  className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-white underline cursor-pointer disabled:opacity-50 transition-colors"
+                  className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   {locale === "id" ? "Batalkan Transaksi" : "Cancel Transaction"}
                 </button>
@@ -1394,13 +1337,13 @@ useEffect(() => {
                                 ? `${bgFlip} ${activeStepText}`
                                 : isCurrent
                                   ? `${bgFlip} ${activeStepText} animate-pulse`
-                                  : "bg-gray-300 text-gray-600 dark:text-gray-400"
+                                  : "bg-gray-300 text-gray-600"
                             }`}
                           >
                             {index + 1}
                           </div>
                           <div
-                            className={`mt-1.5 text-[10px] sm:text-xs font-semibold text-center whitespace-nowrap ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                            className={`mt-1.5 text-[10px] sm:text-xs font-semibold text-center whitespace-nowrap`}
                           >
                             {step === "PENDING"
                               ? t("text70")
@@ -1414,7 +1357,7 @@ useEffect(() => {
                             className={`h-0.5 sm:h-1 flex-1 mx-1.5 sm:mx-2.5 mt-3.5 rounded-full ${
                               index < stepIndex
                                 ? `${bgFlip}`
-                                : "bg-gray-300 dark:bg-white/10"
+                                : "bg-gray-300"
                             }`}
                           ></div>
                         )}
@@ -1426,7 +1369,7 @@ useEffect(() => {
 
               {/* Updated Withdrawal Pending UI */}
               {effectiveStatus === "PENDING" && (
-                <div className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
+                <div className="bg-white border border-gray-200 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
                   ⏳ {t("text77")}
                   {effectiveTxHash && (
                     <>
@@ -1456,7 +1399,7 @@ useEffect(() => {
                         href={`${(networkExplorer as any).transaction}${effectiveTxHash}${(networkExplorer as any).urlSuffix || ""}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-medium text-yellow-900 dark:text-yellow-400 block mt-1"
+                        className="underline font-medium text-yellow-900 block mt-1"
                       >
                         {t("text79") + " "}
                       </a>
@@ -1466,7 +1409,7 @@ useEffect(() => {
               )}
 
               {(effectiveStatus === "PAID" || effectiveStatus === "COMPLETED") && (
-                <div className="bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
+                <div className="bg-green-50 text-green-800 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
                   {t("text80")}
                   {effectiveTxHash && (
                     <>
@@ -1476,7 +1419,7 @@ useEffect(() => {
                         href={`${(networkExplorer as any).transaction}${effectiveTxHash}${(networkExplorer as any).urlSuffix || ""}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline font-medium text-green-900 dark:text-green-400"
+                        className="underline font-medium text-green-900"
                       >
                         {t("text79") + " "}
                       </a>
@@ -1489,7 +1432,7 @@ useEffect(() => {
 
           {/* Destination Summary Card (Same style as Buy) — labeled by the actual
               destination type (e-wallet vs bank) instead of always assuming "Bank Account". */}
-          <div className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
+          <div className="bg-white border-gray-200 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
             <p className="font-semibold mb-1">
               {isEwalletDestination
                 ? locale === "id"
@@ -1510,7 +1453,7 @@ useEffect(() => {
                 </span>
                 <div className="flex items-center gap-2">
                   {withdrawBankLogo && (
-                    <div className="w-5 h-5 rounded bg-white dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
+                    <div className="w-5 h-5 rounded bg-white border border-black/5 flex items-center justify-center p-0.5 overflow-hidden shrink-0">
                       <Image src={withdrawBankLogo} alt={withdrawBankDisplayName} className="w-full h-full object-contain" />
                     </div>
                   )}
@@ -1540,7 +1483,7 @@ useEffect(() => {
           </div>
 
           {/* Amount Summary Card (Same style as Buy) */}
-          <div className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
+          <div className="bg-white border-gray-200 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
             <p className="font-semibold mb-1">{t("text88")}:</p>
             <p>
               <span className="font-semibold">
@@ -1562,7 +1505,7 @@ useEffect(() => {
                     {locale == "id" ? "" : " IDR"}
                   </>
                 ) : displayEstimatedIdr === null ? (
-                  <span className="inline-block h-4 w-20 bg-black/10 dark:bg-white/10 rounded animate-pulse align-middle" />
+                  <span className="inline-block h-4 w-20 bg-black/10 rounded animate-pulse align-middle" />
                 ) : (
                   <>
                     {locale == "id" ? "Rp " : ""}
@@ -1579,7 +1522,7 @@ useEffect(() => {
               status === "PENDING" ||
               status === "PAID") &&
               payoutNote && (
-                <div className="bg-white/80 dark:bg-white/5 border border-black/5 dark:border-white/10 sm:text-xs text-[10px] rounded-lg px-3 py-2.5 mt-3 opacity-90 leading-relaxed">
+                <div className="bg-white/80 border border-black/5 sm:text-xs text-[10px] rounded-lg px-3 py-2.5 mt-3 opacity-90 leading-relaxed">
                   {locale == "id" ? payoutNote.note.id : payoutNote.note.en}
                 </div>
               )}
@@ -1597,11 +1540,11 @@ useEffect(() => {
 
           {!isExpired && effectiveStatus === "WAITING" && (
             /* MAIN WITHDRAWAL TRANSFER CARD (Same style format as Buy) */
-            <div className="bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
+            <div className="bg-white/40 border border-black/5 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
               {/* Card Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5 dark:border-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/10 text-neutral-700 dark:text-neutral-200 border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-black/5 text-neutral-700 border border-black/5 flex items-center justify-center shrink-0 shadow-sm">
                     <Icon icon="solar:card-send-bold" className="text-lg" />
                   </div>
                   <div className="flex flex-col min-w-0">
@@ -1621,7 +1564,7 @@ useEffect(() => {
                     <button
                       type="button"
                       onClick={() => setSendMode(sendMode === "AUTO" ? "MANUAL" : "AUTO")}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15 text-[10px] font-bold transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 text-[10px] font-bold transition-all cursor-pointer"
                     >
                       <span>{sendMode === "AUTO" ? (locale === "id" ? "Mode Otomatis" : "Auto Mode") : (locale === "id" ? "Mode Manual" : "Manual Mode")}</span>
                       <Icon
@@ -1630,7 +1573,7 @@ useEffect(() => {
                       />
                     </button>
                   )}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold shrink-0">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                     <span>{locale === "id" ? "Menunggu Pengiriman" : "Awaiting Transfer"}</span>
                   </div>
@@ -1638,7 +1581,7 @@ useEffect(() => {
               </div>
 
               {/* Destination Address Section */}
-              <div className="flex flex-col gap-1.5 bg-black/3 dark:bg-white/5 rounded-xl p-3.5 border border-black/5 dark:border-white/5">
+              <div className="flex flex-col gap-1.5 bg-black/3 rounded-xl p-3.5 border border-black/5">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                   {t("text86")}
                 </span>
@@ -1655,8 +1598,8 @@ useEffect(() => {
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                       copiedAddress
-                        ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                        : "bg-black/5 hover:bg-black/10 text-black/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white"
+                        ? "bg-green-500/15 text-green-600"
+                        : "bg-black/5 hover:bg-black/10 text-black/80"
                     }`}
                   >
                     <Icon icon={copiedAddress ? "solar:check-circle-bold" : "solar:copy-linear"} className="text-sm" />
@@ -1666,7 +1609,7 @@ useEffect(() => {
               </div>
 
               {/* Exact Token Amount Section */}
-              <div className="flex flex-col gap-1.5 bg-black/3 dark:bg-white/5 rounded-xl p-3.5 border border-black/5 dark:border-white/5">
+              <div className="flex flex-col gap-1.5 bg-black/3 rounded-xl p-3.5 border border-black/5">
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                   {t("text88")}
                 </span>
@@ -1683,8 +1626,8 @@ useEffect(() => {
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                       copiedTokenAmt
-                        ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                        : "bg-black/5 hover:bg-black/10 text-black/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white"
+                        ? "bg-green-500/15 text-green-600"
+                        : "bg-black/5 hover:bg-black/10 text-black/80"
                     }`}
                   >
                     <Icon icon={copiedTokenAmt ? "solar:check-circle-bold" : "solar:copy-linear"} className="text-sm" />
@@ -1694,7 +1637,7 @@ useEffect(() => {
               </div>
 
               {/* Important Warning Notice */}
-              <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 space-y-2.5">
+              <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 space-y-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-orange-500 uppercase tracking-widest pb-0.5">
                   <Icon icon="solar:danger-circle-bold" className="text-base text-orange-500" />
                   <span>{locale === "id" ? "Penting" : "Important"}</span>
@@ -1720,7 +1663,7 @@ useEffect(() => {
                 <div className="flex flex-col gap-3 pt-1">
                   {/* Solana Gasless Breakdown */}
                   {network === "solana" && (
-                    <div className="flex flex-col gap-1.5 p-3 bgBox glass-card border border-black/5 dark:border-white/10 rounded-xl text-xs">
+                    <div className="flex flex-col gap-1.5 p-3 bgBox glass-card border border-black/5 rounded-xl text-xs">
                       <div className="flex justify-between items-center opacity-60">
                         <span>{locale === "en" ? "Send Amount" : "Jumlah Kirim"}</span>
                         <span className="font-mono">{tokenAmount} {txTokenTicker}</span>
@@ -1747,10 +1690,10 @@ useEffect(() => {
                           </span>
                         </div>
                       )}
-                      <div className="w-full h-[1px] bg-black/5 dark:bg-white/5 my-0.5" />
+                      <div className="w-full h-[1px] bg-black/5 my-0.5" />
                       <div className="flex justify-between items-center font-bold">
                         <span>{locale === "en" ? "Total Deducted" : "Total Dipotong"}</span>
-                        <span className="font-mono text-solana">
+                        <span className="font-mono">
                           {isFetchingGasless 
                             ? "..." 
                             : gaslessQuote 
@@ -1784,12 +1727,12 @@ useEffect(() => {
               )}
 
               {/* Step-by-Step Withdrawal Instructions Accordion at the BOTTOM (Same format as Buy) */}
-              <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-2">
-                <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+              <div className="pt-2 border-t border-black/5 space-y-2">
+                <div className="rounded-xl border border-black/5 overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setOpenGuide(openGuide === "withdraw_guide" ? null : "withdraw_guide")}
-                    className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
                       <Icon icon="solar:wallet-money-linear" className="text-base opacity-60" />
@@ -1799,7 +1742,7 @@ useEffect(() => {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setSendMode(sendMode === "AUTO" ? "MANUAL" : "AUTO"); }}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-[10px] font-bold"
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/5 text-[10px] font-bold"
                       >
                         {sendMode === "AUTO" ? t("text131") : t("text132")}
                       </button>
@@ -1807,7 +1750,7 @@ useEffect(() => {
                     </div>
                   </button>
                   {openGuide === "withdraw_guide" && (
-                    <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5 whitespace-pre-line">
+                    <div className="p-3.5 bg-black/2 text-[11px] opacity-80 leading-relaxed border-t border-black/5 whitespace-pre-line">
                       {sendMode === "AUTO" ? t("text130") : t("text85")}
                     </div>
                   )}
@@ -1816,7 +1759,7 @@ useEffect(() => {
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-2 pt-3 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center justify-between mt-2 pt-3 border-t border-black/5">
             <div className="w-28">
               <Button
                 chain={network}
@@ -1826,7 +1769,7 @@ useEffect(() => {
                 }}
               />
             </div>
-            <div className="text-right text-[11px] sm:text-xs text-neutral-400 dark:text-neutral-500 font-medium">
+            <div className="text-right text-[11px] sm:text-xs text-neutral-400 font-medium">
               <p>{t("text94")}:</p>
               <p>{formatDateTime(transaction.createdAt)}</p>
             </div>
@@ -1855,7 +1798,7 @@ useEffect(() => {
               <p>
                 {t("text76")}{" "}
                 <span
-                  className={`font-semibold ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                  className={`font-semibold`}
                 >
                   {timeLeft}
                 </span>
@@ -1864,7 +1807,7 @@ useEffect(() => {
                 <button
                   onClick={() => setShowCancelModal(true)}
                   disabled={isCancelling}
-                  className="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-white underline cursor-pointer disabled:opacity-50 transition-colors"
+                  className="text-xs text-neutral-400 hover:text-neutral-700 underline cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   {locale === "id" ? "Batalkan Transaksi" : "Cancel Transaction"}
                 </button>
@@ -1892,13 +1835,13 @@ useEffect(() => {
                                 ? `${bgFlip} ${activeStepText}`
                                 : isCurrent
                                   ? `${bgFlip} ${activeStepText} animate-pulse`
-                                  : "bg-gray-300 text-gray-600 dark:text-gray-400"
+                                  : "bg-gray-300 text-gray-600"
                             }`}
                           >
                             {index + 1}
                           </div>
                           <div
-                            className={`mt-1.5 text-[10px] sm:text-xs font-semibold text-center whitespace-nowrap ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                            className={`mt-1.5 text-[10px] sm:text-xs font-semibold text-center whitespace-nowrap`}
                           >
                             {step === "PENDING"
                               ? t("text70")
@@ -1909,14 +1852,10 @@ useEffect(() => {
 
                           {/* Sub-status: Clean 2-line stacked layout (no truncate clipping) */}
                           {isCurrent && step === "PAID" && (
-                            <div className="mt-1 flex flex-col items-center justify-center text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 font-medium text-center w-full px-0.5 leading-tight">
+                            <div className="mt-1 flex flex-col items-center justify-center text-[9px] sm:text-[10px] text-neutral-500 font-medium text-center w-full px-0.5 leading-tight">
                               <div className="flex items-center justify-center gap-1">
                                 <div
-                                  className={`animate-spin inline-block w-2.5 h-2.5 border border-current border-t-transparent ${
-                                    network === "hedera" || network === "polkadot"
-                                      ? ""
-                                      : (network === "base" ? "text-[#0052FF]" : `text-${network}`)
-                                  } rounded-full shrink-0`}
+                                  className={`animate-spin inline-block w-2.5 h-2.5 border border-current border-t-transparent rounded-full shrink-0`}
                                 />
                                 <span>
                                   {transaction.paymentDetails?.depositTxHash
@@ -1940,14 +1879,10 @@ useEffect(() => {
                           )}
 
                           {isCurrent && step === "PENDING" && (
-                            <div className="mt-1 flex flex-col items-center justify-center text-[9px] sm:text-[10px] text-neutral-500 dark:text-neutral-400 font-medium text-center w-full px-0.5 leading-tight">
+                            <div className="mt-1 flex flex-col items-center justify-center text-[9px] sm:text-[10px] text-neutral-500 font-medium text-center w-full px-0.5 leading-tight">
                               <div className="flex items-center justify-center gap-1">
                                 <div
-                                  className={`animate-spin inline-block w-2.5 h-2.5 border border-current border-t-transparent ${
-                                    network === "hedera" || network === "polkadot"
-                                      ? ""
-                                      : (network === "base" ? "text-[#0052FF]" : `text-${network}`)
-                                  } rounded-full shrink-0`}
+                                  className={`animate-spin inline-block w-2.5 h-2.5 border border-current border-t-transparent rounded-full shrink-0`}
                                 />
                                 <span>
                                   {locale === "id"
@@ -1972,7 +1907,7 @@ useEffect(() => {
                               ["COMPLETED", "PENDING"].includes(status) &&
                               index < (status === "COMPLETED" ? 2 : 1)
                                 ? `${bgFlip}`
-                                : "bg-gray-300 dark:bg-white/10"
+                                : "bg-gray-300"
                             }`}
                           />
                         )}
@@ -1986,7 +1921,7 @@ useEffect(() => {
 
           {/* Deposit Pending UI */}
           {status === "PENDING" && (
-            <div className="bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
+            <div className="bg-white border border-gray-200 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
               ⏳ {t("text95")}
               {transaction.txHash && (
                 <>
@@ -2016,7 +1951,7 @@ useEffect(() => {
                     href={`${(networkExplorer as any).transaction}${transaction.txHash}${(networkExplorer as any).urlSuffix || ""}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline font-medium text-yellow-900 dark:text-yellow-400 block mt-1"
+                    className="underline font-medium text-yellow-900 block mt-1"
                   >
                     {t("text79") + " "}
                   </a>
@@ -2027,7 +1962,7 @@ useEffect(() => {
 
           {/* Deposit Completed UI */}
           {status === "COMPLETED" && (
-            <div className="bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
+            <div className="bg-green-50 text-green-800 sm:text-sm text-[10px] px-4 py-3 mb-4 rounded-md">
               {t("text96")}
               {transaction.txHash && (
                 <>
@@ -2037,7 +1972,7 @@ useEffect(() => {
                     href={`${(networkExplorer as any).transaction}${transaction.txHash}${(networkExplorer as any).urlSuffix || ""}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline font-medium text-green-900 dark:text-green-400"
+                    className="underline font-medium text-green-900"
                   >
                     {t("text79") + " "}
                   </a>
@@ -2046,7 +1981,7 @@ useEffect(() => {
             </div>
           )}
 
-          <div className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
+          <div className="bg-white border-gray-200 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
             <p className="font-semibold  mb-1">{"Destination Address:"}</p>
             <p>
               <span className="font-semibold break-all">
@@ -2055,7 +1990,7 @@ useEffect(() => {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
+          <div className="bg-white border-gray-200 rounded-xl px-4 py-3 mb-4 sm:text-sm text-[10px]">
             <p className="font-semibold mb-1">{t("text97")}:</p>
             <p>
               <span className="font-semibold">
@@ -2069,7 +2004,7 @@ useEffect(() => {
             <p>
               <span className="font-bold">
                 {tokenAmount == 0 && displayEstimatedToken === null ? (
-                  <span className="inline-block h-4 w-16 bg-black/10 dark:bg-white/10 rounded animate-pulse align-middle" />
+                  <span className="inline-block h-4 w-16 bg-black/10 rounded animate-pulse align-middle" />
                 ) : (
                   <>
                     {tokenAmount == 0 ? displayEstimatedToken : tokenAmount}{" "}
@@ -2094,11 +2029,11 @@ useEffect(() => {
             <>
               {isQrisPayment ? (
                 /* NATIVE DIRECT QRIS CARD */
-                <div className="bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
+                <div className="bg-white/40 border border-black/5 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
                   {/* Card Header: QRIS Badge + Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5 dark:border-white/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-lg bg-white border border-black/5 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-sm">
                         <Image src={qris} alt="QRIS" className="w-full h-full object-contain" />
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -2112,7 +2047,7 @@ useEffect(() => {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold self-start sm:self-auto shrink-0">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold self-start sm:self-auto shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                       <span>{locale === "id" ? "Menunggu Pembayaran" : "Awaiting Payment"}</span>
                     </div>
@@ -2141,7 +2076,7 @@ useEffect(() => {
                     <button
                       type="button"
                       onClick={handleDownloadQr}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-black/5 hover:bg-black/10 text-black/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white transition-all cursor-pointer shadow-sm"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-black/5 hover:bg-black/10 text-black/80 transition-all cursor-pointer shadow-sm"
                     >
                       <Icon icon="solar:download-square-bold" className="text-sm" />
                       <span>{locale === "id" ? "Unduh Gambar QR" : "Download QR Code"}</span>
@@ -2149,7 +2084,7 @@ useEffect(() => {
                   </div>
 
                   {/* Important Warning */}
-                  <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 space-y-2.5">
+                  <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 space-y-2.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-orange-500 uppercase tracking-widest pb-0.5">
                       <Icon icon="solar:danger-circle-bold" className="text-base text-orange-500" />
                       <span>{locale === "id" ? "Penting" : "Important"}</span>
@@ -2172,9 +2107,9 @@ useEffect(() => {
 
                   {/* Fee Breakdown (if fees present) */}
                   {feeItems && feeItems.length > 0 && (
-                    <div className="p-3.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 space-y-2 text-xs">
+                    <div className="p-3.5 rounded-xl bg-black/[0.03] border border-black/5 space-y-2 text-xs">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-neutral-500 dark:text-neutral-400 font-medium">
+                        <span className="text-neutral-500 font-medium">
                           {locale === "id" ? "Nominal Pembelian IDRX" : "IDRX Purchase Amount"}
                         </span>
                         <span className="font-semibold">
@@ -2183,7 +2118,7 @@ useEffect(() => {
                       </div>
                       {feeItems.map((fee: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-xs">
-                          <span className="text-neutral-500 dark:text-neutral-400 font-medium">
+                          <span className="text-neutral-500 font-medium">
                             {formatFeeName(fee.name)}
                           </span>
                           <span className="font-semibold">
@@ -2191,7 +2126,7 @@ useEffect(() => {
                           </span>
                         </div>
                       ))}
-                      <div className="w-full h-px bg-black/5 dark:bg-white/10 my-1" />
+                      <div className="w-full h-px bg-black/5 my-1" />
                       <div className="flex justify-between items-center font-bold text-xs sm:text-sm">
                         <span>{locale === "id" ? "Total Pembayaran" : "Total Payment"}</span>
                         <span className="font-bold">
@@ -2202,16 +2137,16 @@ useEffect(() => {
                   )}
 
                   {/* Step-by-Step QRIS Instructions Accordion (Same format as VA) */}
-                  <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-2">
+                  <div className="pt-2 border-t border-black/5 space-y-2">
                     <span className="text-[11px] font-bold opacity-60 uppercase tracking-wider block">
                       {locale === "id" ? "Panduan Pembayaran" : "Payment Guide"}
                     </span>
 
-                    <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+                    <div className="rounded-xl border border-black/5 overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setOpenGuide(openGuide === "qris" ? null : "qris")}
-                        className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                        className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           <Icon icon="solar:qr-code-linear" className="text-base opacity-60" />
@@ -2220,7 +2155,7 @@ useEffect(() => {
                         <Icon icon="solar:alt-arrow-down-linear" className={`transition-transform duration-200 ${openGuide === "qris" ? "rotate-180" : ""}`} />
                       </button>
                       {openGuide === "qris" && (
-                        <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5">
+                        <div className="p-3.5 bg-black/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5">
                           <ol className="list-decimal pl-4 space-y-1">
                             <li>{locale === "id" ? "Buka aplikasi pembayaran Anda." : "Open your payment app."}</li>
                             <li>{locale === "id" ? "Pilih menu 'Scan' atau 'Bayar QRIS', lalu arahkan kamera ke kode QR di atas atau unggah gambar QR dari galeri." : "Select 'Scan' or 'Pay QRIS', then scan the QR code above or upload the QR image from gallery."}</li>
@@ -2234,16 +2169,16 @@ useEffect(() => {
                 </div>
               ) : hasDirectVA ? (
                 /* NATIVE DIRECT VIRTUAL ACCOUNT CARD */
-                <div className="bg-white/40 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
+                <div className="bg-white/40 border border-black/5 rounded-2xl p-3.5 sm:p-5 mb-4 space-y-4 glass-card shadow-sm">
                   {/* Card Header: Bank Badge + Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5 dark:border-white/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-black/5">
                     <div className="flex items-center gap-2.5 min-w-0">
                       {bankLogo ? (
-                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/10 border border-black/5 dark:border-white/10 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-white border border-black/5 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-sm">
                           <Image src={bankLogo} alt={bankDisplayName} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/10 text-neutral-700 dark:text-neutral-200 border border-black/5 dark:border-white/10 flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-black/5 text-neutral-700 border border-black/5 flex items-center justify-center shrink-0 shadow-sm">
                           <Icon icon="solar:card-2-bold" className="text-lg" />
                         </div>
                       )}
@@ -2258,14 +2193,14 @@ useEffect(() => {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold self-start sm:self-auto shrink-0">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-bold self-start sm:self-auto shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                       <span>{locale === "id" ? "Menunggu Pembayaran" : "Awaiting Payment"}</span>
                     </div>
                   </div>
 
                   {/* VA Number Section */}
-                  <div className="flex flex-col gap-1.5 bg-black/3 dark:bg-white/5 rounded-xl p-3.5 border border-black/5 dark:border-white/5">
+                  <div className="flex flex-col gap-1.5 bg-black/3 rounded-xl p-3.5 border border-black/5">
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                       {locale === "id" ? "Nomor Virtual Account" : "Virtual Account Number"}
                     </span>
@@ -2282,8 +2217,8 @@ useEffect(() => {
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                           copiedVa
-                            ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                            : "bg-black/5 hover:bg-black/10 text-black/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white"
+                            ? "bg-green-500/15 text-green-600"
+                            : "bg-black/5 hover:bg-black/10 text-black/80"
                         }`}
                       >
                         <Icon icon={copiedVa ? "solar:check-circle-bold" : "solar:copy-linear"} className="text-sm" />
@@ -2294,7 +2229,7 @@ useEffect(() => {
 
                   {/* Account Holder / Beneficiary Name */}
                   {vaName && (
-                    <div className="flex flex-col gap-1 bg-black/3 dark:bg-white/5 rounded-xl p-3.5 border border-black/5 dark:border-white/5">
+                    <div className="flex flex-col gap-1 bg-black/3 rounded-xl p-3.5 border border-black/5">
                       <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                         {locale === "id" ? "Nama Penerima (A/N)" : "Beneficiary Name"}
                       </span>
@@ -2305,7 +2240,7 @@ useEffect(() => {
                   )}
 
                   {/* Exact Amount Section */}
-                  <div className="flex flex-col gap-1.5 bg-black/3 dark:bg-white/5 rounded-xl p-3.5 border border-black/5 dark:border-white/5">
+                  <div className="flex flex-col gap-1.5 bg-black/3 rounded-xl p-3.5 border border-black/5">
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
                       {locale === "id" ? "Total Jumlah Transfer" : "Total Transfer Amount"}
                     </span>
@@ -2322,8 +2257,8 @@ useEffect(() => {
                         }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                           copiedAmt
-                            ? "bg-green-500/15 text-green-600 dark:text-green-400"
-                            : "bg-black/5 hover:bg-black/10 text-black/80 dark:bg-white/10 dark:hover:bg-white/15 dark:text-white"
+                            ? "bg-green-500/15 text-green-600"
+                            : "bg-black/5 hover:bg-black/10 text-black/80"
                         }`}
                       >
                         <Icon icon={copiedAmt ? "solar:check-circle-bold" : "solar:copy-linear"} className="text-sm" />
@@ -2333,7 +2268,7 @@ useEffect(() => {
                   </div>
 
                   {/* Paradapp Important Warning */}
-                  <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 space-y-2.5">
+                  <div className="rounded-2xl p-4 bg-orange-500/10 border border-orange-500/20 text-orange-700 space-y-2.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-orange-500 uppercase tracking-widest pb-0.5">
                       <Icon icon="solar:danger-circle-bold" className="text-base text-orange-500" />
                       <span>{locale === "id" ? "Penting" : "Important"}</span>
@@ -2370,9 +2305,9 @@ useEffect(() => {
 
                   {/* Fee Breakdown (if fees present) */}
                   {feeItems && feeItems.length > 0 && (
-                    <div className="p-3.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 space-y-2 text-xs">
+                    <div className="p-3.5 rounded-xl bg-black/[0.03] border border-black/5 space-y-2 text-xs">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-neutral-500 dark:text-neutral-400 font-medium">
+                        <span className="text-neutral-500 font-medium">
                           {locale === "id" ? "Nominal Pembelian IDRX" : "IDRX Purchase Amount"}
                         </span>
                         <span className="font-semibold">
@@ -2381,7 +2316,7 @@ useEffect(() => {
                       </div>
                       {feeItems.map((fee: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center text-xs">
-                          <span className="text-neutral-500 dark:text-neutral-400 font-medium">
+                          <span className="text-neutral-500 font-medium">
                             {formatFeeName(fee.name)}
                           </span>
                           <span className="font-semibold">
@@ -2389,7 +2324,7 @@ useEffect(() => {
                           </span>
                         </div>
                       ))}
-                      <div className="w-full h-px bg-black/5 dark:bg-white/10 my-1" />
+                      <div className="w-full h-px bg-black/5 my-1" />
                       <div className="flex justify-between items-center font-bold text-xs sm:text-sm">
                         <span>{locale === "id" ? "Total Pembayaran" : "Total Payment"}</span>
                         <span className="font-bold">
@@ -2400,18 +2335,18 @@ useEffect(() => {
                   )}
 
                   {/* Step-by-Step Mobile Banking Instructions Accordion */}
-                  <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-2">
+                  <div className="pt-2 border-t border-black/5 space-y-2">
                     <span className="text-[11px] font-bold opacity-60 uppercase tracking-wider block">
                       {locale === "id" ? "Panduan Transfer Bank" : "Bank Transfer Guide"}
                     </span>
 
                     <div className="space-y-1.5">
                       {/* BCA Guide */}
-                      <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+                      <div className="rounded-xl border border-black/5 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => setOpenGuide(openGuide === "bca" ? null : "bca")}
-                          className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
+                          className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors"
                         >
                           <div className="flex items-center gap-2">
                             <Icon icon="solar:smartphone-linear" className="text-base opacity-60" />
@@ -2420,7 +2355,7 @@ useEffect(() => {
                           <Icon icon="solar:alt-arrow-down-linear" className={`transition-transform duration-200 ${openGuide === "bca" ? "rotate-180" : ""}`} />
                         </button>
                         {openGuide === "bca" && (
-                          <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5">
+                          <div className="p-3.5 bg-black/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5">
                             <ol className="list-decimal pl-4 space-y-1">
                               <li>{locale === "id" ? "Buka aplikasi BCA Mobile / myBCA dan pilih menu m-Transfer." : "Open BCA Mobile / myBCA and select m-Transfer."}</li>
                               <li>{locale === "id" ? "Pilih Transfer Antar Bank > Pilih Layanan BI-FAST." : "Select Transfer to Other Bank > Choose BI-FAST service."}</li>
@@ -2434,11 +2369,11 @@ useEffect(() => {
                       </div>
 
                       {/* Mandiri Guide */}
-                      <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+                      <div className="rounded-xl border border-black/5 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => setOpenGuide(openGuide === "mandiri" ? null : "mandiri")}
-                          className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
+                          className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors"
                         >
                           <div className="flex items-center gap-2">
                             <Icon icon="solar:smartphone-linear" className="text-base opacity-60" />
@@ -2447,7 +2382,7 @@ useEffect(() => {
                           <Icon icon="solar:alt-arrow-down-linear" className={`transition-transform duration-200 ${openGuide === "mandiri" ? "rotate-180" : ""}`} />
                         </button>
                         {openGuide === "mandiri" && (
-                          <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5">
+                          <div className="p-3.5 bg-black/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5">
                             <ol className="list-decimal pl-4 space-y-1">
                               <li>{locale === "id" ? "Buka Livin' by Mandiri dan pilih menu Transfer Rupiah." : "Open Livin' by Mandiri and select Transfer Rupiah."}</li>
                               <li>{locale === "id" ? "Pilih Transfer ke Penerima Baru > Cari Bank: BANK INA." : "Select Transfer to New Recipient > Search Bank: BANK INA."}</li>
@@ -2460,11 +2395,11 @@ useEffect(() => {
                       </div>
 
                       {/* BRI Guide */}
-                      <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+                      <div className="rounded-xl border border-black/5 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => setOpenGuide(openGuide === "bri" ? null : "bri")}
-                          className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
+                          className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors"
                         >
                           <div className="flex items-center gap-2">
                             <Icon icon="solar:smartphone-linear" className="text-base opacity-60" />
@@ -2473,7 +2408,7 @@ useEffect(() => {
                           <Icon icon="solar:alt-arrow-down-linear" className={`transition-transform duration-200 ${openGuide === "bri" ? "rotate-180" : ""}`} />
                         </button>
                         {openGuide === "bri" && (
-                          <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5">
+                          <div className="p-3.5 bg-black/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5">
                             <ol className="list-decimal pl-4 space-y-1">
                               <li>{locale === "id" ? "Buka aplikasi BRImo dan pilih menu Transfer." : "Open BRImo app and select Transfer menu."}</li>
                               <li>{locale === "id" ? "Pilih Tambah Penerima Baru > Bank Tujuan: BANK INA." : "Select Add New Recipient > Destination Bank: BANK INA."}</li>
@@ -2487,11 +2422,11 @@ useEffect(() => {
                       </div>
 
                       {/* BNI & Bank Lainnya */}
-                      <div className="rounded-xl border border-black/5 dark:border-white/5 overflow-hidden">
+                      <div className="rounded-xl border border-black/5 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => setOpenGuide(openGuide === "other" ? null : "other")}
-                          className="w-full flex items-center justify-between p-3 bg-white/60 dark:bg-white/5 text-left text-xs font-bold hover:bg-white/80 dark:hover:bg-white/10 transition-colors"
+                          className="w-full flex items-center justify-between p-3 bg-white/60 text-left text-xs font-bold hover:bg-white/80 transition-colors"
                         >
                           <div className="flex items-center gap-2">
                             <Icon icon="solar:card-linear" className="text-base opacity-60" />
@@ -2500,7 +2435,7 @@ useEffect(() => {
                           <Icon icon="solar:alt-arrow-down-linear" className={`transition-transform duration-200 ${openGuide === "other" ? "rotate-180" : ""}`} />
                         </button>
                         {openGuide === "other" && (
-                          <div className="p-3.5 bg-black/2 dark:bg-white/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5 dark:border-white/5">
+                          <div className="p-3.5 bg-black/2 text-[11px] space-y-2 opacity-80 leading-relaxed border-t border-black/5">
                             <ol className="list-decimal pl-4 space-y-1">
                               <li>{locale === "id" ? "Buka Mobile Banking atau kunjungi ATM bank Anda." : "Open your Mobile Banking or visit an ATM."}</li>
                               <li>{locale === "id" ? "Pilih Transfer Antar Bank (pilih BI-FAST atau Online Real-time)." : "Select Interbank Transfer (choose BI-FAST or Real-time Online)."}</li>
@@ -2536,7 +2471,7 @@ useEffect(() => {
             </>
           )}
 
-          <div className="flex items-center justify-between mt-2 pt-3 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center justify-between mt-2 pt-3 border-t border-black/5">
             <div className="w-28">
               <Button
                 chain={network}
@@ -2546,7 +2481,7 @@ useEffect(() => {
                 }}
               />
             </div>
-            <div className="text-right text-[11px] sm:text-xs text-neutral-400 dark:text-neutral-500 font-medium">
+            <div className="text-right text-[11px] sm:text-xs text-neutral-400 font-medium">
               <p>{t("text94")}:</p>
               <p>{formatDateTime(transaction.createdAt)}</p>
             </div>
@@ -2570,7 +2505,7 @@ useEffect(() => {
           <p className="text-sm break-all mb-4">Hash: {txid}</p>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -2608,7 +2543,7 @@ useEffect(() => {
           <p className="text-sm mb-4">{t("text34")}</p>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -2625,30 +2560,30 @@ useEffect(() => {
         onClose={() => !isCancelling && setShowCancelModal(false)}
         maxWidthClass="lg:w-100"
       >
-        <div className="p-6 flex flex-col gap-4 text-black dark:text-white">
+        <div className="p-6 flex flex-col gap-4 text-black">
           <div>
             <h2 className="text-xl font-bold">
               {locale === "id" ? "Batalkan Transaksi" : "Cancel Transaction"}
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1.5 leading-relaxed">
+            <p className="text-sm text-neutral-500 mt-1.5 leading-relaxed">
               {locale === "id"
                 ? "Apakah Anda yakin ingin membatalkan transaksi ini? Pastikan Anda belum melakukan pembayaran."
                 : "Are you sure you want to cancel this transaction? Please make sure you have not made any payment."}
             </p>
           </div>
 
-          <div className="flex justify-end items-center gap-3 pt-4 border-t border-black/5 dark:border-white/10">
+          <div className="flex justify-end items-center gap-3 pt-4 border-t border-black/5">
             <button
               onClick={() => setShowCancelModal(false)}
               disabled={isCancelling}
-              className="px-5 py-2.5 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer min-w-[80px]"
+              className="px-5 py-2.5 rounded-xl bg-black text-white text-xs sm:text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer min-w-[80px]"
             >
               {locale === "id" ? "Tidak" : "No"}
             </button>
             <button
               onClick={handleConfirmCancel}
               disabled={isCancelling}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-black/10 dark:border-white/15 text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer min-w-[100px]"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-black/10 text-neutral-600 hover:bg-black/5 text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer min-w-[100px]"
             >
               {isCancelling ? (
                 <>

@@ -1,5 +1,0 @@
-export const PARADAPP_JUPITER_FEE = 0.005;
-export const ADDITIONAL_SWAP_FEE_LAMPORTS = 10000000;
-
-
-

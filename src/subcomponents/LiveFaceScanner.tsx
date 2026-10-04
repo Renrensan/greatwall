@@ -413,10 +413,10 @@ export default function LiveFaceScanner({
       <div className="flex flex-col gap-4 text-left w-full">
         {/* Header */}
         <div>
-          <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">
+          <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 bg-clip-text text-transparent">
             {isId ? "Langkah 3: Tes Liveness" : "Step 3: Liveness Test"}
           </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+          <p className="text-xs text-neutral-500 mt-0.5">
             {isId
               ? "Siapkan diri Anda sebelum kamera dibuka untuk verifikasi wajah langsung."
               : "Get ready before opening the camera for live face verification."}
@@ -424,17 +424,17 @@ export default function LiveFaceScanner({
         </div>
 
         {/* Central Preparation Card */}
-        <div className="flex flex-col items-center justify-center p-5 sm:p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-900/50 border border-black/10 dark:border-white/10 text-center gap-3.5 shadow-sm">
+        <div className="flex flex-col items-center justify-center p-5 sm:p-6 rounded-2xl bg-neutral-50 border border-black/10 text-center gap-3.5 shadow-sm">
           {/* Simple Clean Camera Icon */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-neutral-800 dark:text-neutral-200">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/5 border border-black/10 flex items-center justify-center text-neutral-800">
             <Icon icon="solar:camera-minimalistic-bold" className="text-2xl sm:text-3xl" />
           </div>
 
           <div className="flex flex-col gap-0.5 max-w-sm">
-            <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-neutral-100">
+            <h3 className="text-sm sm:text-base font-bold text-neutral-900">
               {isId ? "Pencocokan Wajah dengan Kartu Identitas" : "Face Match with ID Card"}
             </h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+            <p className="text-xs text-neutral-500 leading-relaxed">
               {isId
                 ? "Kamera akan memindai wajah Anda secara langsung untuk dicocokkan dengan foto pada kartu identitas."
                 : "The camera will scan your live face to match against your ID photo."}
@@ -443,12 +443,12 @@ export default function LiveFaceScanner({
 
           {/* 3 Guidelines Badges */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-lg mt-0.5">
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white dark:bg-neutral-800/80 border border-black/5 dark:border-white/5 text-left">
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-black/5 text-left">
               <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
                 <Icon icon="solar:sun-bold" className="text-base" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">
+                <span className="text-[11px] font-bold text-neutral-800">
                   {isId ? "Pencahayaan" : "Good Lighting"}
                 </span>
                 <span className="text-[10px] text-neutral-400 leading-tight">
@@ -457,12 +457,12 @@ export default function LiveFaceScanner({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white dark:bg-neutral-800/80 border border-black/5 dark:border-white/5 text-left">
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-black/5 text-left">
               <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-500 shrink-0">
                 <Icon icon="solar:glasses-bold" className="text-base" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">
+                <span className="text-[11px] font-bold text-neutral-800">
                   {isId ? "Lepas Aksesoris" : "Remove Gear"}
                 </span>
                 <span className="text-[10px] text-neutral-400 leading-tight">
@@ -471,12 +471,12 @@ export default function LiveFaceScanner({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white dark:bg-neutral-800/80 border border-black/5 dark:border-white/5 text-left">
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-black/5 text-left">
               <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
                 <Icon icon="solar:user-bold" className="text-base" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">
+                <span className="text-[11px] font-bold text-neutral-800">
                   {isId ? "Tatap Lurus" : "Look Straight"}
                 </span>
                 <span className="text-[10px] text-neutral-400 leading-tight">
@@ -500,7 +500,7 @@ export default function LiveFaceScanner({
             <button
               type="button"
               onClick={onBackToUpload}
-              className="w-full sm:w-auto px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+              className="w-full sm:w-auto px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-neutral-400 hover:text-neutral-700 hover:bg-black/5 transition-all cursor-pointer"
             >
               {isId ? "Kembali" : "Back"}
             </button>
@@ -515,10 +515,10 @@ export default function LiveFaceScanner({
     <div className="flex flex-col gap-3.5 text-left w-full">
       {/* Header */}
       <div>
-        <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 bg-clip-text text-transparent">
           {isId ? "Langkah 3: Tes Liveness" : "Step 3: Liveness Test"}
         </h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+        <p className="text-xs text-neutral-500 mt-0.5">
           {isId
             ? "Posisikan wajah Anda di dalam bingkai oval untuk verifikasi wajah langsung."
             : "Position your face inside the oval frame for live face verification."}
@@ -731,7 +731,7 @@ export default function LiveFaceScanner({
               stopCamera();
               onBackToUpload();
             }}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-500 hover:text-neutral-900 bg-black/5 hover:bg-black/10 transition-all cursor-pointer"
           >
             <Icon icon="solar:arrow-left-linear" className="text-sm" />
             <span>{isId ? "Ganti Foto Kartu Identitas" : "Change ID Photo"}</span>

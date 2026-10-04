@@ -207,18 +207,9 @@ function VerifyContent() {
   }, [isTargetWalletConnected, isAddressMatched]);
 
   const currentNetworkSlug = activeNetwork.toLowerCase();
-  const colorFlip =
-    currentNetworkSlug === "hedera" || currentNetworkSlug === "polkadot"
-      ? "text-black dark:text-white"
-      : (currentNetworkSlug === "base" ? "text-[#0052FF]" : `text-${currentNetworkSlug}`);
-  const bgFlip =
-    currentNetworkSlug === "hedera" || currentNetworkSlug === "polkadot"
-      ? "bg-black/10 dark:bg-white/10"
-      : (currentNetworkSlug === "base" ? "bg-[#0052FF]/10" : `bg-${currentNetworkSlug}/10`);
-  const borderFlip =
-    currentNetworkSlug === "hedera" || currentNetworkSlug === "polkadot"
-      ? "border-black dark:border-white"
-      : (currentNetworkSlug === "base" ? "border-[#0052FF]" : `border-${currentNetworkSlug}`);
+  const colorFlip = "text-black";
+  const bgFlip = "bg-black/10";
+  const borderFlip = "border-black";
 
   // While a magic-link token is present but the server hasn't told us its network yet,
   // activeNetwork falls back to "SOLANA" (see the memo above) purely for lack of a better
@@ -231,7 +222,7 @@ function VerifyContent() {
   const renderTargetWalletConnectButton = useCallback(() => {
     if (isNetworkPending) {
       return (
-        <div className="h-[22px] md:h-[26px] w-[90px] md:w-[104px] rounded-full bg-black/10 dark:bg-white/10 animate-pulse" />
+        <div className="h-[22px] md:h-[26px] w-[90px] md:w-[104px] rounded-full bg-black/10 animate-pulse" />
       );
     }
 
@@ -1039,7 +1030,7 @@ function VerifyContent() {
   };
 
   return (
-    <div className="relative min-h-screen py-6 sm:py-10 px-3 sm:px-4 flex flex-col justify-center text-black dark:text-white">
+    <div className="relative min-h-screen py-6 sm:py-10 px-3 sm:px-4 flex flex-col justify-center text-black">
       {/* No bg-color here on purpose: this div doesn't establish its own stacking context
           (relative with no z-index), so VideoBg's absolute/-z-20 wrapper escapes past it to
           paint within the parent (body) stacking context instead — an opaque bg-color here
@@ -1065,7 +1056,7 @@ function VerifyContent() {
                 <p className="text-xs font-bold text-red-500 uppercase tracking-widest">
                   {isId ? "PERHATIAN" : "ATTENTION"}
                 </p>
-                <p className="text-[11px] font-bold leading-relaxed text-red-700 dark:text-red-300">
+                <p className="text-[11px] font-bold leading-relaxed text-red-700">
                   {!isTargetWalletConnected
                     ? isId
                       ? `Mohon hubungkan dompet ${activeNetwork} di pengaturan dompet untuk melanjutkan verifikasi.`
@@ -1081,12 +1072,12 @@ function VerifyContent() {
       )}
 
       {/* ── MAIN GLASS CARD CONTAINER ── */}
-      <div className="bgBox glass-card p-5 sm:p-7 shadow-lg max-w-2xl mx-auto w-full rounded-2xl sm:rounded-3xl border border-white/10 relative z-10 text-black dark:text-white">
+      <div className="bgBox glass-card p-5 sm:p-7 shadow-lg max-w-2xl mx-auto w-full rounded-2xl sm:rounded-3xl border border-white/10 relative z-10 text-black">
         {/* ── INIT spinner ── */}
         {step === "init" && (
           <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <span className="loading loading-spinner loading-lg text-black dark:text-white"></span>
-            <p className="text-xs sm:text-sm font-semibold tracking-wide text-neutral-500 dark:text-neutral-400 animate-pulse">
+            <span className="loading loading-spinner loading-lg text-black"></span>
+            <p className="text-xs sm:text-sm font-semibold tracking-wide text-neutral-500 animate-pulse">
               {isId ? "Memverifikasi sesi magic link..." : "Verifying magic link session..."}
             </p>
           </div>
@@ -1107,7 +1098,7 @@ function VerifyContent() {
                 ? "Dompet Tidak Sesuai"
                 : "Wallet Mismatch"}
             </h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed px-2 text-center mt-1">
+            <p className="text-xs text-neutral-500 mb-4 leading-relaxed px-2 text-center mt-1">
               {isId ? (
                 <>
                   Untuk melihat dan melanjutkan sesi verifikasi ini, harap hubungkan dompet dan mode jaringan
@@ -1123,18 +1114,18 @@ function VerifyContent() {
               )}
             </p>
 
-            <div className="w-full flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-white/5 font-mono text-xs text-left">
+            <div className="w-full flex flex-col gap-2 p-3 rounded-xl bg-black/5 font-mono text-xs text-left">
               {registeredEmail && (
-                <div className="flex justify-between items-center pb-1.5 border-b border-black/5 dark:border-white/10">
+                <div className="flex justify-between items-center pb-1.5 border-b border-black/5">
                   <span className="text-neutral-500 font-sans text-xs">{isId ? "Email Terdaftar:" : "Registered Email:"}</span>
-                  <span className="font-bold text-neutral-800 dark:text-neutral-200">{registeredEmail}</span>
+                  <span className="font-bold text-neutral-800">{registeredEmail}</span>
                 </div>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-neutral-500 font-sans text-xs">{isId ? "Alamat Terdaftar:" : "Required Address:"}</span>
-                <span className="font-bold text-neutral-800 dark:text-neutral-200">{requiredWalletAddress ? `${requiredWalletAddress.slice(0, 10)}...${requiredWalletAddress.slice(-6)}` : "N/A"}</span>
+                <span className="font-bold text-neutral-800">{requiredWalletAddress ? `${requiredWalletAddress.slice(0, 10)}...${requiredWalletAddress.slice(-6)}` : "N/A"}</span>
               </div>
-              <div className={`flex justify-between items-center ${colorFlip} font-bold pt-1.5 border-t border-black/5 dark:border-white/10`}>
+              <div className={`flex justify-between items-center ${colorFlip} font-bold pt-1.5 border-t border-black/5`}>
                 <span className="font-sans text-xs">{isId ? "Alamat Terhubung:" : "Connected Address:"}</span>
                 <span>{connectedAddress ? `${connectedAddress.slice(0, 10)}...${connectedAddress.slice(-6)}` : (isId ? "Belum Terhubung" : "Not Connected")}</span>
               </div>
@@ -1155,7 +1146,7 @@ function VerifyContent() {
                   ? `Langkah 1: Buktikan Kepemilikan Alamat`
                   : `Step 1: Proof Address Ownership`}
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 px-2 leading-relaxed">
+              <p className="text-xs text-neutral-500 mt-1 px-2 leading-relaxed">
                 {intent === "link"
                   ? isId
                     ? `Tanda tangan kriptografis dompet diperlukan untuk menghubungkan dompet ${activeNetwork} Anda dengan akun ini.`
@@ -1167,16 +1158,16 @@ function VerifyContent() {
             </div>
 
             {/* Onboarding Session Details Box */}
-            <div className="w-full flex flex-col gap-2 p-3 rounded-xl bg-black/5 dark:bg-white/5 font-mono text-xs text-left my-0.5">
+            <div className="w-full flex flex-col gap-2 p-3 rounded-xl bg-black/5 font-mono text-xs text-left my-0.5">
               {registeredEmail && (
-                <div className="flex justify-between items-center pb-1.5 border-b border-black/5 dark:border-white/10">
+                <div className="flex justify-between items-center pb-1.5 border-b border-black/5">
                   <span className="text-neutral-500 font-sans text-xs">{isId ? "Email Terdaftar:" : "Registered Email:"}</span>
-                  <span className="font-bold text-neutral-800 dark:text-neutral-200">{registeredEmail}</span>
+                  <span className="font-bold text-neutral-800">{registeredEmail}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center pb-1.5 border-b border-black/5 dark:border-white/10">
+              <div className="flex justify-between items-center pb-1.5 border-b border-black/5">
                 <span className="text-neutral-500 font-sans text-xs">{isId ? "Alamat Dompet:" : "Wallet Address:"}</span>
-                <span className="font-bold text-neutral-800 dark:text-neutral-200 font-mono">
+                <span className="font-bold text-neutral-800 font-mono">
                   {connectedAddress ? `${connectedAddress.slice(0, 8)}...${connectedAddress.slice(-6)}` : "N/A"}
                 </span>
               </div>
@@ -1215,11 +1206,11 @@ function VerifyContent() {
         {/* ── SIGNING POPUP SPINNER ── */}
         {step === "signing" && isAuthorized && (
           <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-            <span className="loading loading-spinner loading-lg text-black dark:text-white"></span>
+            <span className="loading loading-spinner loading-lg text-black"></span>
             <h3 className="text-lg font-bold">
               {isId ? "Menunggu Tanda Tangan Dompet..." : "Awaiting Wallet Signature..."}
             </h3>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 max-w-xs">
+            <p className="text-xs sm:text-sm text-neutral-500 max-w-xs">
               {isId
                 ? "Harap konfirmasi permintaan tanda tangan pada ekstensi dompet Anda."
                 : "Please confirm the signature prompt in your wallet extension."}
@@ -1231,12 +1222,12 @@ function VerifyContent() {
         {step === "kyc_upload" && isAuthorized && (
           <div className="flex flex-col gap-5">
             <div>
-              <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 bg-clip-text text-transparent">
                 {!isIdValidated
                   ? (isId ? "Langkah 2: Unggah Foto Kartu Identitas" : "Step 2: Upload ID Card")
                   : (isId ? "Langkah 2: Periksa Data Kartu Identitas" : "Step 2: Verify ID Details")}
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              <p className="text-xs text-neutral-500 mt-0.5">
                 {!isIdValidated
                   ? (isId
                       ? "Pastikan foto kartu identitas berada di dalam kotak dan terlihat jelas."
@@ -1274,11 +1265,11 @@ function VerifyContent() {
               /* ── Upload & Validate View ── */
               <form noValidate onSubmit={handleScanKtp} className="flex flex-col gap-3.5">
                 {/* ID Photo Upload Container */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/40 border border-black/10 dark:border-white/10">
+                <div className="flex flex-col gap-1.5 p-3 rounded-2xl bg-neutral-50 border border-black/10">
                   {/* Image preview */}
                   {idFilePreviewUrl ? (
                     <div className="flex flex-col gap-2.5">
-                      <div className="relative group rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-neutral-950 min-h-[200px] sm:min-h-[240px] flex items-center justify-center shadow-md p-1.5">
+                      <div className="relative group rounded-xl overflow-hidden border border-black/10 bg-neutral-950 min-h-[200px] sm:min-h-[240px] flex items-center justify-center shadow-md p-1.5">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={idFilePreviewUrl}
@@ -1292,16 +1283,16 @@ function VerifyContent() {
                         <button
                           type="button"
                           onClick={() => setIsCropModalOpen(true)}
-                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 transition-colors cursor-pointer"
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 hover:bg-black/10 border border-black/10 text-xs font-semibold text-neutral-800 transition-colors cursor-pointer"
                         >
-                          <Icon icon="solar:crop-minimalistic-bold" className="text-base text-neutral-600 dark:text-neutral-300" />
+                          <Icon icon="solar:crop-minimalistic-bold" className="text-base text-neutral-600" />
                           <span>{isId ? "Sesuaikan / Potong" : "Adjust / Crop"}</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={handleOpenCamera}
-                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 transition-colors shadow-xs cursor-pointer"
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 hover:bg-black/10 border border-black/10 text-xs font-semibold text-neutral-800 transition-colors shadow-xs cursor-pointer"
                         >
                           <Icon icon="solar:camera-minimalistic-bold" className="text-base text-neutral-500" />
                           <span>{isId ? "Foto Ulang" : "Retake Photo"}</span>
@@ -1310,7 +1301,7 @@ function VerifyContent() {
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 transition-colors shadow-xs cursor-pointer"
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-black/5 hover:bg-black/10 border border-black/10 text-xs font-semibold text-neutral-800 transition-colors shadow-xs cursor-pointer"
                         >
                           <Icon icon="solar:gallery-bold" className="text-base text-neutral-500" />
                           <span>{isId ? "Ganti File" : "Change File"}</span>
@@ -1318,9 +1309,9 @@ function VerifyContent() {
                       </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-black/15 dark:border-white/15 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center bg-white dark:bg-neutral-900/50 min-h-[180px] gap-3.5">
+                    <div className="border-2 border-dashed border-black/15 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center bg-white min-h-[180px] gap-3.5">
                       <div className="flex flex-col items-center text-center gap-1">
-                        <span className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-200 font-bold">
+                        <span className="text-xs sm:text-sm text-neutral-700 font-bold">
                           {isId
                             ? "Pilih atau Ambil Foto Kartu Identitas"
                             : "Choose or Take ID Photo"}
@@ -1335,9 +1326,9 @@ function VerifyContent() {
                         <button
                           type="button"
                           onClick={handleOpenCamera}
-                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 transition-colors text-center shadow-xs cursor-pointer"
+                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-black/5 hover:bg-black/10 border border-black/10 text-xs font-semibold text-neutral-800 transition-colors text-center shadow-xs cursor-pointer"
                         >
-                          <Icon icon="solar:camera-minimalistic-bold" className="text-base text-neutral-600 dark:text-neutral-300 shrink-0" />
+                          <Icon icon="solar:camera-minimalistic-bold" className="text-base text-neutral-600 shrink-0" />
                           <span>{isId ? "Ambil Foto" : "Take Photo"}</span>
                         </button>
 
@@ -1345,9 +1336,9 @@ function VerifyContent() {
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-xs font-semibold text-neutral-800 dark:text-neutral-200 transition-colors text-center shadow-xs cursor-pointer"
+                          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-black/5 hover:bg-black/10 border border-black/10 text-xs font-semibold text-neutral-800 transition-colors text-center shadow-xs cursor-pointer"
                         >
-                          <Icon icon="solar:gallery-bold" className="text-base text-neutral-600 dark:text-neutral-300 shrink-0" />
+                          <Icon icon="solar:gallery-bold" className="text-base text-neutral-600 shrink-0" />
                           <span>{isId ? "Pilih File" : "Choose File"}</span>
                         </button>
                       </div>
@@ -1356,11 +1347,11 @@ function VerifyContent() {
 
                   {kycError && (
                     <div className="flex flex-col gap-1 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-left mt-1.5">
-                      <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-bold text-xs">
+                      <div className="flex items-center gap-1.5 text-red-600 font-bold text-xs">
                         <Icon icon="solar:danger-triangle-bold" className="text-sm shrink-0" />
                         <span>{isId ? "Verifikasi Ditolak / Waktu Habis" : "Verification Rejected / Timed Out"}</span>
                       </div>
-                      <p className="text-[11px] font-medium text-red-700 dark:text-red-300 leading-relaxed pl-5">
+                      <p className="text-[11px] font-medium text-red-700 leading-relaxed pl-5">
                         {kycError}
                       </p>
                     </div>
@@ -1379,19 +1370,19 @@ function VerifyContent() {
               <div className="flex flex-col gap-3.5 text-left">
                 {/* ID Card Status Thumbnail */}
                 {idFilePreviewUrl && (
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-black/5 border border-black/10">
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={idFilePreviewUrl}
                         alt="ID Card Thumbnail"
-                        className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10 dark:border-white/10"
+                        className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10"
                       />
                       <div className="flex flex-col gap-0.5 overflow-hidden">
-                        <span className="text-xs font-bold truncate text-neutral-800 dark:text-neutral-200">
+                        <span className="text-xs font-bold truncate text-neutral-800">
                           {isId ? "Kartu Identitas" : "ID Card"}
                         </span>
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                           <Icon icon="solar:check-circle-bold" className="text-xs shrink-0" />
                           {isId ? "Valid" : "Valid"}
                         </span>
@@ -1404,7 +1395,7 @@ function VerifyContent() {
                         setIsIdValidated(false);
                         fileInputRef.current?.click();
                       }}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/5 hover:bg-black/10 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"
                     >
                       <Icon icon="solar:camera-minimalistic-bold" className="text-sm" />
                       <span>{isId ? "Ganti Foto" : "Change Photo"}</span>
@@ -1415,7 +1406,7 @@ function VerifyContent() {
                 {/* Informational Hint regarding ID card matching */}
                 <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-left">
                   <Icon icon="solar:info-circle-bold" className="text-amber-500 text-sm shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
                     {isId
                       ? "Jika nomor kartu identitas tidak sesuai dengan kartu Anda, silakan ganti foto dan unggah foto yang lebih jelas."
                       : "If the ID card number does not match your card, please change photo and upload a clearer one."}
@@ -1426,7 +1417,7 @@ function VerifyContent() {
                 <div className="flex flex-col gap-3">
                   {/* Full Name */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                    <label className="text-xs font-semibold text-neutral-600">
                       {isId ? "Nama Lengkap" : "Full Name"}
                     </label>
                     <input
@@ -1434,14 +1425,14 @@ function VerifyContent() {
                       value={fullname}
                       onChange={(e) => setFullname(e.target.value.toUpperCase())}
                       placeholder={isId ? "Contoh: BUDI SANTOSO" : "e.g. BUDI SANTOSO"}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:outline-none focus:border-black/30 dark:focus:border-white/30 text-xs sm:text-sm font-semibold uppercase tracking-wide"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 border border-black/10 focus:outline-none focus:border-black/30 text-xs sm:text-sm font-semibold uppercase tracking-wide"
                     />
                   </div>
 
                   {/* NIK 16 Digit (Read-Only) */}
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                      <label className="text-xs font-semibold text-neutral-600">
                         {isId ? "Nomor Induk Kependudukan (NIK)" : "ID Card Number (NIK)"}
                       </label>
                       <span className="text-[10px] text-neutral-400 font-medium">
@@ -1454,13 +1445,13 @@ function VerifyContent() {
                       disabled
                       maxLength={16}
                       value={idNumber}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs sm:text-sm font-mono font-semibold tracking-wider opacity-75 cursor-not-allowed select-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 border border-black/10 text-xs sm:text-sm font-mono font-semibold tracking-wider opacity-75 cursor-not-allowed select-none"
                     />
                   </div>
 
                   {/* Address */}
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                    <label className="text-xs font-semibold text-neutral-600">
                       {isId ? "Alamat Kartu Identitas" : "ID Card Address"}
                     </label>
                     <textarea
@@ -1468,7 +1459,7 @@ function VerifyContent() {
                       value={addressField}
                       onChange={(e) => setAddressField(e.target.value)}
                       placeholder={isId ? "Alamat lengkap sesuai kartu identitas..." : "Full address as per ID card..."}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 focus:outline-none focus:border-black/30 dark:focus:border-white/30 text-xs sm:text-sm font-normal resize-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/5 border border-black/10 focus:outline-none focus:border-black/30 text-xs sm:text-sm font-normal resize-none"
                     />
                   </div>
                 </div>
@@ -1494,11 +1485,11 @@ function VerifyContent() {
         {/* ── STEP 2 (cont.): SCANNING SPINNER ── */}
         {step === "kyc_scanning" && isAuthorized && (
           <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-            <span className="loading loading-spinner loading-lg text-black dark:text-white"></span>
+            <span className="loading loading-spinner loading-lg text-black"></span>
             <h3 className="text-base sm:text-lg font-bold tracking-tight">
               {isId ? "Memvalidasi Kartu Identitas" : "Validating ID Card"}
             </h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs">
+            <p className="text-xs text-neutral-500 max-w-xs">
               {isId
                 ? "Memvalidasi kartu identitas Anda secara aman..."
                 : "Securely validating your ID card..."}
@@ -1525,10 +1516,10 @@ function VerifyContent() {
         {step === "kyc_review" && isAuthorized && (
           <div className="flex flex-col gap-4 text-left">
             <div>
-              <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 bg-clip-text text-transparent">
                 {isId ? "Langkah 4: Periksa & Konfirmasi" : "Step 4: Review & Confirm"}
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              <p className="text-xs text-neutral-500 mt-0.5">
                 {isId
                   ? "Periksa seluruh data Anda sebelum menyelesaikan pendaftaran."
                   : "Review your verified details before completing onboarding."}
@@ -1538,18 +1529,18 @@ function VerifyContent() {
             {/* Dual Status Card: ID Card + Live Face Verification */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {idFilePreviewUrl && (
-                <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/5 border border-black/10">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={idFilePreviewUrl}
                     alt="ID Card Thumbnail"
-                    className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10 dark:border-white/10"
+                    className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10"
                   />
                   <div className="flex flex-col gap-0.5 overflow-hidden">
-                    <span className="text-xs font-bold truncate text-neutral-800 dark:text-neutral-200">
+                    <span className="text-xs font-bold truncate text-neutral-800">
                       {isId ? "Kartu Identitas" : "ID Card"}
                     </span>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                       <Icon icon="solar:check-circle-bold" className="text-xs shrink-0" />
                       {isId ? "Valid" : "Valid"}
                     </span>
@@ -1558,24 +1549,24 @@ function VerifyContent() {
               )}
 
               {selfieFile && (
-                <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-black/5 border border-black/10">
                   {selfiePreviewUrl ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={selfiePreviewUrl}
                       alt="Live Test Thumbnail"
-                      className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10 dark:border-white/10"
+                      className="w-12 h-9 object-cover rounded-lg shrink-0 border border-black/10"
                     />
                   ) : (
-                    <div className="w-12 h-9 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shrink-0">
+                    <div className="w-12 h-9 rounded-lg bg-black/5 border border-black/10 flex items-center justify-center text-neutral-600 shrink-0">
                       <Icon icon="solar:camera-minimalistic-bold" className="text-base" />
                     </div>
                   )}
                   <div className="flex flex-col gap-0.5 overflow-hidden">
-                    <span className="text-xs font-bold truncate text-neutral-800 dark:text-neutral-200">
+                    <span className="text-xs font-bold truncate text-neutral-800">
                       {isId ? "Tes Langsung" : "Live Test"}
                     </span>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                       <Icon icon="solar:check-circle-bold" className="text-xs shrink-0" />
                       {isId ? "Terverifikasi" : "Verified"}
                     </span>
@@ -1585,24 +1576,24 @@ function VerifyContent() {
             </div>
 
             {/* Confirmed Details Summary Box */}
-            <div className="flex flex-col gap-2 p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-black/5 dark:border-white/10">
+            <div className="flex flex-col gap-2 p-3.5 rounded-2xl bg-black/5 border border-black/10 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-black/5">
                 <span className="text-neutral-500">{isId ? "Nama Lengkap:" : "Full Name:"}</span>
-                <span className="font-bold text-neutral-900 dark:text-neutral-100 uppercase">{fullname || "N/A"}</span>
+                <span className="font-bold text-neutral-900 uppercase">{fullname || "N/A"}</span>
               </div>
-              <div className="flex justify-between items-center pb-2 border-b border-black/5 dark:border-white/10">
+              <div className="flex justify-between items-center pb-2 border-b border-black/5">
                 <span className="text-neutral-500">{isId ? "Nomor Identitas (NIK):" : "ID Card Number (NIK):"}</span>
-                <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100">{idNumber || "N/A"}</span>
+                <span className="font-mono font-bold text-neutral-900">{idNumber || "N/A"}</span>
               </div>
               {addressField && (
-                <div className="flex justify-between items-start pb-2 border-b border-black/5 dark:border-white/10 gap-2">
+                <div className="flex justify-between items-start pb-2 border-b border-black/5 gap-2">
                   <span className="text-neutral-500 shrink-0">{isId ? "Alamat:" : "Address:"}</span>
-                  <span className="font-medium text-neutral-800 dark:text-neutral-200 text-right">{addressField}</span>
+                  <span className="font-medium text-neutral-800 text-right">{addressField}</span>
                 </div>
               )}
               <div className="flex justify-between items-center">
                 <span className="text-neutral-500">{isId ? "Dompet:" : "Wallet:"}</span>
-                <span className="font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                <span className="font-mono font-bold text-neutral-800">
                   {connectedAddress ? `${connectedAddress.slice(0, 8)}...${connectedAddress.slice(-6)}` : "N/A"} ({activeNetwork})
                 </span>
               </div>
@@ -1610,11 +1601,11 @@ function VerifyContent() {
 
             {kycError && (
               <div className="flex flex-col gap-1 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-left">
-                <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-bold text-xs">
+                <div className="flex items-center gap-1.5 text-red-600 font-bold text-xs">
                   <Icon icon="solar:danger-triangle-bold" className="text-sm shrink-0" />
                   <span>{isId ? "Pengajuan Ditolak" : "Submission Rejected"}</span>
                 </div>
-                <p className="text-[11px] font-medium text-red-700 dark:text-red-300 leading-relaxed pl-5">
+                <p className="text-[11px] font-medium text-red-700 leading-relaxed pl-5">
                   {kycError}
                 </p>
               </div>
@@ -1624,7 +1615,7 @@ function VerifyContent() {
               <button
                 type="button"
                 onClick={handleRestartFromStep1}
-                className="w-full sm:w-auto px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5 border border-black/10 dark:border-white/10 transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold text-neutral-500 hover:text-neutral-800 hover:bg-black/5 border border-black/10 transition-colors cursor-pointer"
               >
                 {isId ? "Ulangi" : "Retry"}
               </button>
@@ -1642,11 +1633,11 @@ function VerifyContent() {
         {/* ── SUBMITTING spinner ── */}
         {step === "submitting" && isAuthorized && (
           <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-            <span className="loading loading-spinner loading-lg text-black dark:text-white"></span>
+            <span className="loading loading-spinner loading-lg text-black"></span>
             <h3 className="text-lg font-bold">
               {isId ? "Mendaftarkan Akun..." : "Registering Account..."}
             </h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-xs">
+            <p className="text-xs text-neutral-500 max-w-xs">
               {isId
                 ? "Menyelesaikan verifikasi akun dan menghubungkan dompet Anda..."
                 : "Finalizing account registration and linking your wallet..."}
@@ -1677,7 +1668,7 @@ function VerifyContent() {
               <h3 className="text-base sm:text-lg font-bold tracking-tight">
                 {isId ? "Verifikasi Berhasil" : "Verification Successful"}
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 px-4 leading-relaxed">
+              <p className="text-xs text-neutral-500 mt-1 px-4 leading-relaxed">
                 {isId
                   ? "Email & dompet Anda telah berhasil diverifikasi. Mengarahkan..."
                   : "Your email & wallet have been securely verified. Redirecting..."}
@@ -1709,7 +1700,7 @@ function VerifyContent() {
               <h3 className="text-base sm:text-lg font-bold tracking-tight">
                 {isId ? "Verifikasi Gagal" : "Verification Failed"}
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 px-4 leading-relaxed">
+              <p className="text-xs text-neutral-500 mt-1 px-4 leading-relaxed">
                 {errorMessage}
               </p>
             </div>
@@ -1764,13 +1755,13 @@ function VerifyContent() {
       )}
 
       {/* ── ZERO STORAGE PRIVACY NOTICE ── */}
-      <div className="max-w-2xl mx-auto w-full mt-4 p-3.5 sm:p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-start gap-3 text-left">
-        <Icon icon="solar:shield-minimalistic-bold" className="text-neutral-600 dark:text-neutral-400 text-lg shrink-0 mt-0.5" />
+      <div className="max-w-2xl mx-auto w-full mt-4 p-3.5 sm:p-4 rounded-2xl bg-black/5 border border-black/10 flex items-start gap-3 text-left">
+        <Icon icon="solar:shield-minimalistic-bold" className="text-neutral-600 text-lg shrink-0 mt-0.5" />
         <div className="flex flex-col gap-0.5">
-          <h4 className="text-xs sm:text-sm font-bold text-neutral-800 dark:text-neutral-200">
+          <h4 className="text-xs sm:text-sm font-bold text-neutral-800">
             {isId ? "Paradapp Tidak Pernah Menyimpan Informasi Anda" : "Paradapp Never Stores Your Information"}
           </h4>
-          <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-neutral-500 leading-relaxed">
             {isId
               ? "Kami tidak menyimpan kartu identitas, foto, atau data pribadi Anda di server kami."
               : "We do not store your ID card, photos, or personal data on our servers."}
@@ -1786,9 +1777,9 @@ export default function VerifyPage() {
     <AllDappProviders>
       <Suspense
         fallback={
-          <div className="relative min-h-screen flex items-center justify-center text-black dark:text-white">
+          <div className="relative min-h-screen flex items-center justify-center text-black">
             <VideoBg />
-            <span className="loading loading-spinner loading-lg text-black dark:text-white"></span>
+            <span className="loading loading-spinner loading-lg text-black"></span>
           </div>
         }
       >

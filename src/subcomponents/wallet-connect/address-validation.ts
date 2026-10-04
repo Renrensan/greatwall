@@ -20,7 +20,7 @@ export type AddressCheckResult = {
   reason: AddressErrorReason;
 };
 
-export type ValidatableNetwork = "bitcoin" | "ethereum" | "solana" | "hedera" | "polkadot" | "tron" | "hyperliquid" | "robinhood" | "base" | "arbitrum";
+export type ValidatableNetwork = "bitcoin" | "ethereum" | "solana" | "hedera" | "polkadot" | "tempo" | "hyperliquid" | "robinhood" | "base" | "arbitrum";
 
 /**
  * Maps a network + failure reason to the specific, existing translation key
@@ -56,9 +56,10 @@ const REASON_MESSAGE_KEYS: Record<ValidatableNetwork, Partial<Record<NonNullable
   polkadot: {
     invalid: "text310",
   },
-  tron: {
+  tempo: {
     "wrong-prefix": "text333",
     "wrong-length": "text334",
+    "invalid-characters": "text335",
     invalid: "text335",
   },
   hyperliquid: {

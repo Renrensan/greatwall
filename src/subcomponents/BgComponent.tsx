@@ -1,11 +1,9 @@
 "use client";
 
 import { memo, useEffect, useState } from "react";
-import { useTheme } from "next-themes";
-import { blackbg, whitebg } from "@/index";
+import { whitebg } from "@/index";
 
 const VideoBg = memo(() => {
-  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -17,8 +15,7 @@ const VideoBg = memo(() => {
   return (
     <div className="absolute inset-0 -z-20 pointer-events-none">
       <video
-        key={resolvedTheme}
-        src={resolvedTheme === "light" ? whitebg : blackbg}
+        src={whitebg}
         autoPlay
         loop
         muted

@@ -17,7 +17,7 @@ import {
   paseo,
   polkadot,
   solana,
-  tron,
+  temponetwork,
   hyperliquid,
   robinhood,
   base,
@@ -32,7 +32,7 @@ import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
-import { useTronWallet } from "@/components/tron/tron-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
@@ -102,8 +102,7 @@ const Assets = () => {
     network: SupportedChain;
   }>();
 
-  const colorFlip =
-    (network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
+  const colorFlip = "text-black";
   const t = useTranslations("All");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,7 +113,7 @@ const Assets = () => {
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
   const polkadotNetwork = usePolkadotWallet();
-  const tronNetwork = useTronWallet();
+  const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
   const baseNetwork = useBaseWallet();
@@ -133,7 +132,7 @@ const Assets = () => {
     price,
     networkExplorer;
 let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
-  let fetchGaslessSendQuote: any, executeGaslessSend: any;
+
 
   if (network == "bitcoin") {
     networkName = bitcoinNetwork.networkName;
@@ -187,19 +186,19 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
     price = polkadotNetwork.price;
     networkExplorer = polkadotNetwork.networkExplorer;
     decimals = polkadotNetwork.decimals;
-  } else if (network == "tron") {
-    networkName = tronNetwork.networkName;
-    connected = tronNetwork.connected;
-    address = tronNetwork.address;
-    currencyTicker = tronNetwork.currencyTicker;
-    sendTokenTo = tronNetwork.sendTokenTo;
-    balance = tronNetwork.balance;
-    estimatedFee = tronNetwork.estimatedFee;
-    setFeeSelection = tronNetwork.setFeeSelection;
-    selfCustodyParameter = tronNetwork.selfCustodyParameter;
-    price = tronNetwork.price;
-    networkExplorer = tronNetwork.networkExplorer;
-    decimals = tronNetwork.decimals;
+  } else if (network == "tempo") {
+    networkName = tempoNetwork.networkName;
+    connected = tempoNetwork.connected;
+    address = tempoNetwork.address;
+    currencyTicker = tempoNetwork.currencyTicker;
+    sendTokenTo = tempoNetwork.sendTokenTo;
+    balance = tempoNetwork.balance;
+    estimatedFee = tempoNetwork.estimatedFee;
+    setFeeSelection = tempoNetwork.setFeeSelection;
+    selfCustodyParameter = tempoNetwork.selfCustodyParameter;
+    price = tempoNetwork.price;
+    networkExplorer = tempoNetwork.networkExplorer;
+    decimals = tempoNetwork.decimals;
   } else if (network == "hyperliquid") {
     networkName = hyperliquidNetwork.networkName;
     connected = hyperliquidNetwork.connected;
@@ -268,8 +267,6 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
     checkAtaRequired = solanaNetwork.checkAtaRequired;
     verifiedTokensData = solanaNetwork.verifiedTokensData;
     liveTokenPrices = solanaNetwork.liveTokenPrices;
-    fetchGaslessSendQuote = solanaNetwork.fetchGaslessSendQuote;
-    executeGaslessSend = solanaNetwork.executeGaslessSend;
   }
 
   const {
@@ -283,8 +280,8 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
     setSolanaMainnet,
     polkadotMainnet,
     setPolkadotMainnet,
-    tronMainnet,
-    setTronMainnet,
+    tempoMainnet,
+    setTempoMainnet,
     hyperliquidMainnet,
     setHyperliquidMainnet,
     robinhoodMainnet,
@@ -307,8 +304,8 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
         return !solanaMainnet;
       case "polkadot":
         return !polkadotMainnet;
-      case "tron":
-        return !tronMainnet;
+      case "tempo":
+        return !tempoMainnet;
       case "hyperliquid":
         return !hyperliquidMainnet;
       case "robinhood":
@@ -327,7 +324,7 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
     ethereumMainnet,
     solanaMainnet,
     polkadotMainnet,
-    tronMainnet,
+    tempoMainnet,
     hyperliquidMainnet,
     robinhoodMainnet,
     baseMainnet,
@@ -364,8 +361,8 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
         case "polkadot":
           setPolkadotMainnet(true);
           break;
-        case "tron":
-          setTronMainnet(true);
+        case "tempo":
+          setTempoMainnet(true);
           break;
         case "hyperliquid":
           setHyperliquidMainnet(true);
@@ -399,7 +396,7 @@ let checkAtaRequired: any, verifiedTokensData: any, liveTokenPrices: any;
       );
     }
 
-    if ((network === "solana" || network === "ethereum" || network === "hedera" || network === "polkadot" || network === "tron" || network === "hyperliquid" || network === "robinhood" || network === "base" || network === "arbitrum") && (balance as any)?.tokens) {
+    if ((network === "solana" || network === "ethereum" || network === "hedera" || network === "polkadot" || network === "tempo" || network === "hyperliquid" || network === "robinhood" || network === "base" || network === "arbitrum") && (balance as any)?.tokens) {
       const token = (balance as any).tokens.find(
         (t: any) => t.mint === mintOrSymbol || t.symbol === mintOrSymbol,
       );
@@ -660,7 +657,7 @@ const allTokens = useMemo(() => {
       }));
 
       return [nativeEntry, ...heldTokens];
-    } else if (network === "tron") {
+    } else if (network === "tempo") {
       // Verified-allowlist approach like Ethereum (see VERIFIED_TRC20_TOKENS) — no logo/price
       // enrichment wired up yet, matching how Ethereum started before that was added later.
       const nativeEntry = {
@@ -668,7 +665,7 @@ const allTokens = useMemo(() => {
         symbol: currencyTicker,
         price: ((price as any)?.usd || 0).toString(),
         change: "0.00%",
-        logo: tron,
+        logo: temponetwork,
         mint: null,
         decimals,
         isNative: true,
@@ -907,46 +904,7 @@ const allTokens = useMemo(() => {
 
   const isTokenWithdrawUnavailable = !currentTokenConstraints?.withdraw;
 
-useEffect(() => {
-    let isCancelled = false;
-    const amtStr = activeTab === "send" ? sendAmount : withdrawAmount;
-
-    if (network !== "solana" || !selectedToken || !amtStr || isNaN(parseFloat(amtStr))) {
-      setGaslessQuote(null);
-      setIsFetchingGasless(false);
-      return;
-    }
-
-    const destAddress = activeTab === "send" ? sendAddress : "11111111111111111111111111111111";
-
-    if (activeTab === "send" && (!destAddress || !solanaNetwork.isValidAddress(destAddress))) {
-      setGaslessQuote(null);
-      setIsFetchingGasless(false);
-      return;
-    }
-
-    const fetchQuote = async () => {
-      setIsFetchingGasless(true);
-      const amt = parseFloat(amtStr);
-      try {
-        const res = await fetchGaslessSendQuote(destAddress, selectedToken.mint, amt, selectedToken.decimals);
-        if (!isCancelled) {
-          setGaslessQuote(res?.success ? res : null);
-        }
-      } catch (err) {
-        if (!isCancelled) setGaslessQuote(null);
-      } finally {
-        if (!isCancelled) setIsFetchingGasless(false);
-      }
-    };
-
-    const timeoutId = setTimeout(fetchQuote, 500);
-    return () => {
-      isCancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, [sendAmount, withdrawAmount, sendAddress, selectedToken, network, activeTab, fetchGaslessSendQuote]);
-
+// Solana sends are signed by the wallet (paradapp's relayer was removed): no relayer quote.
   useEffect(() => {
     let isCancelled = false;
 
@@ -1344,7 +1302,7 @@ useEffect(() => {
           solana: solanaNetwork,
           hedera: hederaNetwork,
           polkadot: polkadotNetwork,
-          tron: tronNetwork,
+          tempo: tempoNetwork,
           hyperliquid: hyperliquidNetwork,
           robinhood: robinhoodNetwork,
           base: baseNetwork,
@@ -1461,10 +1419,14 @@ const handleCloseModal = () => {
   let resultTxid;
 
       if (network === "solana") {
-        if (!gaslessQuote || !gaslessQuote.transactionBase64) {
-           throw new Error("Transaction payload missing or fee calculation failed");
-        }
-        resultTxid = await executeGaslessSend(gaslessQuote.transactionBase64);
+        // Signed by the wallet; a token by its mint and decimals.
+        resultTxid = await (sendTokenTo as any)(
+          sendAddress,
+          amount,
+          undefined,
+          selectedToken && selectedToken.isNative === false ? selectedToken.mint : undefined,
+          selectedToken?.decimals,
+        );
       } else if (network === "ethereum" && selectedToken && selectedToken.isNative === false) {
         // Verified ERC-20 balances (see fetchErc20Balances) carry their contract address in
         // `mint` and their own decimals, unlike the native entry — sendTokenTo needs both to
@@ -1488,7 +1450,7 @@ const handleCloseModal = () => {
           assetId: Number(selectedToken.mint),
           decimals: selectedToken.decimals,
         });
-      } else if (network === "tron" && selectedToken && selectedToken.isNative === false) {
+      } else if (network === "tempo" && selectedToken && selectedToken.isNative === false) {
         // Held TRC-20 balances carry the contract address in `mint` — sendTokenTo needs it
         // plus decimals to build a transfer() call instead of a plain TRX transfer.
         resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
@@ -1549,7 +1511,7 @@ const handleCloseModal = () => {
             <div className="p-5 glass-card shadow-buttonNav! flex justify-center items-center mx-auto w-28 h-28 rounded-full">
               <Icon
                 icon="iconoir:wallet-solid"
-                className={`text-6xl ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} text-end`}
+                className={`text-6xl text-end`}
               />
             </div>
             <h2 className="text-xl font-bold text-center">{t("text24")}</h2>
@@ -1572,7 +1534,7 @@ const handleCloseModal = () => {
             </div>
             <button
               onClick={() => setIsMainInfoOpen(true)}
-              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
+              className="p-1 hover:bg-black/5 rounded-full transition-colors"
             >
               <Icon
                 icon="mingcute:information-line"
@@ -1586,18 +1548,18 @@ const handleCloseModal = () => {
               [...Array(4)].map((_, i) => (
                 <div
                   key={`skeleton-${i}`}
-                  className="w-full p-4 border border-transparent rounded-xl flex items-center justify-between gap-3 animate-pulse bg-black/5 dark:bg-white/5"
+                  className="w-full p-4 border border-transparent rounded-xl flex items-center justify-between gap-3 animate-pulse bg-black/5"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-full bg-black/10 dark:bg-white/10 shrink-0" />
+                    <div className="w-10 h-10 rounded-full bg-black/10 shrink-0" />
                     <div className="flex flex-col gap-2">
-                      <div className="h-4 w-12 bg-black/10 dark:bg-white/10 rounded" />
-                      <div className="h-2 w-20 bg-black/10 dark:bg-white/10 rounded" />
+                      <div className="h-4 w-12 bg-black/10 rounded" />
+                      <div className="h-2 w-20 bg-black/10 rounded" />
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <div className="h-4 w-16 bg-black/10 dark:bg-white/10 rounded" />
-                    <div className="h-2 w-10 bg-black/10 dark:bg-white/10 rounded" />
+                    <div className="h-4 w-16 bg-black/10 rounded" />
+                    <div className="h-2 w-10 bg-black/10 rounded" />
                   </div>
                 </div>
               ))
@@ -1632,19 +1594,19 @@ const handleCloseModal = () => {
                       setActiveTab("send");
                       setShowModal(true);
                     }}
-                    className="flex items-center justify-between p-3 rounded-2xl group/item cursor-pointer hover:bg-black/3 dark:hover:bg-white/3 transition-all duration-300"
+                    className="flex items-center justify-between p-3 rounded-2xl group/item cursor-pointer hover:bg-black/3 transition-all duration-300"
                   >
                     <div className="flex items-center gap-5">
                       <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
                         <div
-                          className={`absolute inset-0 rounded-full border ${(network === "hedera" || network === "polkadot") ? "border-black/20 dark:border-white/20" : network === "base" ? "border-[#0052FF]/20" : `border-${network}/20`} group-hover/item:${(network === "hedera" || network === "polkadot") ? "border-black/50 dark:border-white/50" : network === "base" ? "border-[#0052FF]/50" : `border-${network}/50`} transition-colors opacity-30`}
+                          className={`absolute inset-0 rounded-full border border-black/20 group-hover/item:border-black/50 transition-colors opacity-30`}
                         />
-                        <div className="absolute top-0 w-3 h-1 bg-current opacity-20 dark:opacity-40 rounded-full group-hover/item:opacity-80 transition-opacity" />
-                        <div className="absolute bottom-0 w-3 h-1 bg-current opacity-20 dark:opacity-40 rounded-full group-hover/item:opacity-80 transition-opacity" />
-                        <div className="absolute left-0 h-3 w-1 bg-current opacity-20 dark:opacity-40 rounded-full group-hover/item:opacity-80 transition-opacity" />
-                        <div className="absolute right-0 h-3 w-1 bg-current opacity-20 dark:opacity-40 rounded-full group-hover/item:opacity-80 transition-opacity" />
+                        <div className="absolute top-0 w-3 h-1 bg-current opacity-20 rounded-full group-hover/item:opacity-80 transition-opacity" />
+                        <div className="absolute bottom-0 w-3 h-1 bg-current opacity-20 rounded-full group-hover/item:opacity-80 transition-opacity" />
+                        <div className="absolute left-0 h-3 w-1 bg-current opacity-20 rounded-full group-hover/item:opacity-80 transition-opacity" />
+                        <div className="absolute right-0 h-3 w-1 bg-current opacity-20 rounded-full group-hover/item:opacity-80 transition-opacity" />
 
-                        <div className="w-11 h-11 rounded-full overflow-hidden shadow-xl border border-white/10 relative z-10 flex items-center justify-center bg-black/5 dark:bg-white/5 transition-transform duration-500 group-hover/item:scale-110">
+                        <div className="w-11 h-11 rounded-full overflow-hidden shadow-xl border border-white/10 relative z-10 flex items-center justify-center bg-black/5 transition-transform duration-500 group-hover/item:scale-110">
                           {token.logo && !brokenLogoKeys.has(token.mint || token.symbol) ? (
                             <Image
                               src={token.logo}
@@ -1666,7 +1628,7 @@ const handleCloseModal = () => {
 
                       <div className="flex flex-col gap-0.5">
                         <span
-                          className={`font-bold text-lg sm:text-xl tracking-tight group-hover/item:${(network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} transition-colors`}
+                          className={`font-bold text-lg sm:text-xl tracking-tight group-hover/item:text-black transition-colors`}
                         >
                           {token.symbol}
                         </span>
@@ -1725,15 +1687,7 @@ const handleCloseModal = () => {
                   console.error("Failed to copy:", err);
                 }
               }}
-              className={`w-full sm:w-1/4 py-3 px-2 rounded-xl font-bold text-center transition-all active:scale-95 shadow-lg ${
-                (network === "hedera" || network === "polkadot")
-                  ? "bg-black text-white dark:bg-white dark:text-black shadow-black/20 dark:shadow-white/10"
-                  : network === "robinhood"
-                    ? `bg-${network} text-black shadow-${network}/20`
-                    : network === "base"
-                      ? "bg-[#0052FF] text-white shadow-[#0052FF]/20"
-                      : `bg-${network} text-white shadow-${network}/20`
-              } sm:text-sm text-xs`}
+              className={`w-full sm:w-1/4 py-3 px-2 rounded-xl font-bold text-center transition-all active:scale-95 shadow-lg bg-black text-white shadow-black/20 sm:text-sm text-xs`}
             >
               {copied ? t("text114") : t("text113")}
             </button>
@@ -1784,24 +1738,14 @@ const handleCloseModal = () => {
                     </p>
                   </div>
 
-                  <div className="flex justify-between glass-card bgRound border-black/5 dark:border-white/10 p-1 shadow-sm">
+                  <div className="flex justify-between glass-card bgRound border-black/5 p-1 shadow-sm">
                     {[
                       { label: t("text116"), id: "send" },
                       { label: t("text38"), id: "withdraw" },
                     ].map((tab) => {
                       const isActive = activeTab === tab.id;
-                      const activeBgClass =
-                        (network === "hedera" || network === "polkadot")
-                          ? "bg-black dark:bg-white"
-                          : network === "base"
-                            ? "bg-[#0052FF]"
-                            : `bg-${network}`;
-                      const activeTextClass =
-                        (network === "hedera" || network === "polkadot")
-                          ? "text-white dark:text-black"
-                          : network === "robinhood"
-                            ? "text-black"
-                            : "text-white";
+                      const activeBgClass = "bg-black";
+                      const activeTextClass = "text-white";
 
                       return (
                         <button
@@ -1813,7 +1757,7 @@ const handleCloseModal = () => {
                           className={`flex items-center justify-center gap-2 w-full p-2.5 text-center rounded-full text-xs sm:text-sm transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                             isActive
                               ? `font-bold ${activeBgClass} ${activeTextClass} shadow-md`
-                              : `font-medium hover:bg-black/5 dark:hover:bg-white/5 opacity-60`
+                              : `font-medium hover:bg-black/5 opacity-60`
                           }`}
                         >
                           {tab.label}
@@ -1840,7 +1784,7 @@ const handleCloseModal = () => {
                               <p className="text-xs font-bold text-red-500 uppercase tracking-widest">
                                 {t("text26")}
                               </p>
-                              <p className="text-[11px] font-bold leading-relaxed text-red-700 dark:text-red-300">
+                              <p className="text-[11px] font-bold leading-relaxed text-red-700">
                                 {dynamicMessageText}
                               </p>
                             </div>
@@ -1865,7 +1809,7 @@ const handleCloseModal = () => {
                               <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">
                                 {t("text292")}
                               </p>
-                              <p className="text-[11px] font-bold leading-relaxed text-orange-700 dark:text-orange-300">
+                              <p className="text-[11px] font-bold leading-relaxed text-orange-700">
                                 {dynamicMessageText}
                               </p>
                             </div>
@@ -1876,7 +1820,7 @@ const handleCloseModal = () => {
                   )}
 
                
-                  <div className="bgBox glass-card p-4 border border-black/5 dark:border-white/10 rounded-2xl">
+                  <div className="bgBox glass-card p-4 border border-black/5 rounded-2xl">
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
                         {activeTab === "send" ? t("text116") : t("text38")}
@@ -1921,9 +1865,9 @@ const handleCloseModal = () => {
                     
                       <button
                         onClick={() => setModalStep("selectToken")}
-                        className="shrink-0 flex items-center gap-2 px-2.5 py-1.5 glass-card rounded-full shadow-md bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10 active:scale-95 transition-all group"
+                        className="shrink-0 flex items-center gap-2 px-2.5 py-1.5 glass-card rounded-full shadow-md bg-white/60 border border-white/20 hover:bg-white/80 active:scale-95 transition-all group"
                       >
-                        <div className="w-6 h-6 rounded-full overflow-hidden shadow-sm relative flex items-center justify-center bg-black/5 dark:bg-white/5 shrink-0">
+                        <div className="w-6 h-6 rounded-full overflow-hidden shadow-sm relative flex items-center justify-center bg-black/5 shrink-0">
                           {selectedToken?.logo && !brokenLogoKeys.has(selectedToken.mint || selectedToken.symbol) ? (
                             <Image
                               src={selectedToken.logo}
@@ -1995,7 +1939,7 @@ const handleCloseModal = () => {
                                 return (
                                   <span className="text-[10px] sm:text-xs font-bold opacity-40 tracking-tight inline-flex items-center gap-1.5">
                                     {locale === "en" ? "Estimated Receive: " : "Estimasi Diterima: "}
-                                    <span className="inline-block h-3 w-16 bg-black/10 dark:bg-white/10 rounded animate-pulse align-middle" />
+                                    <span className="inline-block h-3 w-16 bg-black/10 rounded animate-pulse align-middle" />
                                   </span>
                                 );
                               }
@@ -2048,14 +1992,8 @@ const handleCloseModal = () => {
                                 }}
                                 className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all active:scale-95 ${
                                   (activeTab === "send" ? sendAmount : withdrawAmount) === targetStr && targetAmount > 0
-                                    ? (network === "hedera" || network === "polkadot")
-                                      ? "bg-black dark:bg-white text-white dark:text-black shadow-lg shadow-black/20 dark:shadow-white/10"
-                                      : network === "robinhood"
-                                        ? `bg-${network} text-black shadow-lg shadow-${network}/20`
-                                        : network === "base"
-                                          ? "bg-[#0052FF] text-white shadow-lg shadow-[#0052FF]/20"
-                                          : `bg-${network} text-white shadow-lg shadow-${network}/20`
-                                    : "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 opacity-60"
+                                    ? "bg-black text-white shadow-lg shadow-black/20"
+                                    : "bg-black/5 hover:bg-black/10 opacity-60"
                                 }`}
                               >
                                 {pct === 1 ? t("text42") : `${pct * 100}%`}
@@ -2091,7 +2029,7 @@ const handleCloseModal = () => {
                     </div>
 
                     {activeTab === "withdraw" && showFeeBreakdown && groupedFees && (
-                      <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex flex-col gap-2 animate-fade-in w-full">
+                      <div className="mt-4 pt-3 border-t border-black/5 flex flex-col gap-2 animate-fade-in w-full">
                         
                         {groupedFees.paymentAndTax > 0 && (
                           <div className="flex justify-between items-center">
@@ -2149,13 +2087,13 @@ const handleCloseModal = () => {
                         </p>
                       )}
                       <div className="flex flex-col gap-2">
-                        <div className="bgBox glass-card p-3 border border-black/5 dark:border-white/10 rounded-xl">
+                        <div className="bgBox glass-card p-3 border border-black/5 rounded-xl">
                           <input
                             type="text"
                             value={sendAddress}
                             onChange={(e) => setSendAddress(e.target.value)}
                             placeholder={t("text117")}
-                            className="w-full bg-transparent lg:text-sm font-bold outline-none placeholder:text-gray-400 dark:placeholder:text-white/20"
+                            className="w-full bg-transparent lg:text-sm font-bold outline-none placeholder:text-gray-400"
                           />
                         </div>
                         {recipientAddressError && (
@@ -2174,7 +2112,7 @@ const handleCloseModal = () => {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="flex flex-col gap-1.5 mt-2 px-3 py-3 bgBox glass-card border border-black/5 dark:border-white/10 rounded-xl overflow-hidden"
+                        className="flex flex-col gap-1.5 mt-2 px-3 py-3 bgBox glass-card border border-black/5 rounded-xl overflow-hidden"
                       >
                         <div className="flex justify-between items-center text-xs opacity-60">
                           <span>{activeTab === "send" ? (locale === "en" ? "Send Amount" : "Jumlah Kirim") : (locale === "en" ? "Withdraw Amount" : "Jumlah Tarik")}</span>
@@ -2220,17 +2158,17 @@ const handleCloseModal = () => {
                             </span>
                           </div>
                         )}
-                        <div className="w-full h-[1px] bg-black/5 dark:bg-white/5 my-0.5" />
+                        <div className="w-full h-[1px] bg-black/5 my-0.5" />
                         <div className="flex justify-between items-center text-xs font-bold">
                           <span>{locale === "en" ? "Total Deducted" : "Total Dipotong"}</span>
-                          <span className={`font-mono ${network === "solana" ? "text-solana" : ""}`}>
+                          <span className={`font-mono`}>
                             {network === "solana" ? (
                               isFetchingGasless
                                 ? "..."
                                 : gaslessQuote
                                   ? `${parseFloat((parseFloat(activeAmountStr) + (gaslessQuote.calculatedFeeUi || gaslessQuote.feeDeductedUi || 0)).toFixed(selectedToken?.decimals || 8))} ${selectedToken?.symbol || currencyTicker}`
                                   : `${parseFloat(activeAmountStr).toString()} ${selectedToken?.symbol || currencyTicker}`
-                            ) : (network === "ethereum" || network === "hedera" || network === "polkadot" || network === "tron" || network === "hyperliquid" || network === "robinhood" || network === "base" || network === "arbitrum") && selectedToken?.isNative === false ? (
+                            ) : (network === "ethereum" || network === "hedera" || network === "polkadot" || network === "tempo" || network === "hyperliquid" || network === "robinhood" || network === "base" || network === "arbitrum") && selectedToken?.isNative === false ? (
                               // The token balance only ever drops by the amount sent — the
                               // network fee (ETH gas, Hedera's HBAR fee, Polkadot's DOT fee, or
                               // Tron's bandwidth/TRX burn) is paid separately, not from the token.
@@ -2275,7 +2213,7 @@ const handleCloseModal = () => {
 
                       <div className="flex flex-col gap-1 relative z-20">
                         <div
-                          className="bgBox glass-card cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl transition-all hover:bg-black/5 dark:hover:bg-white/5"
+                          className="bgBox glass-card cursor-pointer p-3 border border-black/5 rounded-xl transition-all hover:bg-black/5"
                           onClick={() => setDropdownOpen(!dropdownOpen)}
                         >
                           <div className="flex justify-between items-center">
@@ -2284,7 +2222,7 @@ const handleCloseModal = () => {
                                 {selectedMethodType !== "EWALLET" && (
                                   <Icon
                                     icon="solar:bank-bold-duotone"
-                                    className="w-5 h-5 text-black/50 dark:text-white/50"
+                                    className="w-5 h-5 text-black/50"
                                   />
                                 )}
                                 <span className="lg:text-sm font-bold">
@@ -2303,7 +2241,7 @@ const handleCloseModal = () => {
                         </div>
 
                         {dropdownOpen && (
-                          <div className="absolute top-full left-0 w-full mt-1 bgBox glass-card py-2 px-0 border border-black/10 dark:border-white/10 rounded-xl shadow-lg bg-white dark:bg-[#1a1a1a] overflow-hidden">
+                          <div className="absolute top-full left-0 w-full mt-1 bgBox glass-card py-2 px-0 border border-black/10 rounded-xl shadow-lg bg-white overflow-hidden">
                             <div className="px-3 pb-2">
                               <div className="relative group">
                                 <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -2323,7 +2261,7 @@ const handleCloseModal = () => {
                                   value={bankSearchQuery}
                                   onChange={(e) => setBankSearchQuery(e.target.value)}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs font-medium outline-none focus:border-black/20 dark:focus:border-white/20 transition-all"
+                                  className="w-full bg-black/5 border border-black/5 rounded-lg py-2 pl-9 pr-3 text-xs font-medium outline-none focus:border-black/20 transition-all"
                                 />
                               </div>
                             </div>
@@ -2351,7 +2289,7 @@ const handleCloseModal = () => {
                                             setValidationMessage("");
                                             setDropdownOpen(false);
                                           }}
-                                          className="w-full flex items-center gap-2 px-4 py-2 hover:bg-black/5 dark:hover:bg-white/10 text-xs transition-colors font-semibold"
+                                          className="w-full flex items-center gap-2 px-4 py-2 hover:bg-black/5 text-xs transition-colors font-semibold"
                                         >
                                           {bank.bankName}
                                         </button>
@@ -2376,7 +2314,7 @@ const handleCloseModal = () => {
                                             setValidationMessage("");
                                             setDropdownOpen(false);
                                           }}
-                                          className="w-full flex items-center gap-2 px-4 py-2 hover:bg-black/5 dark:hover:bg-white/10 text-xs transition-colors font-semibold"
+                                          className="w-full flex items-center gap-2 px-4 py-2 hover:bg-black/5 text-xs transition-colors font-semibold"
                                         >
                                         
                                           {bank.bankName}
@@ -2393,7 +2331,7 @@ const handleCloseModal = () => {
 
                       {selectedMethod && (
                         <div className="flex flex-col gap-3 z-10 mt-2">
-                          <div className="bgBox glass-card p-3 border border-black/5 dark:border-white/10 rounded-xl flex flex-col gap-3">
+                          <div className="bgBox glass-card p-3 border border-black/5 rounded-xl flex flex-col gap-3">
                             <input
                               type="text"
                               inputMode="numeric"
@@ -2415,7 +2353,7 @@ const handleCloseModal = () => {
                               }
                             />
 
-                            <div className="w-full h-[1px] bg-black/5 dark:bg-white/5" />
+                            <div className="w-full h-[1px] bg-black/5" />
 
                           
                             <input
@@ -2445,7 +2383,7 @@ const handleCloseModal = () => {
                     </>
                   )}
                   {activeTab == "send" && (
-                    <div className="bgBox glass-card p-3 border border-black/5 dark:border-white/10 rounded-xl mt-2">
+                    <div className="bgBox glass-card p-3 border border-black/5 rounded-xl mt-2">
                       <p className="text-[11px] font-medium opacity-60 leading-tight">
                         {t("text31")}
                       </p>
@@ -2480,7 +2418,7 @@ const handleCloseModal = () => {
                   <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                     <Icon
                       icon="solar:magnifer-linear"
-                      className="text-xl opacity-40 group-focus-within:opacity-100 group-focus-within:text-solana transition-all"
+                      className="text-xl opacity-40 group-focus-within:opacity-100 transition-all"
                     />
                   </div>
                   <input
@@ -2492,7 +2430,7 @@ const handleCloseModal = () => {
                     }
                     value={tokenSearchQuery}
                     onChange={(e) => setTokenSearchQuery(e.target.value)}
-                    className="w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-solana/50 focus:bg-solana/5 transition-all"
+                    className="w-full bg-black/5 border border-black/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-black/50 focus:bg-black/10 transition-all"
                   />
                 </div>
 
@@ -2501,13 +2439,13 @@ const handleCloseModal = () => {
                     [...Array(6)].map((_, i) => (
                       <div
                         key={`skeleton-modal-${i}`}
-                        className="w-full p-4 border border-transparent rounded-xl flex items-center justify-between gap-3 animate-pulse bg-black/5 dark:bg-white/5"
+                        className="w-full p-4 border border-transparent rounded-xl flex items-center justify-between gap-3 animate-pulse bg-black/5"
                       >
                         <div className="flex items-center gap-3.5">
-                          <div className="w-10 h-10 rounded-full bg-black/10 dark:bg-white/10 shrink-0" />
+                          <div className="w-10 h-10 rounded-full bg-black/10 shrink-0" />
                           <div className="flex flex-col gap-2">
-                            <div className="h-4 w-12 bg-black/10 dark:bg-white/10 rounded" />
-                            <div className="h-2 w-20 bg-black/10 dark:bg-white/10 rounded" />
+                            <div className="h-4 w-12 bg-black/10 rounded" />
+                            <div className="h-2 w-20 bg-black/10 rounded" />
                           </div>
                         </div>
                       </div>
@@ -2534,12 +2472,12 @@ const handleCloseModal = () => {
                           }}
                           className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
                             isSelected
-                              ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                              : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
+                              ? "border-black/20 bg-black/5"
+                              : "border-black/5 hover:bg-black/5"
                           }`}
                         >
                           <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm relative shrink-0 flex items-center justify-center bg-black/5 dark:bg-white/5">
+                            <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm relative shrink-0 flex items-center justify-center bg-black/5">
                               {token.logo && !brokenLogoKeys.has(token.mint || token.symbol) ? (
                                 <Image
                                   src={token.logo}
@@ -2570,7 +2508,7 @@ const handleCloseModal = () => {
                             {userBal > 0 && (
                               <div className="flex flex-col items-end leading-tight">
                                 <span
-                                  className={`font-bold text-sm tracking-tight ${(network === "hedera" || network === "polkadot") ? "text-black dark:text-white" : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+                                  className={`font-bold text-sm tracking-tight text-black`}
                                 >
                                   {userBal}
                                 </span>
@@ -2582,7 +2520,7 @@ const handleCloseModal = () => {
                               </div>
                             )}
                             {isSelected && (
-                              <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400 shrink-0" />
+                              <FaCheckCircle className="text-[18px] text-green-500 shrink-0" />
                             )}
                           </div>
                         </button>
@@ -2608,7 +2546,7 @@ const handleCloseModal = () => {
         </div>
 
        
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           {modalStep === "form" ? (
             <div className="flex flex-row justify-center gap-3 w-full">
               <div className="flex-1">
@@ -2786,7 +2724,7 @@ const handleCloseModal = () => {
           <p className="text-sm break-all mb-4">Hash: {txid}</p>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -2824,7 +2762,7 @@ const handleCloseModal = () => {
           <p className="text-sm mb-4">{t("text34")}</p>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -2854,7 +2792,7 @@ const handleCloseModal = () => {
         onClose={() => setShowWithdrawLimitModal(false)}
         maxWidthClass="lg:w-105"
       >
-        <div className="p-6 flex flex-col gap-4 text-black dark:text-white">
+        <div className="p-6 flex flex-col gap-4 text-black">
           <div className="flex items-start gap-3.5">
             <div className="w-10 h-10 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center shrink-0">
               <Icon icon="solar:danger-circle-bold" className="text-2xl" />
@@ -2865,7 +2803,7 @@ const handleCloseModal = () => {
                   ? "Active Withdrawal in Progress"
                   : "Penarikan Sedang Berjalan"}
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+              <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
                 {locale === "en"
                   ? "You already have 1 active withdrawal in progress. Please wait for it to complete or cancel it in your History before creating a new withdrawal."
                   : "Anda sudah memiliki 1 transaksi penarikan yang sedang berjalan. Silakan tunggu hingga selesai atau batalkan transaksi di menu Riwayat sebelum membuat penarikan baru."}
@@ -2873,10 +2811,10 @@ const handleCloseModal = () => {
             </div>
           </div>
 
-          <div className="flex justify-end items-center gap-3 pt-3 border-t border-black/5 dark:border-white/10">
+          <div className="flex justify-end items-center gap-3 pt-3 border-t border-black/5">
             <button
               onClick={() => setShowWithdrawLimitModal(false)}
-              className="px-4 py-2.5 rounded-xl border border-black/10 dark:border-white/15 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-black/10 text-xs font-semibold hover:bg-black/5 text-neutral-600 transition-colors cursor-pointer"
             >
               {locale === "en" ? "Close" : "Tutup"}
             </button>
@@ -2885,7 +2823,7 @@ const handleCloseModal = () => {
                 setShowWithdrawLimitModal(false);
                 router.push(`/${network}/vault/history`);
               }}
-              className="px-5 py-2.5 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+              className="px-5 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
             >
               {locale === "en" ? "View Active Orders" : "Lihat Riwayat"}
             </button>

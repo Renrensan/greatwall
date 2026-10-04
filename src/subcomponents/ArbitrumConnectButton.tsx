@@ -71,7 +71,7 @@ export function ArbitrumConnectButton({ isOpen, setIsOpen }: ArbitrumConnectButt
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-arbitrum! hover:bg-arbitrum/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -81,7 +81,7 @@ export function ArbitrumConnectButton({ isOpen, setIsOpen }: ArbitrumConnectButt
       {!connected && (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-arbitrum! hover:bg-arbitrum/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -93,7 +93,7 @@ export function ArbitrumConnectButton({ isOpen, setIsOpen }: ArbitrumConnectButt
           alt="icon"
           label={ellipsifyAddress(address!)}
           isMainnet={arbitrumMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-arbitrum/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -148,7 +148,7 @@ function ArbitrumWalletSheet({
           testnetLabel="Sepolia"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected ? (
@@ -159,7 +159,7 @@ function ArbitrumWalletSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text55")} />
       </div>
     </AnimatedModalNavbar>
@@ -178,16 +178,16 @@ function ArbitrumSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onClos
         </div>
 
         <div className="flex flex-col gap-3 py-2">
-          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-arbitrum/20" />
+          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-black/20" />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
           <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>

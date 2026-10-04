@@ -25,18 +25,16 @@ export function WalletListItem({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-full p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card ${
-        disabled ? "cursor-default opacity-50" : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/10"
-      }`}
+      className="gw-row"
     >
       <div className="flex items-center gap-3">
-        <Image src={icon} alt={name} className="w-8 h-8 object-contain shrink-0" />
-        <p className="font-bold text-sm">{name}</p>
+        <Image src={icon} alt="" className="w-6 h-6 object-contain shrink-0 rounded" />
+        <p>{name}</p>
         {detected && detectedLabel && (
-          <span className="text-[10px] opacity-50 ml-auto">{detectedLabel}</span>
+          <span className="text-xs opacity-60 ml-auto">{detectedLabel}</span>
         )}
         {!detected && actionLabel && (
-          <span className="text-[10px] opacity-50 ml-auto">{actionLabel}</span>
+          <span className="text-xs opacity-60 ml-auto">{actionLabel}</span>
         )}
       </div>
     </button>

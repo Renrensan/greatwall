@@ -1,4 +1,4 @@
-import { MarinadeSOLData, MarinadeUSDCData } from "@/components/integrator/dapphub/solana/solana-staking/type";
+import type { ConvertMethods } from "@/components/integrator/ipow/convertMethods";
 import { solananetwork } from "@/index";
 import { Wallet, WalletAccount } from "@wallet-standard/core";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
@@ -6,7 +6,7 @@ import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-valid
 
 export type SolanaWalletType = "phantom" | "walletconnect";
 
-export interface SolanaWalletContextType {
+export interface SolanaWalletContextType extends ConvertMethods {
   connected: boolean;
   address: string | null;
   walletName: string | null;
@@ -44,20 +44,18 @@ export interface SolanaWalletContextType {
   selfCustodyParameter: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
   
   verifiedTokensData: any[]; 
   liveTokenPrices: Record<string, any>; 
 
-  isUltraFast: boolean;
-  setIsUltraFast: (value: boolean) => void;
   checkAtaRequired: (destinationAddress: string, mintAddress: string | null | undefined) => Promise<boolean>;
 
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: Wallet | "walletconnect", isAutoConnect?: boolean) => Promise<void>; 
   isConnecting: boolean;
   disconnect: (hardDisconnect?: boolean) => void; 
   signMessage: (message: string) => Promise<string | null>;
+  /** The connected wallet as @ipow/sdk signs with it; null when none is. */
+  getAnchorWallet: () => import("@ipow/sdk").SolanaWallet | null;
   switchWallet: (wallet: Wallet | "walletconnect") => Promise<void>; 
   sendTokenTo: (
     toAddress: string,
@@ -72,94 +70,20 @@ export interface SolanaWalletContextType {
   isValidAddress: (address: string) => boolean;
 
   // --- NEW GASLESS SEND METHODS ---
-  fetchGaslessSendQuote: (
-    recipientAddress: string, 
-    mintAddress: string, 
-    amountUi: number, 
-    decimals: number
-  ) => Promise<any | null>;
   
-  executeGaslessSend: (transactionBase64: string) => Promise<string | null>;
   // --------------------------------
   
-  stakeToMarinade: (amountSol: number) => Promise<string | null>;
-  unstakeFromMarinade: (amountSol: number) => Promise<string | null>;
-  getMarinadeSOLData: () => Promise<any | null>;
-  getMarinadeUSDCData: () => Promise<any | null>;
-  getMarinadeUsdcRewardHistory: () => Promise<any | null>;
-  getMarinadeUsdcTransactionHistory: () => Promise<any | null>;
-  stakeNativeToMarinade: (amountSol: number) => Promise<string | null>;
-  unstakeNativeFromMarinade: (amountSol: number) => Promise<string | null>;
-  withdrawNativeStake: (stakeAccountAddress: string, lamports: number) => Promise<string | null>;
-  depositUsdcToMarinade: (amountUsdc: number) => Promise<string | null>;
-  withdrawUsdcFromMarinade: (amountUsdc: number) => Promise<string | null>;
-  claimUsdcFromMarinade: (estimatedRewardUsd: number) => Promise<string | null>;
 
   // Quote-only variants — build the tx and return its fee breakdown (networkFeeUi,
   // ataFeeUi, platformFeeUi, calculatedFeeUi) without prompting the wallet to sign, for a
   // live "you'll pay X" preview as the user types.
-  fetchMarinadeDepositQuote: (amountSol: number) => Promise<any | null>;
-  fetchMarinadeUnstakeQuote: (amountMSol: number) => Promise<any | null>;
-  fetchMarinadeNativeDepositQuote: (amountSol: number) => Promise<any | null>;
-  fetchMarinadeNativeUnstakeQuote: (amountSol: number) => Promise<any | null>;
-  fetchMarinadeUsdcDepositQuote: (amountUsdc: number) => Promise<any | null>;
-  fetchMarinadeUsdcWithdrawQuote: (amountUsdc: number) => Promise<any | null>;
   
-  fetchSwapQuote: (inputMint: string, outputMint: string, amountInSmallestUnit: number, inputAmountUi: number, swapMode?: "ExactIn" | "ExactOut", inputDecimals?: number, signal?: AbortSignal) => Promise<any | null>;
-  executeSwap: (quoteResponse: any, inputMint: string, isUltraFast?: boolean) => Promise<string | null>;
-  fetchTokenMeta: (query: string) => Promise<any | null>;
-  fetchStockAssets: ()=> Promise<any[]>;
 
-  liveBetaPrice: number;
   setFeeSelection: (f: "low" | "medium" | "high") => void;
   fetchETA: (txHash: string) => Promise<{ estimatedSeconds: number; isCongested: boolean } | null>;
 
-  estimateBitcoinFromNative: (solAmount: number) => Promise<string | null>;
-  estimateNativeFromBitcoin: (btcSats: string) => Promise<string | null>;
-
-  commitNativeToBitcoin: (
-    userProgram: string,
-    solAmount: number,
-    bitcoinAmountSats: number, 
-    destination?: { networkId: number; networkAddress: string }
-  ) => Promise<string | null>;
-
-  commitBitcoinToNative: (
-    btcSats: string | number,
-    solAmount: number, 
-    userProgram: string,
-  ) => Promise<string | null>;
-
-  depositApprovedConversion: (txId: number | string | bigint) => Promise<string | null>;
-
-  getMyTxIds: (
-    phase: number, 
-    typeFilter?: number,
-    bitcoinProgramFilter?: string,
-    isUserBitcoinProgramFilter?: boolean,
-  ) => Promise<string[]>; 
-
-  getConversion: (txId: number | string | bigint) => Promise<any>;
-
-  refundIfNotApproved: (txId: number | string | bigint) => Promise<string | null>;
-  claimNativeAfterOperatorExpired: (txId: number | string | bigint) => Promise<string | null>;
-  refundAfterNoProofNativeToBitcoin: (txId: number | string | bigint) => Promise<string | null>;
-  initializeProtocol: () => Promise<void>; 
-
-  anchorInfo: (txIdNum: number | string | bigint) => Promise<any[] | null>;
-  windowsFor: (txIdNum: number | string | bigint) => Promise<any[] | null>;
-  proofInfo: (txIdNum: number | string | bigint) => Promise<any[] | null>;
-  globalHeightToHashLE: (height: bigint | number) => Promise<string>;
-  submitBitcoinMerkleProofWithTx: (
-    txIdNum: number | string | bigint,
-    rawTx: Uint8Array,
-    voutIndex: number,
-    blockHashLE: Uint8Array,
-    blockHeight: number,
-    branch: Uint8Array[],
-    index: number
-  ) => Promise<string | null>;
-
+  // Convert's methods: ConvertMethods (solanaConvertMethods.ts).
+  initializeProtocol: () => Promise<void>;
   addSupportedNetwork: (networkName: string, networkId: number, minAddrLen: number, maxAddrLen: number) => Promise<void>; 
 }
 

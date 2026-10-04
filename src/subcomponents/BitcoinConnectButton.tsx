@@ -94,7 +94,7 @@ export function BitcoinConnectButton({
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-bitcoin! hover:bg-bitcoin/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -104,7 +104,7 @@ export function BitcoinConnectButton({
       {!connected && (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-bitcoin! hover:bg-bitcoin/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -116,7 +116,7 @@ export function BitcoinConnectButton({
           alt="icon"
           label={ellipsifyAddress(address!)}
           isMainnet={bitcoinMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-bitcoin/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -180,7 +180,7 @@ function BitcoinWalletSheet({
           onChange={setIsMainnet}
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected.xverse && (
@@ -206,7 +206,7 @@ function BitcoinWalletSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text55")} />
       </div>
     </AnimatedModalNavbar>
@@ -247,11 +247,11 @@ function BitcoinSettingsSheet({
           <NetworkStatusCard
             label={t("text151")}
             isMainnet={isMainnet}
-            borderClassName="border-bitcoin/20"
+            borderClassName="border-black/20"
             pulse={false}
           />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow
             icon={<IoCopyOutline className="text-[16px]" />}
@@ -284,7 +284,7 @@ function BitcoinSettingsSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>

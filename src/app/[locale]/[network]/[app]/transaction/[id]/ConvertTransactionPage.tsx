@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import bs58 from 'bs58';
 
 import Image from "next/image";
-import { logos } from "@/index";
+import greatwallLogo from "@/assets/greatwall-logo.png";
 import { 
     FaCheckCircle, FaClock, FaExclamationTriangle, 
     FaCube, FaCopy, FaLink,
@@ -20,6 +20,16 @@ import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { usePolkadotWallet } from '@/components/polkadot/polkadot-provider';
+import { useBaseWallet } from '@/components/base/base-provider';
+import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
+import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
+import { setTunnelSell } from '@/components/integrator/ipow/tunnel';
+import { TUNNEL_MARGIN_BLOCKS } from '@/components/integrator/ipow/convertMethods';
+import { bitcoinExplorer } from '@/components/integrator/ipow/sdk';
+import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
+import { Bitcoin } from '@ipow/sdk';
+
+const bitcoinChain = bitcoinExplorer;
 import { SupportedChain, useNetwork } from '@/app/network-provider';
 
 import Button from "@/subcomponents/Button"; 
@@ -28,6 +38,9 @@ import { HederaConnectButton } from '@/subcomponents/HederaConnectButton';
 import { EthereumConnectButton } from '@/subcomponents/EthereumConnectButton';
 import { SolanaConnectButton } from '@/subcomponents/SolanaConnectButton';
 import { PolkadotConnectButton } from '@/subcomponents/PolkadotConnectButton';
+import { BaseConnectButton } from '@/subcomponents/BaseConnectButton';
+import { RobinhoodConnectButton } from '@/subcomponents/RobinhoodConnectButton';
+import { HyperliquidConnectButton } from '@/subcomponents/HyperliquidConnectButton';
 import { Icon } from '@iconify/react';
 import ButtonContrast from '@/subcomponents/ButtonContrast';
 import { useTranslations } from 'next-intl';
@@ -124,11 +137,10 @@ export default function ConvertTransactionPage() {
   const linkedParam = searchParams.get('linked');
   const txIdStr = params.id as string;
 
-  const colorFlip = (network === 'hedera' || network === 'polkadot') ? 'text-black dark:text-white' : (network === "base" ? "text-[#0052FF]" : `text-${network}`);
-  const bgFlip = (network === 'hedera' || network === 'polkadot') ? 'bg-black/10 dark:bg-white/10' : `bg-${network}/10`;
-  const borderFlip = (network === 'hedera' || network === 'polkadot') ? 'border-black dark:border-white' : `border-${network}`;
+  const colorFlip = 'text-black';
+  const bgFlip = 'bg-black/10';
+  const borderFlip = 'border-black';
 
-  const [isManualMode, setIsManualMode] = useState(false);
   const [isShowDetails, setIsShowDetails] = useState(false);
   const [mempoolDetectedTx, setMempoolDetectedTx] = useState<{txid: string, vout: number, height: number} | null>(null);
   const [isScanningMempool, setIsScanningMempool] = useState(false);
@@ -144,6 +156,9 @@ export default function ConvertTransactionPage() {
   const bitcoinWallet = useBitcoinWallet();
   const solanaWallet = useSolanaWallet();
   const polkadotWallet = usePolkadotWallet();
+  const baseWallet = useBaseWallet();
+  const robinhoodWallet = useRobinhoodWallet();
+  const hyperliquidWallet = useHyperliquidWallet();
   const { scriptPubKeyHexToAddress } = useBitcoinWallet();
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
@@ -163,7 +178,10 @@ export default function ConvertTransactionPage() {
       // (nativeToken.symbol, via currencyTicker) reads "PAS", since that's the actual
       // testnet ticker ipow convert runs against.
       { id: polkadotWallet.ipowNetworkId, key: "polkadot", name: polkadotWallet.networkName, logo: polkadotWallet.networkLogo, nativeToken: { symbol: polkadotWallet.currencyTicker, decimals: polkadotWallet.ipowDecimals, logo: polkadotWallet.networkLogo } },
-    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet]
+      { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
+      { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
+      { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
+    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
   );
 
   const activeProvider: any = useMemo(() => {
@@ -176,9 +194,12 @@ export default function ConvertTransactionPage() {
         case 'ethereum': return ethereumWallet;
         case 'solana': return solanaWallet;
         case 'polkadot': return polkadotWallet;
-        default: return hederaWallet;
+        case 'base': return baseWallet;
+        case 'robinhood': return robinhoodWallet;
+        case 'hyperliquid': return hyperliquidWallet;
+        default: return ethereumWallet;
     }
-  }, [network, linkedParam, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet]);
+  }, [network, linkedParam, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
 
   const [conversion, setConversion] = useState<any>(null);
   const [partnerConversion, setPartnerConversion] = useState<any>(null); 
@@ -189,7 +210,6 @@ export default function ConvertTransactionPage() {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   
-  const [proofInput, setProofInput] = useState({ txidBE: '', voutIndex: '', blockHeight: '' });
   const [selectedBlockHeight, setSelectedBlockHeight] = useState<string | null>(null);
   const headerCache = useRef<Record<string, string>>({});
 
@@ -249,8 +269,8 @@ export default function ConvertTransactionPage() {
     if (network === 'bitcoin') {
         if (partnerId === 0 && bitcoinWallet.connected && bitcoinWallet.address) {
             try {
-                const btcParticipant = scriptPubKeyHexToAddress(conversion.userProgram);
-                isMatch = bitcoinWallet.address.toLowerCase() === btcParticipant.toLowerCase();
+                const btcParticipant = btcAddressOf(conversion.userProgram);
+                isMatch = !!btcParticipant && bitcoinWallet.address.toLowerCase() === btcParticipant.toLowerCase();
             } catch (e) { isMatch = false; }
         }
     } else {
@@ -262,7 +282,7 @@ export default function ConvertTransactionPage() {
                 isMatch = activeAddress === nativeOwner;
             } else if (activeProvider.ipowNetworkId === partnerId) {
                 const partnerDecoded = conversion.networkAddress && conversion.networkAddress !== "0x"
-                    ? decodeNetworkAddress(conversion.networkAddress, networkConfigs[partnerId]?.key).toLowerCase()
+                    ? decodeNetworkAddress(conversion.networkAddress, networkConfigs.find((n) => n.id === partnerId)?.key).toLowerCase()
                     : null;
                 isMatch = activeAddress === partnerDecoded;
             }
@@ -289,7 +309,22 @@ export default function ConvertTransactionPage() {
     const isBtcInbound = !isOutbound && isBitcoin;
 
     const targetChainId = isOutbound ? localTx.networkId : (localTx.contractChainId ?? activeProvider.ipowNetworkId);
-    const destinationNetworkName = networkConfigs[targetChainId].name;
+    const destinationNetworkName = networkConfigs.find((n) => n.id === targetChainId)?.name ?? "";
+
+    // A tunnel's swap: the shared words (convertStatus.ts), styled here.
+    const sourceNetworkName = networkConfigs.find((n) => n.id === (isOutbound ? (localTx.contractChainId ?? activeProvider.ipowNetworkId) : localTx.networkId))?.name ?? "";
+    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t, locale);
+    if (tunnel) {
+        const style = {
+            wait: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-pulse"/> },
+            action: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaLink className="animate-pulse"/> },
+            progress: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-spin"/> },
+            ok: { color: "text-green-600", bg: "bg-green-50", border: "border-green-100", icon: <FaCheckCircle/> },
+            fail: { color: "text-red-600", bg: "bg-red-50", border: "border-red-100", icon: <FaExclamationTriangle/> },
+            closed: { color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-100", icon: <FaWallet /> },
+        }[tunnel.kind];
+        return { label: tunnel.label, desc: tunnel.desc, ...style };
+    }
     
     if (sourceTx.phase === TxPhase.WAITING_OPERATOR_APPROVAL || (isBtcInbound && destTx.phase === TxPhase.WAITING_OPERATOR_APPROVAL)) {
         return { 
@@ -409,6 +444,14 @@ export default function ConvertTransactionPage() {
     return { label:  t("text182"), desc:  t("text183"), color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-100", icon: null };
   };
 
+  /** A Bitcoin address from an output script, or null: the new protocol does
+   *  not keep a buy's user script (it is "0x"), and a script the wallet
+   *  cannot name is no address. */
+  const btcAddressOf = (hex: string | null | undefined): string | null => {
+      if (!hex || hex === "0x") return null;
+      try { return scriptPubKeyHexToAddress(hex) || null; } catch { return null; }
+  };
+
   const fetchData = useCallback(async (firstLoad = false) => {
     if (!txIdStr || !activeProvider) return;
     if (firstLoad) setLoading(true);
@@ -432,6 +475,9 @@ export default function ConvertTransactionPage() {
             if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
             if (id === solanaWallet.ipowNetworkId) return solanaWallet;
             if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
+            if (id === baseWallet.ipowNetworkId) return baseWallet;
+            if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
+            if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
             return null;
         };
 
@@ -445,7 +491,11 @@ export default function ConvertTransactionPage() {
                 const hasValidReceive = localData.ipowReceiveProgram && localData.ipowReceiveProgram !== "0x" && localData.ipowReceiveProgram.length > 2;
 
                 let ids: bigint[] = [];
-                if (isOutbound && hasValidProgram) {
+                if (localData.partnerTxId) {
+                    ids = [BigInt(localData.partnerTxId)];
+                } else if (localData.tunnel) {
+                    ids = [];
+                } else if (isOutbound && hasValidProgram) {
                     ids = await partnerProvider.getMyTxIds(TxPhase.NONE, TypeFilter.ANY, localData.userProgram, false) as any;
                 } else if (!isOutbound && hasValidReceive) {
                     ids = await partnerProvider.getMyTxIds(TxPhase.NONE, TypeFilter.ANY, localData.ipowReceiveProgram, true) as any;
@@ -483,8 +533,9 @@ export default function ConvertTransactionPage() {
             if (btcSatsStr === "0" && sourceTxObj?.nativeAmount && sourceTxObj.nativeAmount !== "0") {
                 const finalSrcProvider = isOutbound ? activeProvider : partnerProvider;
                 if (finalSrcProvider?.estimateBitcoinFromNative) {
-                    const dec = finalSrcProvider.ipowDecimals;
-                    btcSatsStr = await finalSrcProvider.estimateBitcoinFromNative(Number(sourceTxObj.nativeAmount) / (10 ** dec)) ?? "0";
+                    // A token swap: its token's decimals and price.
+                    const dec = sourceTxObj.tokenDecimals ?? finalSrcProvider.ipowDecimals;
+                    btcSatsStr = await finalSrcProvider.estimateBitcoinFromNative(Number(sourceTxObj.nativeAmount) / (10 ** dec), sourceTxObj.token ?? "native") ?? "0";
                 }
             }
 
@@ -492,9 +543,9 @@ export default function ConvertTransactionPage() {
                 const destId = isOutbound ? partnerId : activeProvider.ipowNetworkId;
                 const finalDestProvider = isOutbound ? partnerProvider : activeProvider;
                 if (destId !== 0 && finalDestProvider?.estimateNativeFromBitcoin) {
-                    const rawNative = await finalDestProvider.estimateNativeFromBitcoin(btcSatsStr);
+                    const rawNative = await finalDestProvider.estimateNativeFromBitcoin(btcSatsStr, destTxObj?.token ?? "native");
                     if (rawNative) {
-                        const dec = finalDestProvider.ipowDecimals;
+                        const dec = destTxObj?.tokenDecimals ?? finalDestProvider.ipowDecimals;
                         const rawEst = Number(rawNative) * (10 ** dec);
                         let reserved = 0;
                         let hasReserved = false;
@@ -584,18 +635,15 @@ export default function ConvertTransactionPage() {
             }
         }
 
-        const depositEndHeight = (Number(anchorHeight) + 10).toString();
-        const proofEndHeight = (Number(anchorHeight) + 40).toString();
-        const latestStreamed = headersList.length > 0 ? headersList[headersList.length - 1].height : null;
+        // A buy's payment must be in its payment blocks; nothing else in the
+        // new protocol ends at a block (the operator's deadline is a time).
+        const depositEndHeight = localData.payBlocks ? String(localData.payBlocks.last) : null;
+        const tipHeight = localData.payBlocks ? await bitcoinChain.tip().catch(() => null) : null;
+        const latestStreamed = tipHeight !== null ? String(tipHeight) : (headersList.length > 0 ? headersList[headersList.length - 1].height : null);
 
         let endpointBlock = null;
-        if (localData.phase !== TxPhase.COMPLETED) {
-            if (localData.isNativeToBitcoin || (localData.networkId !== 0 && !localData.ipowReceiveProgram)) {
-                endpointBlock = (localData.phase === TxPhase.WAITING_USER_ACTION || localData.phase === TxPhase.USER_ACTION_EXPIRED) 
-                    ? depositEndHeight : proofEndHeight;
-            } else {
-                endpointBlock = proofEndHeight;
-            }
+        if (!localData.isNativeToBitcoin && (localData.phase === TxPhase.WAITING_USER_ACTION || localData.phase === TxPhase.USER_ACTION_EXPIRED)) {
+            endpointBlock = depositEndHeight;
         }
 
 
@@ -611,6 +659,7 @@ export default function ConvertTransactionPage() {
             headers: [...headersList],
             endpointBlock,
             latestStreamed,
+            tipHeight,
             showEndpoint: endpointBlock && latestStreamed && (Number(latestStreamed) < Number(endpointBlock)),
             showPendingProof: localProof?.set && !localProof?.verified && (!latestStreamed || BigInt(localProof.blockHeight) > BigInt(latestStreamed)),
             showGap: anchorHeight && epochFirstHeight  && BigInt(anchorHeight) > BigInt(epochFirstHeight) + BigInt(1)
@@ -622,7 +671,7 @@ export default function ConvertTransactionPage() {
     } finally {
         setLoading(false);
     }
-  }, [activeProvider, txIdStr, hederaWallet, ethereumWallet, solanaWallet, scriptPubKeyHexToAddress]);
+  }, [activeProvider, txIdStr, hederaWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, scriptPubKeyHexToAddress]);
 
 
   useEffect(() => {
@@ -663,32 +712,6 @@ export default function ConvertTransactionPage() {
       }
   }, [extraData, selectedBlockHeight]);
 
-  const [pendingProofAutoFill, setPendingProofAutoFill] = useState(false);
-  useEffect(() => {
-      if (isManualMode) return;
-      if (partnerConversion?.phase === TxPhase.COMPLETED ) {
-          setProofInput({
-              txidBE: swapEndian(partnerConversion.proof.txidLE),
-              voutIndex: partnerConversion.proof.voutIndex.toString(),
-              blockHeight: partnerConversion.proof.blockHeight?.toString()
-          });
-          setPendingProofAutoFill(false);
-      }  else if( partnerConversion?.phase === TxPhase.ACTIVE_WAITING_PROOF){
-           setProofInput({
-              txidBE: swapEndian(partnerConversion.proof.txidLE),
-              voutIndex: partnerConversion.proof.voutIndex.toString(),
-              blockHeight: partnerConversion.proof.blockHeight?.toString()
-          });
-          setPendingProofAutoFill(true);
-      }
-      else if (mempoolDetectedTx) {
-          setProofInput({
-              txidBE: mempoolDetectedTx.txid,
-              voutIndex: mempoolDetectedTx.vout.toString(),
-              blockHeight: mempoolDetectedTx.height.toString()
-          });
-      } 
-  }, [partnerConversion, mempoolDetectedTx, isManualMode]);
 
 
   useEffect(() => {
@@ -700,7 +723,7 @@ export default function ConvertTransactionPage() {
         (conversion.phase !== TxPhase.ACTIVE_WAITING_PROOF && conversion.phase !== TxPhase.WAITING_USER_ACTION)
       ) return;
      
-      const depositAddr = scriptPubKeyHexToAddress(conversion?.ipowReceiveProgram);
+      const depositAddr = btcAddressOf(conversion?.ipowReceiveProgram);
       if (!depositAddr) return;
 
       const scan = async () => {
@@ -732,7 +755,14 @@ export default function ConvertTransactionPage() {
 
   const phase = conversion?.phase;
   const targetTimestamp = useMemo(() => {
-      if (phase === TxPhase.WAITING_OPERATOR_APPROVAL) return getUnixTsFromField(conversion.createdAt+900);
+      // The auction's end; a buy waits as long again for its operator to lock the coin.
+      if (phase === TxPhase.WAITING_OPERATOR_APPROVAL) {
+          const end = conversion.swap?.job?.times?.auctionEnd ?? (conversion.createdAt + 900);
+          return getUnixTsFromField(conversion.isNativeToBitcoin ? end : end + 1800);
+      }
+      // Nothing loaded yet: no timer.
+      const lockEnd = conversion?.swap?.job?.times?.lockEnd;
+      if (phase === TxPhase.ACTIVE_WAITING_PROOF && lockEnd) return getUnixTsFromField(lockEnd);
       if (phase === TxPhase.WAITING_USER_ACTION || phase === TxPhase.ACTIVE_WAITING_PROOF) return getUnixTsFromField(conversion.operatorDutyExpiresAt);
       return null; 
   }, [phase, conversion]);
@@ -753,7 +783,7 @@ export default function ConvertTransactionPage() {
 
       const updateTimers = () => {
           const now = Math.floor(Date.now() / 1000);
-          const currentHeight = Number(extraData?.windows?.lastHeight || 0);
+          const currentHeight = Number(extraData?.tipHeight || extraData?.windows?.lastHeight || 0);
           const anchor = Number(extraData?.anchorHeight || 0);
           const phase = conversion.phase;
 
@@ -786,12 +816,10 @@ export default function ConvertTransactionPage() {
           
           if (anchor > 0 && currentHeight > 0) {
               let targetBlock = 0;
-              if (conversion.isNativeToBitcoin && phase === TxPhase.WAITING_USER_ACTION) {
-                  targetBlock = anchor + 10;
+              // A buy's payment: its last payment block.
+              if (!conversion.isNativeToBitcoin && phase === TxPhase.WAITING_USER_ACTION && conversion.payBlocks) {
+                  targetBlock = Number(conversion.payBlocks.last);
                   bLabel = t("text252");
-              } else if (phase === TxPhase.ACTIVE_WAITING_PROOF || phase === TxPhase.WAITING_USER_ACTION) {
-                  targetBlock = anchor + 40;
-                  bLabel = t("text253");
               }
 
               if (targetBlock > 0) {
@@ -815,14 +843,6 @@ export default function ConvertTransactionPage() {
       return () => clearInterval(ticker);
   }, [conversion, extraData, targetTimestamp]);
 
-  const hexToBytes = (hex: string): Uint8Array => {
-    const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
-    const len = clean.length;
-    const bytes = new Uint8Array(len / 2);
-    for (let i = 0; i < len; i += 2) bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16);
-    return bytes;
-  };
-
   const handleAction = async (action: string) => {
       setBusy(true); 
       setMsg(null); 
@@ -837,32 +857,7 @@ export default function ConvertTransactionPage() {
           else if (action === 'refund_approval') hash = await activeProvider.refundIfNotApproved(txId);
           else if (action === 'claim_expired') hash = await activeProvider.claimNativeAfterOperatorExpired(txId);
           else if (action === 'refund_timeout') hash = await activeProvider.refundAfterNoProofNativeToBitcoin(txId);
-          else if (action === 'submit_proof') {
-              if (!proofInput.txidBE || !proofInput.voutIndex || !proofInput.blockHeight) {
-                  throw new Error("Missing TXID, Vout, or Block Height");
-              }
-              const res = await fetch('/api/convert', {
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                      txidBE: proofInput.txidBE.trim(), 
-                      voutIndex: Number(proofInput.voutIndex), 
-                      blockHeight: Number(proofInput.blockHeight), 
-                      expectedScriptPubKeyHex: conversion.ipowReceiveProgram 
-                  })
-              });
-              if(!res.ok) throw new Error(await res.text());
-              const bundle = await res.json();
-
-               hash = await activeProvider.submitBitcoinMerkleProofWithTx(
-                  txId,
-                  hexToBytes(bundle.legacy0x),      
-                  bundle.voutIndex,
-                  hexToBytes(bundle.blockHashLE),  
-                  bundle.blockHeight,
-                  bundle.branch.map((b: string) => hexToBytes(b)), 
-                  bundle.index
-                );            
-          }
+          else if (action === 'complete') hash = await activeProvider.completeConversion(txId);
 
           if(hash) { 
               setTxid(hash);
@@ -872,11 +867,95 @@ export default function ConvertTransactionPage() {
           }
       } catch(e: any) { 
           console.error(e);
+          // Why it failed, in the page, as well as the modal.
+          setError(e?.shortMessage ?? e?.reason ?? e?.message ?? String(e));
           setShowErrorModal(true); 
       } finally { 
           setBusy(false); 
       }
     };
+
+  // The fees of the user's untaken jobs, held by the protocol: withdrawn in
+  // one transaction, apart from any refund.
+  const [feeCredit, setFeeCredit] = useState<bigint>(BigInt(0));
+  const readFeeCredit = useCallback(async () => {
+      try { setFeeCredit(await activeProvider.feeCredit()); } catch { setFeeCredit(BigInt(0)); }
+  }, [activeProvider]);
+  useEffect(() => { readFeeCredit(); }, [readFeeCredit, conversion?.phase]);
+  const withdrawFeeCredit = async () => {
+      setBusy(true);
+      setError(null);
+      try {
+          const hash = await activeProvider.withdrawFeeCredit();
+          setTxid(hash);
+          setShowSuccessModal(true);
+          await readFeeCredit();
+      } catch (e: any) {
+          setError(e?.shortMessage ?? e?.message ?? String(e));
+      } finally {
+          setBusy(false);
+      }
+  };
+
+  /** The wallet of a tunnel's source network. */
+  const sourceWalletOf = (chain: string): any => ({ ethereum: ethereumWallet, base: baseWallet, robinhood: robinhoodWallet, hyperliquid: hyperliquidWallet, solana: solanaWallet } as any)[chain];
+
+  // A tunnel's sell signed but not recorded (the wallet's confirmation timed
+  // out, the page was closed): found on chain by the address it pays, and
+  // recorded, so the page follows it instead of asking for it again.
+  useEffect(() => {
+      const tn = conversion?.tunnel;
+      if (!tn || tn.leg !== "buy" || tn.tunnel.sellId || !conversion?.swap?.address) return;
+      const source = sourceWalletOf(tn.tunnel.fromChain);
+      if (!source?.connected || !source.sellPaying) return;
+      let active = true;
+      source.sellPaying(conversion.swap.address).then((id: bigint | null) => {
+          if (!active || id === null) return;
+          setTunnelSell(tn.tunnel.toChain, tn.tunnel.buyId, id.toString());
+          fetchData(false);
+      }).catch(() => {});
+      return () => { active = false; };
+  }, [conversion?.tunnel?.tunnel?.buyId, conversion?.tunnel?.tunnel?.sellId, conversion?.swap?.address, solanaWallet.connected, ethereumWallet.connected, baseWallet.connected, hyperliquidWallet.connected, robinhoodWallet.connected]);
+
+  // A tunnel's sell: checked afresh against the funded buy (its address,
+  // sats and payment blocks), then signed with the source network's wallet.
+  const startTunnelSell = async () => {
+      const tunnel = conversion?.tunnel?.tunnel;
+      if (!tunnel || conversion.tunnel.leg !== "buy") return;
+      const source: any = sourceWalletOf(tunnel.fromChain);
+      setBusy(true);
+      setError(null);
+      try {
+          if (!source?.connected) throw new Error(locale === "en" ? `Connect your ${tunnel.fromChain} wallet first` : `Hubungkan dompet ${tunnel.fromChain} Anda terlebih dahulu`);
+          const check = await activeProvider.checkPayable(BigInt(txIdStr), TUNNEL_MARGIN_BLOCKS);
+          if (!check.ok) throw new Error(check.reason);
+          // The buy must be the one the operator promised: for this user's
+          // wallet, the coin, the amount and the sats it quoted.
+          const sameUser = tunnel.recipient?.startsWith("0x") ? check.user.toLowerCase() === tunnel.recipient.toLowerCase() : check.user === tunnel.recipient;
+          const want = tunnel.token && tunnel.token !== "native" ? tunnel.token.toLowerCase() : null;
+          const sameToken = want ? check.token.toLowerCase() === want : /^0x0{40}$/i.test(check.token);
+          if (!tunnel.amountOut || !sameUser || !sameToken || check.amount !== BigInt(tunnel.amountOut) || check.sats !== BigInt(tunnel.sats))
+              throw new Error(locale === "en" ? "This buy is not the one the operator promised you: do not sell." : "Pembelian ini bukan yang dijanjikan operator kepada Anda: jangan jual.");
+          // A sale already paying this buy (signed before, its record lost):
+          // a second would be lost, since the buy pays out once.
+          const existing = await source.sellPaying(check.address);
+          if (existing !== null) {
+              setTunnelSell(tunnel.toChain, tunnel.buyId, existing.toString());
+              await fetchData(false);
+              throw new Error(locale === "en" ? `You already signed this sale (swap ${existing}): do not sign again.` : `Anda sudah menandatangani penjualan ini (swap ${existing}): jangan tandatangani lagi.`);
+          }
+          const sellId = await source.tunnelSell({ token: tunnel.fromToken ?? "native", amount: BigInt(tunnel.amountIn), sats: check.sats, to: check.address, window: check.payBlocks });
+          setTunnelSell(tunnel.toChain, tunnel.buyId, sellId.toString());
+          setTxid(null);
+          setMsg(locale === "en" ? "Deposit signed. Converting now; this page follows the progress." : "Deposit ditandatangani. Konversi berjalan; halaman ini mengikuti prosesnya.");
+          await fetchData(false);
+      } catch (e: any) {
+          console.error(e);
+          setError(e?.shortMessage ?? e?.message ?? String(e));
+      } finally {
+          setBusy(false);
+      }
+  };
 
   const handleSwitchView = () => {
       if (!conversion || !networkConfigs) return;
@@ -907,10 +986,35 @@ export default function ConvertTransactionPage() {
   };
 
   const [isSendProcessing, setIsSendProcessing] = useState(false);
-  const handleConfirmSend = async (toAddress: string, amountToken: number) => {
+  // Pays a buy's BTC. What to pay and where comes from the swap itself, read
+  // again now: refused when the address was already paid (it is used once)
+  // or too few payment blocks remain, and once tried, not again here for
+  // three minutes (a send that looks failed may still have been broadcast).
+  const payKey = `greatwall:convert:${network}:${txIdStr}:paidAt`;
+  const handleConfirmSend = async (_toAddress: string, _amountToken: number) => {
     try {
       setIsSendProcessing(true);
-      const resultTxid = await bitcoinWallet.sendTokenTo(toAddress, amountToken);
+      setError(null);
+      try {
+        const last = Number(localStorage.getItem(payKey) ?? 0);
+        if (Date.now() - last < 3 * 60_000) {
+          setError(locale === "en" ? "A payment was just sent from this browser. Check your Bitcoin wallet before paying again." : "Pembayaran baru saja dikirim dari browser ini. Periksa dompet Bitcoin Anda sebelum membayar lagi.");
+          return;
+        }
+      } catch {}
+      const check = await activeProvider.checkPayable(BigInt(txIdStr));
+      if (!check.ok) {
+        setError(check.reason);
+        return;
+      }
+      // The fastest fee is known once the wallet has read fees.
+      if (!bitcoinWallet.estimatedFee?.fetched || !bitcoinWallet.estimatedFee?.high) {
+        setError(locale === "en" ? "Bitcoin fees are still loading: try again in a moment." : "Biaya Bitcoin masih dimuat: coba lagi sebentar lagi.");
+        return;
+      }
+      try { localStorage.setItem(payKey, String(Date.now())); } catch {}
+      // The fastest fee: a payment mined after the payment blocks is lost.
+      const resultTxid = await bitcoinWallet.sendTokenTo(check.address, check.btc, "high");
       if (resultTxid) {
         setTxid(resultTxid);
         setShowSuccessModal(true);
@@ -981,10 +1085,10 @@ export default function ConvertTransactionPage() {
       <div className="pb-28 sm:pb-36">
         <div className="flex items-center justify-between mb-6 max-w-2xl mx-auto">
           <div className="flex items-center gap-2">
-            <Image src={logos} alt="logo" className="w-6 h-6"/>
-            <span className="text-sm font-bold">Paradapp</span>
+            <Image src={greatwallLogo} alt="Greatwall" className="w-auto h-5"/>
+            <span className="text-sm font-bold">Greatwall</span>
           </div>
-            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : null}
+            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
         </div>
 
            <div className="max-w-2xl mx-auto mt-4">
@@ -1043,10 +1147,15 @@ export default function ConvertTransactionPage() {
   const isOutbound = conversion.isNativeToBitcoin;
   const partnerNetId = conversion.networkId || 0; 
   
-  const contractNet = networkConfigs.find((n) => n.id === activeProvider.ipowNetworkId);
-  const partnerNet = networkConfigs.find((n) => n.id === partnerNetId);
+  const contractNet0 = networkConfigs.find((n) => n.id === activeProvider.ipowNetworkId);
+  const partnerNet0 = networkConfigs.find((n) => n.id === partnerNetId);
 
   const statusInfo =  getUnifiedStatusConfig(conversion, partnerConversion);
+  // A token swap: shown as its token, not the network's coin.
+  const withToken = (net: any, c: any) =>
+    c?.tokenSymbol && net ? { ...net, nativeToken: { ...net.nativeToken, symbol: c.tokenSymbol, decimals: c.tokenDecimals ?? net.nativeToken.decimals, logo: null } } : net;
+  const contractNet = withToken(contractNet0, conversion);
+  const partnerNet = withToken(partnerNet0, partnerConversion);
   let sourceAsset: any, destAsset: any;
    const isCompleted = conversion.phase === TxPhase.COMPLETED;
     const isDestCompleted = partnerConversion && partnerConversion.phase === TxPhase.COMPLETED;
@@ -1066,16 +1175,35 @@ export default function ConvertTransactionPage() {
   } else {
       const rawInput = partnerConversion ? partnerConversion.nativeAmount : conversion.bitcoinAmount;
       const inputDecimals = partnerConversion ? partnerNet?.nativeToken.decimals : bitcoinWallet.decimals;
-      sourceAsset = { ...partnerNet, amountRaw: rawInput, amountFmt: formatAmt(rawInput, inputDecimals || 8) };
+      // The source's address: the sale's signer once the sale exists.
+      sourceAsset = { ...partnerNet, amountRaw: rawInput, amountFmt: formatAmt(rawInput, inputDecimals || 8), address: partnerConversion?.user ?? null };
      
-      const rawDest = isCompleted ? conversion.nativeAmount : (estimatedOutput || "0");
+      // A buy's amount is fixed when it is opened (the new protocol): no
+      // estimate, whatever its state.
+      const rawDest = conversion.nativeAmount && conversion.nativeAmount !== "0" ? conversion.nativeAmount : (estimatedOutput || "0");
       destAsset = { 
           ...contractNet, 
           amountRaw: rawDest, 
           amountFmt: formatAmt(rawDest, contractNet?.nativeToken.decimals || 9), 
           address: conversion.user, 
-          isEstimate: (partnerNetId === 0) ? !isDestCompleted : !isCompleted 
+          isEstimate: !(conversion.nativeAmount && conversion.nativeAmount !== "0") 
       };
+      // A tunnel's buy: what is sold on the source is known from the
+      // tunnel's record before the sale exists, and the buy's amount is
+      // fixed on chain, not an estimate.
+      const tn = conversion.tunnel?.leg === "buy" ? conversion.tunnel.tunnel : null;
+      if (tn && !partnerConversion) {
+          const decimals = tn.fromDecimals ?? partnerNet?.nativeToken.decimals ?? 9;
+          sourceAsset = {
+              ...partnerNet,
+              nativeToken: { ...partnerNet?.nativeToken, symbol: tn.fromSymbol ?? partnerNet?.nativeToken.symbol, decimals },
+              amountRaw: tn.amountIn,
+              amountFmt: formatAmt(tn.amountIn, decimals),
+              // The wallet that sells: recorded with the tunnel, else the one connected now.
+              address: tn.sender ?? sourceWalletOf(tn.fromChain)?.address ?? null,
+          };
+      }
+      if (tn) destAsset = { ...destAsset, amountRaw: conversion.nativeAmount, amountFmt: formatAmt(conversion.nativeAmount, contractNet?.nativeToken.decimals || 9), isEstimate: false };
   }
 
 let fromAddressDisplay = sourceAsset.address;
@@ -1094,8 +1222,13 @@ if (network === "hedera" || network === "polkadot") {
 }
   if (!isOutbound) {
       if (partnerNetId === 0) {
-          fromAddressDisplay = scriptPubKeyHexToAddress(conversion.userProgram); 
-      } else {
+          // The user's own Bitcoin address, as given when the buy was made
+          // (kept by the app: the protocol does not learn who pays). A buy
+          // made elsewhere has none: then where it is paid, once funded.
+          fromAddressDisplay = btcAddressOf(conversion.userProgram) ?? btcAddressOf(conversion.ipowReceiveProgram); 
+      } else if (!conversion.tunnel) {
+          // The old protocol named the source's address in the swap; a
+          // tunnel's source is the sale's signer (sourceAsset.address).
           fromAddressDisplay = decodeNetworkAddress(conversion.networkAddress, partnerNet?.key); 
       }
   }
@@ -1119,11 +1252,11 @@ if (network === "hedera" || network === "polkadot") {
       <div className="flex items-center justify-between mb-6 max-w-2xl mx-auto">
           
           <div className="flex items-center gap-2">
-            <Image src={logos} alt="logo" className="w-6 h-6"/>
-            <span className="text-sm font-bold">Paradapp</span>
+            <Image src={greatwallLogo} alt="Greatwall" className="w-auto h-5"/>
+            <span className="text-sm font-bold">Greatwall</span>
           </div>
 
-            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : null}
+            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
         </div>
 
       <div className={`bgBox glass-card p-2 shadow-lg max-w-2xl mx-auto mt-8`}>
@@ -1146,17 +1279,17 @@ if (network === "hedera" || network === "polkadot") {
 {(conversion?.networkId === 0 || partnerConversion) && (
   <button 
     onClick={handleSwitchView} 
-    className="flex items-center gap-1.5 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 px-3 py-1 rounded-full shadow-sm transition-all group hover:bg-gray-50 dark:hover:bg-white/10"
+    className="flex items-center gap-1.5 bg-white border border-gray-200 px-3 py-1 rounded-full shadow-sm transition-all group hover:bg-gray-50"
   >
     <span className={`text-[10px] font-bold transition-colors ${
-      (network === 'hedera' || network === 'polkadot') ? 'text-dark dark:text-white' : ``
+      'text-dark'
     }`}>
      {t("text226")} {network === 'bitcoin' 
         ? networkConfigs.find(n => n.id === activeProvider.ipowNetworkId)?.name 
         : networkConfigs.find(n => n.id === conversion.networkId)?.name
       }
     </span>
-    <FaExchangeAlt className={`text-[10px] transition-colors ${(network === 'hedera' || network === 'polkadot') ? 'text-dark dark:text-white' : ``}`} />
+    <FaExchangeAlt className={`text-[10px] transition-colors`} />
   </button>
 )}
               </div>
@@ -1177,7 +1310,7 @@ if (network === "hedera" || network === "polkadot") {
             <p className="text-xs font-bold mb-3">{sourceAsset.nativeToken.symbol}</p>
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg text-[10px] text-gray-500 border border-gray-100">
                 <span className="font-mono">{truncateAddr(fromAddressDisplay)}</span>
-                <button onClick={() => navigator.clipboard.writeText(fromAddressDisplay)} className={`hover:text-${network} transition-colors`}><FaCopy/></button>
+                <button onClick={() => navigator.clipboard.writeText(fromAddressDisplay)} className={`hover:text-black transition-colors`}><FaCopy/></button>
             </div>
         </div>
     
@@ -1199,7 +1332,7 @@ if (network === "hedera" || network === "polkadot") {
             <p className="text-xs font-bold mb-3">{destAsset.nativeToken.symbol}</p>
             <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg text-[10px] text-gray-500 border border-gray-100">
                 <span className="font-mono">{truncateAddr(toAddressDisplay)}</span>
-                <button onClick={() => navigator.clipboard.writeText(toAddressDisplay)} className={`hover:text-${network} transition-colors`}><FaCopy/></button>
+                <button onClick={() => navigator.clipboard.writeText(toAddressDisplay)} className={`hover:text-black transition-colors`}><FaCopy/></button>
             </div>
         </div>
         
@@ -1321,11 +1454,11 @@ if (network === "hedera" || network === "polkadot") {
 
           {showPendingProof && (
             <div className="relative group shrink-0">
-              <div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase ${(network === 'hedera' || network === 'polkadot') ? 'bg-black dark:bg-white dark:text-black' : `bg-${network}`}`}>
+              <div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase bg-black`}>
                 PENDING PROOF
-                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent ${(network === 'hedera' || network === 'polkadot') ? 'border-t-black dark:border-t-white' : `border-t-${network}`}`}></div>
+                <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black`}></div>
               </div> 
-              <button onClick={() => setSelectedBlockHeight(proofHeight)} className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-[10px] font-mono font-bold transition-all hover:-translate-y-1 shadow-sm ${(network === 'hedera' || network === 'polkadot') ? 'bg-black/5 dark:bg-white/10 border-black dark:border-white text-black dark:text-white ring-2 ring-black/10 dark:ring-white/20' : `bg-${network}/10 border-${network} text-${network} ring-1 ring-${network}/20`} ${selectedBlockHeight === proofHeight ? 'ring-2 z-10' : ''}`}>{proofHeight}</button>
+              <button onClick={() => setSelectedBlockHeight(proofHeight)} className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-[10px] font-mono font-bold transition-all hover:-translate-y-1 shadow-sm bg-black/5 border-black text-black ring-2 ring-black/10 ${selectedBlockHeight === proofHeight ? 'ring-2 z-10' : ''}`}>{proofHeight}</button>
             </div>
           )}
 
@@ -1342,8 +1475,8 @@ if (network === "hedera" || network === "polkadot") {
             let label = null;
 
             if (isAnchor) {
-              boxClass = "bg-orange-50 border-bitcoin text-bitcoin ring-1 ring-orange-100 font-bold";
-              label = (<div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-bitcoin text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase">ANCHOR<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bitcoin"></div></div>);
+              boxClass = "bg-black/10 border-black text-black ring-1 ring-black/20 font-bold";
+              label = (<div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase">ANCHOR<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div></div>);
             } else if (isProof) {
              if (proofData.verified) {
                   boxClass = "bg-green-50 border-green-500 text-green-700 ring-1 ring-green-100 font-bold";
@@ -1353,8 +1486,8 @@ if (network === "hedera" || network === "polkadot") {
                   label = (<div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase">INVALID<div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-600 "></div></div>);
               } else {
        
-                  boxClass = `bg-${network}/10 border-${network} text-${network} ring-1 ring-${network}/20 font-bold`;
-                  label = (<div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase ${(network === 'hedera' || network === 'polkadot') ? 'bg-black dark:bg-white dark:text-black' : `bg-${network}`}`}>PENDING<div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent ${(network === 'hedera' || network === 'polkadot') ? 'border-t-black dark:border-t-white' : `border-t-${network}`} `}></div></div>);
+                  boxClass = `bg-black/10 border-black text-black ring-1 ring-black/20 font-bold`;
+                  label = (<div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase bg-black`}>PENDING<div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black `}></div></div>);
               }
             } else if (isEnd) {
               boxClass = "bg-red-50 border-red-600 bg-white text-gray-400 ring-1 ring-orange-100 font-bold";
@@ -1374,7 +1507,7 @@ if (network === "hedera" || network === "polkadot") {
 
           {epochStartHeight && (
             <div className="relative group shrink-0 ml-1">
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 dark:bg-gray-600 bg-gray-100 dark:text-white text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase">EPOCH START</div>
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-100 text-black text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap uppercase">EPOCH START</div>
               <button onClick={() => setSelectedBlockHeight(epochStartHeight)} className={`text-gray-400 hover:border-gray-400 w-10 h-10 rounded border-2 border-dashed border-gray-400 bg-gray-100 flex items-center justify-center text-[9px] font-mono transition-all hover:-translate-y-1 shadow-sm ${selectedBlockHeight === epochStartHeight ? 'ring-2 ring-black border-black z-10' : ''}`}>{epochStartHeight}</button>
             </div>
           )}
@@ -1412,12 +1545,12 @@ if (network === "hedera" || network === "polkadot") {
                   Block #{selectedBlockHeight}
                   
                   {isEpochFirst && (
-                    <button onClick={() => setActiveInfoTerm('epochStart')} className="dark:bg-gray-600 bg-gray-100 dark:text-white text-black px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity">
+                    <button onClick={() => setActiveInfoTerm('epochStart')} className="bg-gray-100 text-black px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity">
                       EPOCH START <FaInfoCircle size={8} className="opacity-40"/>
                     </button>
                   )}
                   {isAnchor && (
-                    <button onClick={() => setActiveInfoTerm('anchor')} className="bg-bitcoin/10 text-bitcoin px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity">
+                    <button onClick={() => setActiveInfoTerm('anchor')} className="bg-black/10 text-black px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity">
                       ANCHOR <FaInfoCircle size={8} className="opacity-40"/>
                     </button>
                   )}
@@ -1427,14 +1560,14 @@ if (network === "hedera" || network === "polkadot") {
                     </button>
                   )}
                  {isProofBlock && (
-                    <button onClick={() => setActiveInfoTerm(activeTermKey as any)} className={`text-white ${proofData.verified ? 'bg-green-600' : isActuallyPending ? `bg-${network}` : `bg-red-600`} px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity`}>
+                    <button onClick={() => setActiveInfoTerm(activeTermKey as any)} className={`text-white ${proofData.verified ? 'bg-green-600' : isActuallyPending ? `bg-black` : `bg-red-600`} px-1 rounded text-[8px] flex items-center gap-1 hover:opacity-80 transition-opacity`}>
                       {isActuallyPending ? "PENDING PROOF" : proofData.verified ? "PROOF" : "INVALID PROOF"} <FaInfoCircle size={8} className="opacity-40"/>
                     </button>
                   )}
                 </span>
 
                 {beHash && (
-                  <a href={`https://mempool.space/block/${beHash}`} target="_blank" rel="noreferrer" className={`flex items-center gap-1 text-[9px] hover:underline text-${network} font-bold`}>
+                  <a href={`https://mempool.space/block/${beHash}`} target="_blank" rel="noreferrer" className={`flex items-center gap-1 text-[9px] hover:underline text-black font-bold`}>
                     {t("text255")} <FaLink/>
                   </a>
                 )}
@@ -1456,12 +1589,12 @@ if (network === "hedera" || network === "polkadot") {
                     <span className="text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
                       {locale == "en" ? "Bitcoin Linked Program" : "Bitcoin Program Terikat"}
                     </span>
-                    <a href={`https://mempool.space/address/${scriptPubKeyHexToAddress(isOutbound ? conversion.userProgram : conversion.ipowReceiveProgram)}`} target="_blank" className={`flex items-center gap-1 text-[9px] hover:underline text-${network} font-bold`}>
+                    <a href={`https://mempool.space/address/${btcAddressOf(isOutbound ? conversion.userProgram : conversion.ipowReceiveProgram) ?? ""}`} target="_blank" className={`flex items-center gap-1 text-[9px] hover:underline text-black font-bold`}>
                       {t("text255")} <FaLink size={8}/>
                     </a>
                   </div>
                   <div className="grid grid-cols-1 gap-2 bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="font-mono text-[9px] text-gray-800">{scriptPubKeyHexToAddress(isOutbound ? conversion.userProgram : conversion.ipowReceiveProgram)}</span>
+                    <span className="font-mono text-[9px] text-gray-800">{btcAddressOf(isOutbound ? conversion.userProgram : conversion.ipowReceiveProgram) ?? "—"}</span>
                   </div>
                 </div>
               )}
@@ -1472,11 +1605,11 @@ if (network === "hedera" || network === "polkadot") {
                     <span className="text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
                       {locale == "en" ? "Proof Submitted" : "Proof yang Dikirim"} 
                     </span>
-                    <a href={`https://mempool.space/tx/${swapEndian(proofData.txidLE)}`} target="_blank" rel="noreferrer" className={`flex items-center gap-1 text-[9px] text-${network} hover:underline font-bold`}>
+                    <a href={`https://mempool.space/tx/${swapEndian(proofData.txidLE)}`} target="_blank" rel="noreferrer" className={`flex items-center gap-1 text-[9px] text-black hover:underline font-bold`}>
                       {t("text255")} <FaLink/>
                     </a>
                   </div>
-                  <div className={`grid grid-cols-1 gap-2 ${proofData.verified ? 'bg-green-50 border-green-100' : showPendingProof ? `bg-${network}/10 border-${network}` : 'bg-red-50 border-red-500'} p-2 rounded border`}>
+                  <div className={`grid grid-cols-1 gap-2 ${proofData.verified ? 'bg-green-50 border-green-100' : showPendingProof ? `bg-black/10 border-black` : 'bg-red-50 border-red-500'} p-2 rounded border`}>
                     <div className="flex justify-between items-center text-[9px]">
                       <span className="text-gray-500">TxID:</span>
                       <span className="font-mono text-gray-800 truncate ml-2">{swapEndian(proofData.txidLE)}</span>
@@ -1487,13 +1620,13 @@ if (network === "hedera" || network === "polkadot") {
                     </div>
                    <div className="flex justify-between text-[9px]">
                       <span className="text-gray-500">Status:</span>
-                      <span className={`font-bold ${proofData.verified ? 'text-green-600' : isActuallyPending ? (network === "base" ? "text-[#0052FF]" : `text-${network}`) : `text-red-700`}`}>
+                      <span className={`font-bold ${proofData.verified ? 'text-green-600' : isActuallyPending ? "text-black" : `text-red-700`}`}>
                         {proofData.verified ? 'VERIFIED ON-CHAIN' : isActuallyPending ? 'PENDING VERIFICATION' : 'INCORRECT PROOF'}
                       </span>
                     </div>
                     <div className="flex justify-between text-[9px]">
                       <span className="text-gray-500">Address:</span>
-                      <span className="font-mono text-gray-800 truncate ml-2">{scriptPubKeyHexToAddress(proofData.outProgram)}</span>
+                      <span className="font-mono text-gray-800 truncate ml-2">{btcAddressOf(proofData.outProgram) ?? "—"}</span>
                     </div>
                     <div className="flex justify-between text-[9px]">
                       <span className="text-gray-500">Output:</span>
@@ -1510,13 +1643,38 @@ if (network === "hedera" || network === "polkadot") {
   })()}
 
              {(conversion.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED && network !== "bitcoin") && (
-              <div className="pt-4 text-center">
+              <div className="pt-4 text-center space-y-2">
+                  <p className="text-[11px] sm:text-xs opacity-80">
+                    {locale === "en"
+                      ? "The fee goes to your credit, to withdraw in one step afterwards."
+                      : "Biayanya masuk ke kredit Anda, untuk ditarik dalam satu langkah setelahnya."}
+                  </p>
                   <Button chain={network} buttonText={t("text256")} onClick={() => handleAction('refund_approval')} disabled={busy} />
               </div>
           )}
 
 
-             {(conversion.phase === TxPhase.OPERATOR_DUTY_EXPIRED && network !== "bitcoin" ) && (
+             {(conversion.tunnelSellable && network !== "bitcoin") && (
+               <div className="pt-4 text-center space-y-2">
+                  <p className="text-[11px] sm:text-xs">
+                    {(() => {
+                      // Bitcoin blocks the deposit can still be signed in: the
+                      // buy's last payment block, less the margin the deposit
+                      // needs, from the tip (about 10 minutes a block).
+                      const tip = Number(extraData?.tipHeight || 0);
+                      const left = conversion.payBlocks && tip ? Math.max(0, conversion.payBlocks.last - TUNNEL_MARGIN_BLOCKS - tip) : null;
+                      const open = left === null ? (locale === "en" ? "for a limited time" : "untuk waktu terbatas") : locale === "en" ? `for about ${left * 10} more minutes` : `sekitar ${left * 10} menit lagi`;
+                      return locale === "en"
+                        ? `${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""} is reserved for you. Deposit ${sourceAsset.amountFmt} ${sourceAsset.nativeToken?.symbol ?? ""} on ${partnerNet?.name ?? conversion.tunnel.tunnel.fromChain} to complete the conversion. The tunnel stays open ${open}.`
+                        : `${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""} sudah disediakan untuk Anda. Deposit ${sourceAsset.amountFmt} ${sourceAsset.nativeToken?.symbol ?? ""} di ${partnerNet?.name ?? conversion.tunnel.tunnel.fromChain} untuk menyelesaikan konversi. Terowongan terbuka ${open}.`;
+                    })()}
+                  </p>
+                  <Button chain={network} buttonText={busy ? t("text10") : `${locale === "en" ? "Deposit on" : "Deposit di"} ${partnerNet?.name ?? ""}`} onClick={() => startTunnelSell()} disabled={busy} />
+              </div>
+          )}
+
+             {(conversion.phase === TxPhase.OPERATOR_DUTY_EXPIRED && network !== "bitcoin" &&
+               (isOutbound ? conversion.swap?.state === "Open" : (conversion.compensable || conversion.provable))) && (
                <div className="pt-4 text-center">
                   {isOutbound 
                     ? <Button chain={network} buttonText={t("text257")} onClick={() => handleAction('refund_timeout')} disabled={busy} />
@@ -1558,7 +1716,7 @@ if (network === "hedera" || network === "polkadot") {
   
   <button 
     onClick={() => navigator.clipboard.writeText(sourceAsset.amountFmt)}
-    className="text-gray-400 hover:text-bitcoin transition-colors p-1 shrink-0"
+    className="text-gray-400 hover:text-black transition-colors p-1 shrink-0"
   >
     <FaCopy size={10} />
   </button>
@@ -1577,7 +1735,7 @@ if (network === "hedera" || network === "polkadot") {
   
   <button 
     onClick={() => navigator.clipboard.writeText(depositAddressDisplay)} 
-    className="text-gray-400 hover:text-bitcoin transition-colors p-1 shrink-0"
+    className="text-gray-400 hover:text-black transition-colors p-1 shrink-0"
   >
     <FaCopy size={10} />
   </button>
@@ -1590,7 +1748,7 @@ if (network === "hedera" || network === "polkadot") {
     <div className="flex-1">
         {mempoolDetectedTx ? (
             <Button chain={network} buttonText={`${t("text260")} ${ destAsset.name}`} onClick={() => handleSwitchView()}  />
-        ) : (
+        ) : conversion.phase !== TxPhase.WAITING_USER_ACTION ? null : (
             <Button 
                 buttonText={isSendProcessing ? t("text10") : `${t("text116")} ${sourceAsset.amountFmt} BTC`} 
                 onClick={() => {handleConfirmSend(depositAddressDisplay, sourceAsset.amountFmt)}}
@@ -1609,33 +1767,14 @@ if (network === "hedera" || network === "polkadot") {
                 </div>
             )}
 
-            {(network !== 'bitcoin'  && !isOutbound  && proofInput.blockHeight != '' && proofInput.blockHeight != '0') && (
-                <div>
-                    {isManualMode ? (
-                        <div className="space-y-4 animate-fade-in">
-                         
-                            <div className="grid grid-cols-4 gap-3">
-                                <input placeholder="Transaction Hash" className="col-span-3 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 transition-all font-mono" value={proofInput.txidBE} onChange={e => setProofInput({...proofInput, txidBE: e.target.value})} />
-                                <input placeholder="Vout" type="number" className="col-span-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 transition-all" value={proofInput.voutIndex} onChange={e => setProofInput({...proofInput, voutIndex: e.target.value})} />
-                                <input placeholder="Block Height" type="number" className="col-span-4 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 transition-all" value={proofInput.blockHeight} onChange={e => setProofInput({...proofInput, blockHeight: e.target.value})} />
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1">
-                                    <Button chain={network} buttonText={extraData?.proof?.attempts > 0 ? "Resubmit Proof" : "Submit Proof"} onClick={() => handleAction('submit_proof')} disabled={busy || !proofInput.txidBE  || !proofInput.voutIndex || !proofInput.blockHeight} />
-                                </div>
-                                <button onClick={() => setIsManualMode(false)} className="text-[10px] font-bold px-4 py-3 rounded-xl border bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 transition-all whitespace-nowrap">Cancel edit</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="animate-fade-in">
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1">
-                                    <Button chain={network} buttonText={extraData?.proof?.attempts > 0 ? `${t("text263")} ${pendingProofAutoFill ? "Pending Proof" : "Proof"}` : `${(t("text264"))} ${pendingProofAutoFill ? "Pending Proof" : "Proof"}`} onClick={() => handleAction('submit_proof')} disabled={busy || !proofInput.txidBE} />
-                                </div>
-                                <button onClick={() => setIsManualMode(true)} className="text-[10px] font-bold px-4 py-3 rounded-xl border bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100 transition-all whitespace-nowrap">Edit Manual</button>
-                            </div>
-                        </div>
-                    )}
+            {(network !== 'bitcoin' && !isOutbound && conversion.completable) && (
+                <div className="text-center space-y-2">
+                    <p className="text-[11px] sm:text-xs">
+                        {locale === "en"
+                          ? "The operator's receipt of your payment is proven. Take your coin now, or wait for the operator to send it."
+                          : "Tanda terima operator atas pembayaran Anda sudah terbukti. Ambil koin Anda sekarang, atau tunggu operator mengirimnya."}
+                    </p>
+                    <Button chain={network} buttonText={busy ? t("text10") : `${locale === "en" ? "Claim" : "Ambil"} ${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""}`} onClick={() => handleAction('complete')} disabled={busy} />
                 </div>
             )}
         </div>
@@ -1643,6 +1782,19 @@ if (network === "hedera" || network === "polkadot") {
 
 </div>
           )}
+
+  {/* A refund that is available: the fees the protocol holds for the user
+      (of every conversion of theirs nobody took), claimed in one transaction. */}
+  {(feeCredit > BigInt(0) && network !== "bitcoin") && (
+    <div className="mt-6 p-4 rounded-xl border border-black/10 bg-white flex items-center justify-between gap-4">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{locale === "en" ? "Refund available" : "Pengembalian tersedia"}</p>
+        <p className="text-sm">{formatAmt(feeCredit.toString(), contractNet0?.nativeToken.decimals || 18)} {contractNet0?.nativeToken.symbol}</p>
+        <p className="text-[11px] opacity-70">{locale === "en" ? "The fees of your conversions that nobody took, in one claim." : "Biaya konversi Anda yang tidak diambil siapa pun, dalam satu klaim."}</p>
+      </div>
+      <Button chain={network} buttonText={busy ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")} onClick={() => withdrawFeeCredit()} disabled={busy} />
+    </div>
+  )}
 
   <div className="w-30 pt-5">
           <Button chain={network} buttonText={t("text105")} onClick={()=>{router.replace(`/${locale}/${network}/convert`);}}></Button>
@@ -1669,7 +1821,7 @@ if (network === "hedera" || network === "polkadot") {
           <p className="text-sm break-all mb-4">Hash: {txid}</p>
         </div>
 
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
            <div className="flex flex-col-reverse justify-center gap-3 w-full">
                  <div className="w-full sm:flex-1">
               <ButtonContrast
@@ -1710,7 +1862,7 @@ if (network === "hedera" || network === "polkadot") {
               <p className="text-sm mb-4">{t("text34")}</p>
             </div>
     
-            <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+            <div className="px-6 py-6 border-t border-black/5 bg-white">
               <div className="flex flex-col-reverse justify-center gap-3 w-full">
                 <div className="w-full sm:flex-1">
                   <ButtonContrast

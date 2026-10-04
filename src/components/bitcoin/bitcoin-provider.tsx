@@ -78,7 +78,6 @@ const BitcoinWalletContext = createContext<BitcoinWalletContextType>({
   networkExplorer: {},
   ipowConvert: "mainnet",
   ipowNetworkId: 0,
-  dappList: [],
   setFeeSelection: () => {},
   setSelectedAccount: () => {},
   connect: async () => {},
@@ -91,7 +90,6 @@ const BitcoinWalletContext = createContext<BitcoinWalletContextType>({
   scriptPubKeyHexToAddress: () => "",
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
-  toggleFavoriteDapp: () => {},
 });
 
 export function useBitcoinWallet() {
@@ -118,7 +116,6 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
   ],
   fetched: false,
 });
-  const [dappList, setDappList] = useState<any[] | null>(null);
 
 
   const [connected, setConnected] = useState(false);
@@ -532,7 +529,9 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
 
   const isValidAddress = useCallback((address: string): boolean => checkAddress(address).valid, [checkAddress]);
 
-  const sendTokenTo = async (toAddress: string, amount: number) => {
+  /** Sends `amount` BTC to `toAddress`, at the fee level the user chose, or
+   *  at `feeLevel` when given (a payment with a deadline asks for "high"). */
+  const sendTokenTo = async (toAddress: string, amount: number, feeLevel?: "low" | "medium" | "high") => {
     if (!selectedAccount) return null;
     const amountSats = Math.round(amount * 1e8);
 
@@ -546,7 +545,7 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
     const psbt = new bitcoin.Psbt({ network });
     let inputSum = 0;
 
-    const feeSats = Math.round(estimatedFee[estimatedFee.selectedFee] * 1e8);
+    const feeSats = Math.round(estimatedFee[feeLevel ?? estimatedFee.selectedFee] * 1e8);
     const totalNeeded = amountSats + feeSats;
 
     for (const u of utxos) {
@@ -699,60 +698,6 @@ const fetchBalance = useCallback(async (signal?: AbortSignal) => {
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) {
-      clearTimeout(favoriteTimers.current[dappId]);
-    }
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: address,
-            network: "BITCOIN",
-            dappId: dappId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId
-                ? { ...dapp, favoriteCount: result.favoriteCount }
-                : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
-
   const fetchPrice = async () => {
     try {
       const envMode = isMainnet ? "MAINNET" : "TESTNET";
@@ -825,37 +770,6 @@ const fetchBalance = useCallback(async (signal?: AbortSignal) => {
       }
     }
   }, [akConnected, allAccounts, akProvider, walletType, isMainnet]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(
-          `/api/dapphub/list?network=BITCOIN${addressQuery}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          },
-        );
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList(result.data);
-        } else {
-          setDappList([]);
-        }
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address, connected]);
 
 useEffect(() => {
   setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
@@ -1074,8 +988,6 @@ useEffect(() => {
         ipowConvert: "mainnet",
 
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
-        toggleFavoriteDapp,
         setSelectedAccount: setSelectedAccountAndStore,
         connect,
         disconnect,

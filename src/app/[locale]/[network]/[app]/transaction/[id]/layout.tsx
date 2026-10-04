@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-const VALID_APPS = ["vault", "convert"] as const;
+const VALID_APPS = ["vault", "convert", "bridge", "beta"] as const;
 
 export default async function TransactionLayout({
   children,

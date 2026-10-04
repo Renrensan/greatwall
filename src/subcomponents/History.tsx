@@ -388,7 +388,7 @@ const BuyHistory = () => {
             <div className="p-5 glass-card shadow-buttonNav! flex justify-center items-center mx-auto w-28 h-28 rounded-full">
               <Icon
                 icon="iconoir:wallet-solid"
-                className={`text-6xl ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} text-end`}
+                className={`text-6xl text-end`}
               />
             </div>
             <h2 className="text-xl font-bold text-center">{t("text235")}</h2>
@@ -413,7 +413,7 @@ const BuyHistory = () => {
                 <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">
                   {t("text292")}
                 </p>
-                <p className="text-[11px] font-bold leading-relaxed text-orange-700 dark:text-orange-300">
+                <p className="text-[11px] font-bold leading-relaxed text-orange-700">
                   {dynamicMessageText}
                 </p>
               </div>
@@ -429,7 +429,7 @@ const BuyHistory = () => {
           >
             <Icon
               icon="basil:filter-outline"
-              className={`text-2xl ${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`}
+              className={`text-2xl`}
             />
             <span className="sm:text-sm text-[10px]">Filter</span>
           </button>
@@ -472,7 +472,7 @@ const BuyHistory = () => {
                     ? "text-pending"
                     : tx.status == "EXPIRED"
                       ? "text-expired"
-                      : `${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)}`;
+                      : ``;
 
               const isDeposit = tx.type === "DEPOSIT" && !isReferralTx;
               const isWithdrawal = tx.type === "WITHDRAWAL" && !isReferralTx;
@@ -570,10 +570,10 @@ const BuyHistory = () => {
                         <p>
                           {isEstimated ? `${t("text93")}:` : `${t("text67")}:`}{" "}
                           <span
-                            className={`${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} font-bold inline-flex items-center`}
+                            className={` font-bold inline-flex items-center`}
                           >
                             {receivedValue === null ? (
-                              <span className="inline-block h-3 w-16 bg-black/10 dark:bg-white/10 rounded animate-pulse align-middle" />
+                              <span className="inline-block h-3 w-16 bg-black/10 rounded animate-pulse align-middle" />
                             ) : (
                               receivedValue
                             )}
@@ -583,7 +583,7 @@ const BuyHistory = () => {
                     </div>
 
                     <span
-                      className={`${(network == "hedera" || network == "polkadot") ? `` : (network === "base" ? "text-[#0052FF]" : `text-${network}`)} font-bold sm:text-base text-[10px]`}
+                      className={` font-bold sm:text-base text-[10px]`}
                     >
                       {rightSideLabel}
                     </span>
@@ -621,8 +621,8 @@ const BuyHistory = () => {
                   }}
                   className={`w-full text-left cursor-pointer transition-all duration-200 p-4 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
                     active
-                      ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10" // Active state styling
-                      : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10" // Inactive state styling
+                      ? "border-black/20 bg-black/5" // Active state styling
+                      : "border-black/5 hover:bg-black/5" // Inactive state styling
                   }`}
                 >
                   <span
@@ -631,7 +631,7 @@ const BuyHistory = () => {
                     {opt.label}
                   </span>
                   {active && (
-                    <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400" />
+                    <FaCheckCircle className="text-[18px] text-green-500" />
                   )}
                 </button>
               );
@@ -640,7 +640,7 @@ const BuyHistory = () => {
         </div>
 
         {/* Sticky Footer */}
-        <div className="px-6 py-6 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212]">
+        <div className="px-6 py-6 border-t border-black/5 bg-white">
           <div className="flex flex-col-reverse justify-center gap-3 w-full">
             <div className="w-full sm:w-auto min-w-[50%]">
               <ButtonContrast

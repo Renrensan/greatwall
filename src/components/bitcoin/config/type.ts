@@ -65,7 +65,6 @@ export interface BitcoinWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
   setFeeSelection: (fee: "low" | "high" | "medium") => void;
   setSelectedAccount: (acc: BtcAccount) => void;
   switchWallet: (wallet: BitcoinWalletType) => Promise<void>;
@@ -73,7 +72,7 @@ export interface BitcoinWalletContextType {
   connect: (wallet: BitcoinWalletType) => Promise<void>;
   disconnect: (hardDisconnect: boolean) => void;
   signMessage: (message: string) => Promise<string | null>;
-  sendTokenTo: (to: string, amount: number) => Promise<string | null>;
+  sendTokenTo: (to: string, amount: number, feeLevel?: "low" | "medium" | "high") => Promise<string | null>;
   fetchETA: (
     txHash: string,
   ) => Promise<{ estimatedSeconds: number; isCongested: boolean } | null>;
@@ -83,7 +82,6 @@ export interface BitcoinWalletContextType {
    * specific rule it failed (so forms can show a specific, actionable message). */
   checkAddress: (address: string) => AddressCheckResult;
   isValidAddress: (address: string) => boolean;
-  toggleFavoriteDapp: (dappId: number) => void;
 }
 
 

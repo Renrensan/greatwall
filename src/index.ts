@@ -1,4 +1,5 @@
 import logos from "@/assets/logos.svg";
+import greatwallLogo from "@/assets/greatwall-logo.png";
 
 import bitcoin from "@/assets/bitcoin.png";
 import phantom from "@/assets/phantom.png";
@@ -34,9 +35,7 @@ import solananetwork from "@/assets/solana-network.png";
 import polkadot from "@/assets/polkadot.png";
 import polkadotnetwork from "@/assets/polkadot-network.png";
 
-import tron from "@/assets/tron.png";
-import tronnetwork from "@/assets/tron-network.png";
-import tronlink from "@/assets/tronlink.png";
+import temponetwork from "@/assets/tempo-network.svg";
 
 import hyperliquid from "@/assets/hyperliquid.png";
 import hyperliquidnetwork from "@/assets/hyperliquid-network.png";
@@ -99,11 +98,9 @@ import bannerParahubDekstop from "@/assets/banner-dekstop-parahub.webp"
 import bannerParahubMobile from "@/assets/banner-mobile-parahub.webp"
 
 
-const blackVideo = "/assets/black.webm";
 const whiteVideo = "/assets/white.webm";
 
 
-const blackbg = blackVideo;
 const whitebg = whiteVideo;
 
 
@@ -128,9 +125,7 @@ export {
   kelwinShen,
   adiSaputra,
   fernando,
-  blackbg,
   whitebg,
-  blackVideo,
   whiteVideo,
   crossChainIcon,
   dappHubIcon,
@@ -162,9 +157,7 @@ export {
   hedera,
   polkadotnetwork,
   bitcoinnetwork,
-  tron,
-  tronnetwork,
-  tronlink,
+  temponetwork,
   hyperliquid,
   hyperliquidnetwork,
   robinhood,
@@ -189,6 +182,7 @@ export {
   subwallet,
   talisman,
   logos,
+  greatwallLogo,
   bitcoin,
   polkadot,
   paseo

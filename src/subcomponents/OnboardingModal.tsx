@@ -81,12 +81,12 @@ export default function OnboardingModal({
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={handleClose} maxWidthClass="lg:w-120">
-      <div className="p-6 sm:p-8 flex flex-col gap-6 text-black dark:text-white">
+      <div className="p-6 sm:p-8 flex flex-col gap-6 text-black">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight bg-linear-to-r from-neutral-900 to-neutral-500 bg-clip-text text-transparent">
             {isReauth ? t("text330") : t("text314")}
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1.5">
+          <p className="text-xs sm:text-sm text-neutral-500 mt-1.5">
             {isReauth ? t("text331") : t("text315")}
           </p>
         </div>
@@ -94,16 +94,16 @@ export default function OnboardingModal({
         {step === "form" && (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+              <label className="text-xs font-semibold text-neutral-600">
                 {t("text316")}
               </label>
-              <div className="px-4 py-3 rounded-xl border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-neutral-900/50 text-xs text-neutral-500 truncate">
+              <div className="px-4 py-3 rounded-xl border border-black/10 bg-neutral-50 text-xs text-neutral-500 truncate">
                 {walletAddress}
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="email" className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+              <label htmlFor="email" className="text-xs font-semibold text-neutral-600">
                 {t("text317")}
               </label>
               <input
@@ -113,7 +113,7 @@ export default function OnboardingModal({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("text318")}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-black/10 dark:border-white/10 bg-transparent text-sm focus:outline-hidden focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10"
+                className="w-full px-4 py-3 rounded-xl border border-black/10 bg-transparent text-sm focus:outline-hidden focus:ring-2 focus:ring-black/10"
               />
             </div>
 
@@ -128,7 +128,7 @@ export default function OnboardingModal({
         {step === "submitting" && (
           <div className="flex flex-col items-center justify-center py-8 gap-4">
             <span className="loading loading-spinner loading-md text-neutral-500"></span>
-            <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+            <p className="text-sm font-medium text-neutral-500">
               {t("text320")}
             </p>
           </div>
@@ -154,8 +154,8 @@ export default function OnboardingModal({
             </div>
             <div>
               <h3 className="text-lg font-bold">{t("text321")}</h3>
-              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-2 px-4">
-                {t("text322")} <span className="font-semibold text-black dark:text-white">{email}</span>{t("text323")}
+              <p className="text-xs sm:text-sm text-neutral-500 mt-2 px-4">
+                {t("text322")} <span className="font-semibold text-black">{email}</span>{t("text323")}
               </p>
             </div>
 

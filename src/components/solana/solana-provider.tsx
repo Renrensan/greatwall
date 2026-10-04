@@ -31,7 +31,6 @@ import {
 } from "@solana/web3.js";
 import { solananetwork } from "@/index";
 import { useNetwork } from "@/app/network-provider";
-import { broadcastGaslessSendTx, prepareGaslessSendTx, } from "../integrator/selfcustody/send"
 
 import {
   getAssociatedTokenAddress,
@@ -49,18 +48,15 @@ import idl from "../integrator/ipow/svm/ipow.json";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { appKit } from "../walletconnect/wallet-connect-provider";
 import { ConnectFeature, EventsFeature, SignMessageFeature, SolanaWalletContextType, SolanaWalletType } from "./config/type";
-import { broadcastGaslessTx, fetchMarinadeSOLData, fetchMarinadeUSDCData, fetchMarinadeUsdcRewardHistory, fetchMarinadeUsdcTransactionHistory, getMarinadeDepositTx, getMarinadeLiquidUnstakeTx, getMarinadeNativeDepositTx, getMarinadeNativeUnstakeTx, getMarinadeUsdcClaimTx, getMarinadeUsdcDepositTx, getMarinadeUsdcWithdrawTx, getNativeWithdrawTx } from "@/components/integrator/dapphub/solana/solana-staking/marinade-stake";
 import { CONNECT, EVENTS, safeSolanaTokenAmount, SIGN_MESSAGE } from "./config/helpers";
 import { appConfig } from "./config";
 import { IPOW_NETWORK_ID, PARADAPP_FEE_VAULT_SOLANA, SOL_DATA, SOLANA_NATIVE_MINT, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, USDC_DATA, USDC_MINT } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
-import { broadcastSwapTx, getAtomicGaslessSwapTx, getGaslessQuoteAndFee, getJupiterPrices, getJupiterVerifiedTokens, searchJupiterToken } from "../integrator/dapphub/solana/solana-swap/jupiter-swap";
-import { ADDITIONAL_SWAP_FEE_LAMPORTS, PARADAPP_JUPITER_FEE } from "../integrator/dapphub/solana/solana-swap/constant";
-import { PARADAPP_MARINANDE_FEE } from "../integrator/dapphub/solana/solana-staking/constant";
-import { getStockAssets } from "../integrator/dapphub/solana/solana-stocks/solana-stocks";
 import { TxPhase } from "../integrator/ipow/evm/type";
 import { Ipow } from "../integrator/ipow/svm/types/ipow";
-import { BETA_MINT_ADDRESS, BETA_PROGRAM_ID, PORTFOLIO_WEIGHTS, RAW_MINTS } from "../integrator/dapphub/solana/solana-beta/constant";
+import type { SolanaWallet } from "@ipow/sdk";
+import { solanaConvertMethods } from "../integrator/ipow/solanaConvertMethods";
+import { NO_CONVERT } from "../integrator/ipow/convertMethods";
 
 
 // The RPC calls for this provider go through the /api/rpc proxy (see fullRpcUrl below),
@@ -88,77 +84,31 @@ const SolanaWalletContext = createContext<SolanaWalletContextType>({
   networkLogo: solananetwork,
   price: {},
   networkExplorer: {},
-  ipowConvert: "testnet", 
+  ipowConvert: "comingsoon", 
   ipowNetworkId: 3,
-  dappList: [],
-  
   verifiedTokensData: [],
   liveTokenPrices: {},
 
-  isUltraFast: false,
-  setIsUltraFast: () => {},
   checkAtaRequired: async () => false,
 
-  toggleFavoriteDapp: () => {},
   connect: async () => {},
   disconnect: () => {},
   signMessage: async () => null,
+  getAnchorWallet: () => null,
   switchWallet: async () => {},
   sendTokenTo: async () => null,
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
-  executeGaslessSend: async () => null,
-  fetchGaslessSendQuote: async ()=>null,
-  stakeToMarinade: async () => null, 
-  unstakeFromMarinade: async () => null,
-  getMarinadeSOLData: async () => null,
-  getMarinadeUsdcRewardHistory: async () => null,
-  getMarinadeUsdcTransactionHistory: async () => null,
-  stakeNativeToMarinade: async () => null,
-  unstakeNativeFromMarinade: async () => null,
-  withdrawNativeStake: async () => null,
-  depositUsdcToMarinade: async () => null,
-  withdrawUsdcFromMarinade: async () => null,
-  getMarinadeUSDCData: async () => null,
-  claimUsdcFromMarinade: async () => null,
-  fetchMarinadeDepositQuote: async () => null,
-  fetchMarinadeUnstakeQuote: async () => null,
-  fetchMarinadeNativeDepositQuote: async () => null,
-  fetchMarinadeNativeUnstakeQuote: async () => null,
-  fetchMarinadeUsdcDepositQuote: async () => null,
-  fetchMarinadeUsdcWithdrawQuote: async () => null,
   
 
-  executeSwap: async () => null,
-  fetchSwapQuote: async () => null,
-  fetchTokenMeta: async () => null,
-  fetchStockAssets: async () => [],
-  liveBetaPrice: 0,
     
   setFeeSelection: () => {},
   fetchETA: async () => null,
   
 
-  estimateBitcoinFromNative: async () => null,
-  estimateNativeFromBitcoin: async () => null,
-  
-
-  commitNativeToBitcoin: async () => null,
-  commitBitcoinToNative: async () => null,
-  depositApprovedConversion: async () => null,
-  getMyTxIds: async () => [],
-  getConversion: async () => null,
-  refundIfNotApproved: async () => null,
-  claimNativeAfterOperatorExpired: async () => null,
-  refundAfterNoProofNativeToBitcoin: async () => null,
+  ...NO_CONVERT,
   initializeProtocol: async () => {},
   addSupportedNetwork: async () => {},
-
-  anchorInfo: async () => null,
-  windowsFor: async () => null,
-  proofInfo: async () => null,
-  globalHeightToHashLE: async () => "0x0000000000000000000000000000000000000000000000000000000000000000",
-  submitBitcoinMerkleProofWithTx: async () => null,
 
   balance: { confirmed: 0, unconfirmed: 0, sendable: 0, stakeable: 0, swapable: 0, fetched: false, tokens: [] },
   estimatedFee: {
@@ -199,7 +149,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): 
 
 export function SolanaProvider({ children }: { children: ReactNode }) {
 
-  const [liveBetaPrice, setLiveBetaPrice] = useState<number>(0.00);
     
   const { isConnected: akConnected, allAccounts } = useAppKitAccount();
   const { walletProvider: akProvider } = useAppKitProvider("solana");
@@ -254,7 +203,6 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
     liveTokenPricesRef.current = liveTokenPrices;
   }, [liveTokenPrices]);
 
-  const [dappList, setDappList] = useState<any[] | null>(null);
 
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -284,7 +232,6 @@ const [balance, setBalance] = useState<{
   tokens: [] 
 });
 
-const [isUltraFast, setIsUltraFast] = useState(false);
   const [requiresAta, setRequiresAta] = useState(false);
 
   
@@ -442,94 +389,13 @@ const checkAtaRequired = async (
 
 
  
-  const calculateLiveBetaPrice = useCallback(async (currentPrices: Record<string, any>) => {
-    try {
-      const conn = new Connection(fullRpcUrl);
-      
-
-      const betaMintInfo = await conn.getTokenSupply(BETA_MINT_ADDRESS);
-      const totalSupply = Number(betaMintInfo.value.uiAmount);
-
-
-      if (totalSupply === 0) {
-        setLiveBetaPrice(1.00);
-        return;
-      }
-
-      const [epochStatePda] = PublicKey.findProgramAddressSync([Buffer.from("epoch_state_v0")], BETA_PROGRAM_ID);
-      let totalVaultUsd = 0;
-
-      await Promise.all(PORTFOLIO_WEIGHTS.map(async (asset) => {
-         const isStandardToken = asset.mint === RAW_MINTS .cbbtc || asset.mint === RAW_MINTS.usdc;
-         const tokenProgram = isStandardToken ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
-
-         const vaultAta = await getAssociatedTokenAddress(
-           new PublicKey(asset.mint),
-           epochStatePda,
-           true,
-           new PublicKey(tokenProgram)
-         );
-
-  
-         const vaultBalance = await conn.getTokenAccountBalance(vaultAta);
-         const balanceUi = Number(vaultBalance.value.uiAmount);
-
-
-         const priceObj = currentPrices[asset.mint];
-         const priceUsd = parseFloat(priceObj?.usdPrice || priceObj?.price || "0");
-
-
-         totalVaultUsd += (balanceUi * priceUsd);
-      }));
-
-
-      const calculatedPrice = totalVaultUsd / totalSupply;
-      
-
-      if (calculatedPrice > 0) {
-        setLiveBetaPrice(calculatedPrice);
-      }
-      
-    } catch (error) {
-      console.error("Failed to calculate live BETA price:", error);
-    }
-  }, [fullRpcUrl]);
-
 const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
     try {
-      let verifiedList = verifiedTokensRef.current;
-
-      if (verifiedList.length === 0) {
-        const tokensRes = await getJupiterVerifiedTokens();
-        verifiedList = tokensRes.success ? tokensRes.tokens : [];
-        verifiedTokensRef.current = verifiedList;
-      }
-
-      const USDC_MINT = USDC_DATA.mint;
+      // Greatwall runs on test networks only: no live token list or prices
+      // (paradapp's mainnet Jupiter feed was removed).
+      const currentPrices = liveTokenPricesRef.current;
+      const verifiedList = verifiedTokensRef.current;
       const SOL_MINT = SOL_DATA.mint;
-
-      const mintsToPrice = new Set<string>([SOL_MINT, USDC_MINT, ...rawTokens.map(t => t.mint)]);
-
-      let currentPrices = liveTokenPricesRef.current;
-      if (mintsToPrice.size > 0) {
-        const priceRes = await getJupiterPrices(Array.from(mintsToPrice));
-        if (priceRes.success && priceRes.prices?.data) {
-          const mergedPrices = { ...currentPrices, ...priceRes.prices.data };
-          // This runs on every 15s balance poll (via fetchBalance below), and
-          // liveTokenPrices is provider-level state — every consumer across the app
-          // re-renders whenever it changes. Bail out when the merge didn't actually change
-          // anything (e.g. Jupiter returned the same figures) instead of publishing an
-          // equivalent-but-new object every cycle.
-          if (JSON.stringify(mergedPrices) !== JSON.stringify(currentPrices)) {
-            currentPrices = mergedPrices;
-            liveTokenPricesRef.current = currentPrices;
-            setLiveTokenPrices(currentPrices);
-            calculateLiveBetaPrice(currentPrices);
-          } else {
-            currentPrices = mergedPrices;
-          }
-        }
-      }
 
       const getPrice = (mint: string) => currentPrices[mint]?.usdPrice || currentPrices[mint]?.price || 0;
       const getChange = (mint: string) => currentPrices[mint]?.priceChange24h || 0;
@@ -755,60 +621,6 @@ const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
   };
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
-
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) {
-      clearTimeout(favoriteTimers.current[dappId]);
-    }
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: address,
-            network: "SOLANA",
-            dappId: dappId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId
-                ? { ...dapp, favoriteCount: result.favoriteCount }
-                : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
 
   const setFeeSelection = (selectedFee: "low" | "medium" | "high") => {
     setEstimatedFee((prev) => ({
@@ -1122,604 +934,9 @@ const sendTokenTo = async (
     }
   };
 
-  const getMarinadeUSDCData = async (): Promise<any | null> => {
-  try {
-    const response = await fetchMarinadeUSDCData(fullRpcUrl, address!);
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || "Failed to fetch Marinade USDC data");
-    }
-
-    return response.data;
-  } catch (err) {
-    console.error("[SolanaProvider] getMarinadeUsdcData error:", err);
-    return null;
-  }
-};
-
-  const getMarinadeSOLData = async (): Promise<any | null> => {
-  try {
-    const response = await fetchMarinadeSOLData(fullRpcUrl, address!);
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || "Failed to fetch Marinade data");
-    }
-
-    return response.data;
-  } catch (err) {
-    console.error("[SolanaProvider] getMarinadeData error:", err);
-    return null;
-  }
-};
-
-  const getMarinadeUsdcRewardHistory = async (): Promise<any | null> => {
-    if (!address) return null;
-    try {
-      const response = await fetchMarinadeUsdcRewardHistory(address);
-      if (!response.success || !response.data) {
-        throw new Error(response.error || "Failed to fetch USDC reward history");
-      }
-      return response.data;
-    } catch (err) {
-      console.error("[SolanaProvider] getMarinadeUsdcRewardHistory error:", err);
-      return null;
-    }
-  };
-
-  const getMarinadeUsdcTransactionHistory = async (): Promise<any | null> => {
-    if (!address) return null;
-    try {
-      const response = await fetchMarinadeUsdcTransactionHistory(address);
-      if (!response.success || !response.data) {
-        throw new Error(response.error || "Failed to fetch USDC transaction history");
-      }
-      return response.data;
-    } catch (err) {
-      console.error("[SolanaProvider] getMarinadeUsdcTransactionHistory error:", err);
-      return null;
-    }
-  };
-
-/** Quote-only variant of stakeToMarinade — builds the tx and returns its fee breakdown
- * without prompting the wallet to sign, for a live "you'll pay X" preview as the user
- * types. Does not touch the sign+broadcast flow below at all. */
-const fetchMarinadeDepositQuote = async (amountSol: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
-    const res = await getMarinadeDepositTx(address, lamports, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeDepositQuote error]", err);
-    return null;
-  }
-};
-
-const stakeToMarinade = async (amountSol: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
-    const response = await getMarinadeDepositTx(address, lamports, fullRpcUrl);
-
-    if (!response.success || !response.transactionBase64) {
-      throw new Error(response.error || "Failed to build tx");
-    }
-
-    return await signAndBroadcastGaslessTx(response.transactionBase64, fullRpcUrl);
-  } catch (err) {
-    console.error("[Marinade Liquid Staking Error]", err);
-    return null;
-  }
-};
-
-const fetchMarinadeUnstakeQuote = async (amountMSol: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountMSol * LAMPORTS_PER_SOL);
-    const res = await getMarinadeLiquidUnstakeTx(address, lamports, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeUnstakeQuote error]", err);
-    return null;
-  }
-};
-
-const unstakeFromMarinade = async (amountMSol: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountMSol * LAMPORTS_PER_SOL);
-    const response = await getMarinadeLiquidUnstakeTx(address, lamports, fullRpcUrl);
-
-    if (!response.success || !response.transactionBase64) {
-      throw new Error(response.error || "Failed to build tx");
-    }
-
-    return await signAndBroadcastGaslessTx(response.transactionBase64, fullRpcUrl);
-  } catch (err) {
-    console.error("[Marinade Liquid Unstaking Error]", err);
-    return null;
-  }
-};
-
-const fetchMarinadeNativeDepositQuote = async (amountSol: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * 1_000_000_000);
-    const res = await getMarinadeNativeDepositTx(address, lamports, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeNativeDepositQuote error]", err);
-    return null;
-  }
-};
-
-const stakeNativeToMarinade = async (amountSol: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * 1_000_000_000);
-    const res = await getMarinadeNativeDepositTx(address, lamports, fullRpcUrl);
-    
-    if (!res.success || !res.transactionBase64) throw new Error(res.error);
-    return await signAndBroadcastGaslessTx(
-      res.transactionBase64,
-      fullRpcUrl,
-      res.extraSignerSecrets,
-    );
-  } catch (err: any) {
-    console.error("[Marinade Native Staking Error]", err);
-    return null;
-  }
-};
-
-const fetchMarinadeNativeUnstakeQuote = async (amountSol: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * 1_000_000_000);
-    const res = await getMarinadeNativeUnstakeTx(address, lamports, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeNativeUnstakeQuote error]", err);
-    return null;
-  }
-};
-
-const unstakeNativeFromMarinade = async (amountSol: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const lamports = Math.floor(amountSol * 1_000_000_000);
-    const res = await getMarinadeNativeUnstakeTx(address, lamports, fullRpcUrl);
-    
-    if (!res.success || !res.transactionBase64) throw new Error(res.error);
-    return await signAndBroadcastGaslessTx(res.transactionBase64, fullRpcUrl);
-  } catch (err) {
-    console.error("Native Unstake Error:", err);
-    return null;
-  }
-};
-
-const withdrawNativeStake = async (stakeAccountAddress: string, lamports: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const res = await getNativeWithdrawTx(address, stakeAccountAddress, lamports, fullRpcUrl);
-    
-    if (!res.success || !res.transactionBase64) throw new Error(res.error);
-    return await signAndBroadcastGaslessTx(res.transactionBase64, fullRpcUrl);
-  } catch (err) {
-    console.error("Withdraw Error:", err);
-    return null;
-  }
-};
-
-const fetchMarinadeUsdcDepositQuote = async (amountUsdc: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const res = await getMarinadeUsdcDepositTx(address, amountUsdc, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeUsdcDepositQuote error]", err);
-    return null;
-  }
-};
-
-const depositUsdcToMarinade = async (amountUsdc: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const res = await getMarinadeUsdcDepositTx(address, amountUsdc, fullRpcUrl);
-
-    if (!res.success || !res.transactionBase64s || res.transactionBase64s.length === 0) throw new Error(res.error);
-    return await signAndBroadcastGaslessTx(res.transactionBase64s, fullRpcUrl);
-  } catch (err: any) {
-    console.error("[Marinade USDC Deposit Error]", err);
-    return null;
-  }
-};
-
-const fetchMarinadeUsdcWithdrawQuote = async (amountUsdc: number): Promise<any | null> => {
-  if (!address) return null;
-  try {
-    const res = await getMarinadeUsdcWithdrawTx(address, amountUsdc, fullRpcUrl);
-    return res.success ? res : null;
-  } catch (err) {
-    console.error("[fetchMarinadeUsdcWithdrawQuote error]", err);
-    return null;
-  }
-};
-
-const withdrawUsdcFromMarinade = async (sharesToWithdraw: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const res = await getMarinadeUsdcWithdrawTx(address, sharesToWithdraw, fullRpcUrl);
-
-    if (!res.success || !res.transactionBase64s || res.transactionBase64s.length === 0) throw new Error(res.error);
-    return await signAndBroadcastGaslessTx(res.transactionBase64s, fullRpcUrl);
-  } catch (err: any) {
-    console.error("[Marinade USDC Withdraw Error]", err);
-    return null;
-  }
-};
-
-const claimUsdcFromMarinade = async (estimatedRewardUsd: number): Promise<string | null> => {
-  if (!address) return null;
-  try {
-    const res = await getMarinadeUsdcClaimTx(address, fullRpcUrl, estimatedRewardUsd);
-    
-    if (!res.success || !res.transactionBase64s || res.transactionBase64s.length === 0) {
-      throw new Error(res.error || "Failed to generate claim instructions");
-    }
-
-    const sig = await signAndBroadcastGaslessTx(res.transactionBase64s, fullRpcUrl);
-    
-    console.log(`USDC Farm Claim Success: ${sig}`);
-    return sig;
-  } catch (err: any) {
-    console.error("[Marinade USDC Claim Error]", err);
-    return null;
-  }
-};
-
-const signAndBroadcastGaslessTx = async (
-  transactionBase64: string | string[],
-  rpcUrl: string,
-  extraSignerSecrets?: string[]
-): Promise<string> => {
-  const conn = new Connection(rpcUrl, "confirmed");
-  
-  const base64Array = Array.isArray(transactionBase64) ? transactionBase64 : [transactionBase64];
-  const vtxs = base64Array.map(b64 => VersionedTransaction.deserialize(Buffer.from(b64, "base64")));
-
-  // Catch a transaction that would fail onchain *before* asking the wallet to sign it —
-  // per Phantom's own guidance, letting a doomed transaction reach signTransaction is
-  // exactly what can trigger their "this dApp could be malicious" simulation warning.
-  // sigVerify:false since nothing has signed yet at this point (see buildGaslessTx in
-  // marinade-stake.ts) — we only care whether the instructions themselves would succeed.
-  for (const vtx of vtxs) {
-    const sim = await conn.simulateTransaction(vtx, { sigVerify: false });
-    if (sim.value.err) {
-      throw new Error(`Transaction would fail onchain: ${JSON.stringify(sim.value.err)}`);
-    }
-  }
-
-  let signedVtxs: VersionedTransaction[] = [];
-
-  if (walletType === "walletconnect" && akProvider) {
-    for (const vtx of vtxs) {
-      const signed = await (akProvider as any).signTransaction(vtx);
-      signedVtxs.push(signed);
-    }
-  } else {
-    const signAllFeature = currentWallet?.features["solana:signAllTransactions"] as any;
-    const signFeature = currentWallet?.features["solana:signTransaction"] as any;
-
-    if (vtxs.length > 1 && signAllFeature) {
-      const signedResults = await signAllFeature.signAllTransactions({
-        transactions: vtxs.map(v => v.serialize()),
-        account: currentAccount!,
-      });
-      
-      signedVtxs = signedResults.map((res: any) => 
-        VersionedTransaction.deserialize(new Uint8Array(res.signedTransaction))
-      );
-    } else {
-
-      for (const vtx of vtxs) {
-        const signedResult = await signFeature.signTransaction({
-          transaction: vtx.serialize(),
-          account: currentAccount!,
-        });
-
-        const signed = Array.isArray(signedResult) ? signedResult[0] : signedResult;
-        const raw = signed instanceof Uint8Array ? signed : signed?.signedTransaction;
-        
-        if (!raw) throw new Error("Failed to extract signed transaction bytes");
-        signedVtxs.push(VersionedTransaction.deserialize(new Uint8Array(raw)));
-      }
-    }
-  }
-
-
-  // Broadcast via the server action, which adds the relayer's signature only now — after
-  // the user's own signature is already on the transaction (see buildGaslessTx's comment).
-  let lastSig = "";
-  for (const signedVtx of signedVtxs) {
-    const result = await broadcastGaslessTx(
-      Buffer.from(signedVtx.serialize()).toString("base64"),
-      rpcUrl,
-      extraSignerSecrets,
-    );
-    if (!result.success || !result.signature) throw new Error(result.error || "Broadcast failed");
-    lastSig = result.signature;
-  }
-
-  return lastSig;
-};
-
-
-
-  const fetchGaslessSendQuote = async (
-    recipientAddress: string,
-    mintAddress: string,
-    amountUi: number,
-    decimals: number
-  ): Promise<any | null> => {
-    if (!address) return null;
-    try {
-      // Direct Server Action Call
-      const data = await prepareGaslessSendTx({
-        senderAddress: address, 
-        recipientAddress,
-        mintAddress,
-        amountUi,
-        decimals,
-        rpcUrl: fullRpcUrl
-      });
-      
-      if (!data.success) throw new Error(data.error);
-      return data; 
-    } catch (err) {
-      console.error("fetchGaslessSendQuote error:", err);
-      return null;
-    }
-  };
-
-  const executeGaslessSend = async (transactionBase64: string): Promise<string | null> => {
-    if (!address) return null;
-    try {
-      const txBytes = Buffer.from(transactionBase64, "base64");
-      const versionedTx = VersionedTransaction.deserialize(new Uint8Array(txBytes));
-
-      // Same pre-flight as signAndBroadcastGaslessTx/executeSwap (see their comments) — this
-      // is a third, separate relayer-sponsored signing path (prepareGaslessSendTx leaves the
-      // relayer unsigned the same way), so it needs its own copy of the check too.
-      const conn = new Connection(fullRpcUrl, "confirmed");
-      const sim = await conn.simulateTransaction(versionedTx, { sigVerify: false });
-      if (sim.value.err) {
-        throw new Error(`Transaction would fail onchain: ${JSON.stringify(sim.value.err)}`);
-      }
-
-      let signedTxBase64 = "";
-      
-      // 1. User Wallet Signature
-      if (walletType === "walletconnect" && akProvider) {
-        const signedTx = await (akProvider as any).signTransaction(versionedTx);
-        signedTxBase64 = Buffer.from(signedTx.serialize()).toString("base64");
-      } else {
-        const signFeature = currentWallet?.features["solana:signTransaction"] as any;
-        if (!signFeature) throw new Error("Wallet lacks signTransaction");
-
-        const signedResult = await signFeature.signTransaction({
-          transaction: versionedTx.serialize(),
-          account: currentAccount!,
-        });
-
-        let raw: Uint8Array | undefined = undefined;
-        if (Array.isArray(signedResult)) raw = signedResult[0]?.signedTransaction;
-        else if (signedResult instanceof Uint8Array) raw = signedResult;
-        else if (signedResult && (signedResult as any).signedTransaction) raw = (signedResult as any).signedTransaction;
-        
-        if (!raw) throw new Error("Transaction cancelled by user");
-        signedTxBase64 = Buffer.from(raw).toString("base64");
-      }
-
-      // 2. Direct Server Action Call to Broadcast
-      const broadcastData = await broadcastGaslessSendTx({
-        signedTransactionBase64: signedTxBase64,
-        rpcUrl: fullRpcUrl
-      });
-
-       if (!broadcastData.success) throw new Error(broadcastData.error);
-
-      return broadcastData.signature || null;
-    } catch (err: any) {
-      console.error("executeGaslessSend error:", err);
-      return null;
-    }
-  };
-
-
-
-const fetchSwapQuote = async (
-    inputMint: string,
-    outputMint: string,
-    amountInSmallestUnit: number,
-    inputAmountUi: number,
-    swapMode: "ExactIn" | "ExactOut" = "ExactIn",
-    inputDecimals: number = 9,
-    signal?: AbortSignal,
-  ): Promise<any | null> => {
-    try {
-      if (!inputAmountUi) throw new Error("amountUi is required");
-      if (signal?.aborted) return null;
-
-      const isNativeSolIn = inputMint === SOLANA_NATIVE_MINT || inputMint === "So11111111111111111111111111111111111111112";
-      const isNativeSolOut = outputMint === SOLANA_NATIVE_MINT || outputMint === "So11111111111111111111111111111111111111112";
-
-      const ataResult = await withTimeout(Promise.all([
-        isNativeSolIn ? Promise.resolve(false) : checkAtaRequired(PARADAPP_FEE_VAULT_SOLANA, inputMint),
-        isNativeSolOut || !address ? Promise.resolve(false) : checkAtaRequired(address, outputMint)
-      ]), 15000, signal);
-      if (signal?.aborted) return null;
-      if (!ataResult) throw new Error("Timed out checking token accounts, the RPC node may be unresponsive.");
-      const [needsInputAta, needsOutputAta] = ataResult;
-
-      // getGaslessQuoteAndFee makes several uncached RPC calls (mint/rent lookups,
-      // prioritization fees) on top of its own already-timeout-guarded Jupiter fetches — this
-      // is the other half of the hang this component's isCancelled guard alone can't fix (see
-      // withTimeout's comment above): a slow RPC node here left isFetchingQuote stuck forever.
-      // Note: `signal` is NOT passed as an argument to getGaslessQuoteAndFee itself — it's a
-      // 'use server' export, so calling it from here is a Next.js Server Action RPC, and a raw
-      // AbortSignal object doesn't survive that serialization (it deserializes into something
-      // that isn't really an AbortSignal, which throws once it reaches AbortSignal.any
-      // downstream). withTimeout still races the *call* against the signal client-side below —
-      // that only stops this function from waiting on it, it can't cancel the in-flight request
-      // itself once it's crossed into the server action.
-      const feeRes = await withTimeout(getGaslessQuoteAndFee(
-        inputMint,
-        outputMint,
-        inputAmountUi,
-        amountInSmallestUnit,
-        needsInputAta,
-        needsOutputAta,
-        fullRpcUrl,
-        swapMode,
-        inputDecimals
-      ), 15000, signal);
-
-      if (signal?.aborted) return null;
-      if (!feeRes) throw new Error("Timed out fetching swap quote, please try again.");
-      if (!feeRes.success || !feeRes.quote) throw new Error(feeRes.error || "Failed to fetch quote");
-
-      feeRes.quote.appliedFee = feeRes.appliedFee;
-      feeRes.quote.needsInputAta = needsInputAta;
-      feeRes.quote.inputDecimals = feeRes.decimals;
-      feeRes.quote.networkFeeUi = feeRes.networkFeeUi;
-      feeRes.quote.ataFeeUi = feeRes.ataFeeUi;
-      feeRes.quote.platformFeeUi = feeRes.platformFeeUi;
-
-      return { success: true, quote: feeRes.quote }; 
-    } catch (err) {
-
-      console.error("[SolanaProvider] fetchSwapQuote error:", err);
-      return { success: false, error: err instanceof Error ? err.message : "Unknown quote error" }; 
-    }
-  };
-
-  const executeSwap = async (
-    quoteResponse: any,
-    inputMint: string,
-    isUltraFast: boolean = true
-  ): Promise<string | null> => {
-    if (!address) return null;
-    
-    try {
-      const conn = new Connection(fullRpcUrl, "confirmed");
-      const isNativeSol = inputMint === SOLANA_NATIVE_MINT || inputMint === "So11111111111111111111111111111111111111112";
-      
-      let tokenProgramId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-      if (!isNativeSol) {
-        const mintInfo = await conn.getAccountInfo(new PublicKey(inputMint));
-        if (mintInfo) tokenProgramId = mintInfo.owner.toBase58();
-      }
-
-      const response = await getAtomicGaslessSwapTx(
-        address,
-        quoteResponse,
-        quoteResponse.appliedFee,
-        quoteResponse.needsInputAta,
-        inputMint,
-        quoteResponse.inputDecimals,
-        tokenProgramId,
-        fullRpcUrl,
-        isUltraFast
-      );
-
-      if (!response.success || !response.transactionBase64) {
-        throw new Error(response.error || "Server failed to build swap transaction");
-      }
-
-      const txBytes = Buffer.from(response.transactionBase64, "base64");
-      const versionedTx = VersionedTransaction.deserialize(new Uint8Array(txBytes));
-
-      // Same pre-flight as signAndBroadcastGaslessTx (see its comment) — this path builds and
-      // signs its own transaction separately from that shared helper, so it needs its own copy
-      // of the simulate-before-sign check rather than inheriting one. sigVerify:false since
-      // nothing has signed yet (getAtomicGaslessSwapTx leaves the relayer's signature off, see
-      // its "❌ REMOVED" comment) — this was missing here even after that fix landed elsewhere,
-      // which is why Swap kept triggering Phantom's warning after Stake was already resolved.
-      const sim = await conn.simulateTransaction(versionedTx, { sigVerify: false });
-      if (sim.value.err) {
-        throw new Error(`Transaction would fail onchain: ${JSON.stringify(sim.value.err)}`);
-      }
-
-      if (walletType === "walletconnect" && akProvider) {
-        const signedTx = await (akProvider as any).signTransaction(versionedTx);
-
-        const broadcastResult = await broadcastSwapTx(
-          Buffer.from(signedTx.serialize()).toString("base64"),
-          fullRpcUrl
-        );
-        if (!broadcastResult.success) throw new Error(broadcastResult.error);
-        return broadcastResult.signature || null;
-      }
-
-      const signFeature = currentWallet?.features["solana:signTransaction"] as any;
-      if (!signFeature) throw new Error("Wallet lacks signTransaction feature");
-
-      const signedResult = await signFeature.signTransaction({
-        transaction: versionedTx.serialize(),
-        account: currentAccount!,
-      });
-
-      let raw: Uint8Array | undefined = undefined;
-
-      if (Array.isArray(signedResult)) {
-        raw = signedResult[0]?.signedTransaction;
-      } else if (signedResult instanceof Uint8Array) {
-        raw = signedResult;
-      } else if (signedResult && (signedResult as any).signedTransaction) {
-        raw = (signedResult as any).signedTransaction;
-      }
-      
-      if (!raw) throw new Error("Transaction cancelled by user");
-
-      const broadcastResult = await broadcastSwapTx(
-        Buffer.from(raw).toString("base64"),
-        fullRpcUrl
-      );
-
-      if (!broadcastResult.success) throw new Error(broadcastResult.error);
-
-      return broadcastResult.signature || null;
-
-    } catch (err: any) {
-      console.error("[Jupiter Swap Error]", err);
-      return null;
-    }
-  };
-
-const fetchTokenMeta = async (query: string): Promise<any | null> => {
-  try {
-    const response = await searchJupiterToken(query);
-    
-    if (!response.success) {
-      return null;
-    }
-
-    return {
-      mint: response.mint,
-      symbol: response.symbol,
-      name: response.name,
-      decimals: response.decimals,
-      icon: response.icon 
-    };
-  } catch (err) {
-    console.error("[SolanaProvider] fetchTokenMeta error:", err);
-    return null; 
-  }
-};
 
 // const fetchVerifiedTokens = async (): Promise<any[]> => {
 //   try {
-//     const response = await getJupiterVerifiedTokens();
 //     if (response.success && Array.isArray(response.tokens)) {
 //       return response.tokens.map((t: any) => ({
 //         id: t.id,
@@ -1739,22 +956,6 @@ const fetchTokenMeta = async (query: string): Promise<any | null> => {
 
 
 
-
-const fetchStockAssets = async (): Promise<any[]> => {
-  try {
-    const response = await getStockAssets();
-    
-  
-    if (response.success && Array.isArray(response.stocks)) {
-      return response.stocks;
-    }
-    
-    return [];
-  } catch (err) {
-    console.error("[SolanaProvider] fetchStockAssets error:", err);
-    return [];
-  }
-};
 
 const IPOW_PROGRAM_ID = new PublicKey("EsmGbkui9ZFC6Fch9J6xoyNRZSp6TwfvcjS88beP1Vem");
 
@@ -1818,6 +1019,44 @@ const getAnchorProgram = () => {
     } catch (e) { return null; }
   };
 
+
+  /** Signs one transaction with the connected wallet, WalletConnect or a
+   *  wallet-standard one, and gives it back signed, of the same kind. */
+  const signOne = async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
+    if (walletType === "walletconnect" && akProvider) return (await (akProvider as any).signTransaction(tx)) as T;
+    const feature = currentWallet?.features["solana:signTransaction"] as any;
+    if (!feature || !currentAccount) throw new Error("Wallet lacks signTransaction");
+    const bytes = tx instanceof VersionedTransaction ? tx.serialize() : tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+    const result = await feature.signTransaction({ transaction: bytes, account: currentAccount });
+    const signed = Array.isArray(result) ? result[0] : result;
+    const raw: Uint8Array | undefined = signed instanceof Uint8Array ? signed : signed?.signedTransaction;
+    if (!raw) throw new Error("Failed to extract signed transaction");
+    return (tx instanceof VersionedTransaction ? VersionedTransaction.deserialize(raw) : Transaction.from(raw)) as T;
+  };
+
+  /** The connected wallet in the shape Anchor and @ipow/sdk sign with;
+   *  null while none is connected. */
+  const getAnchorWallet = (): SolanaWallet | null =>
+    address
+      ? {
+          publicKey: new PublicKey(address),
+          signTransaction: signOne,
+          signAllTransactions: async (txs) => {
+            const out = [];
+            for (const tx of txs) out.push(await signOne(tx));
+            return out;
+          },
+        }
+      : null;
+
+  // Convert on the new protocol (solanaConvertMethods); it overrides the
+  // old protocol's methods below in the context's value.
+  const anchorWalletRef = useRef(getAnchorWallet);
+  anchorWalletRef.current = getAnchorWallet;
+  const convert = useMemo(
+    () => solanaConvertMethods({ getWallet: () => anchorWalletRef.current(), address, uiNetworkId: IPOW_NETWORK_ID }),
+    [address]
+  );
 
   const signAndSendIpowTx = async (transaction: Transaction, conn: Connection): Promise<string> => {
     if (!address) throw new Error("Wallet not connected");
@@ -2279,70 +1518,6 @@ const getConversion = async (txId: number | string | bigint) => {
       .join(",");
   }, [balance?.tokens]);
 
-  useEffect(() => {
-    if (!isMainnet) return;
-
-    const fetchGlobalTokenData = async () => {
-      try {
-        let currentVerifiedTokens = verifiedTokensData;
-
-
-        if (currentVerifiedTokens.length <= 2) {
-          const tokensRes = await getJupiterVerifiedTokens();
-          if (tokensRes.success && Array.isArray(tokensRes.tokens)) {
-            currentVerifiedTokens = tokensRes.tokens.map((t: any) => ({
-              id: t.id,
-              mint: t.id,
-              symbol: t.symbol,
-              name: t.name,
-              icon: t.icon,
-              decimals: t.decimals,
-            }));
-            setVerifiedTokensData(currentVerifiedTokens);
-          }
-        }
-
-        const mintsToFetch = new Set<string>();
-        
-        mintsToFetch.add(SOLANA_NATIVE_MINT);
-
-        if (balance?.tokens && balance.tokens.length > 0) {
-          balance.tokens.forEach((t: any) => {
-            if (t.amount > 0) mintsToFetch.add(t.mint);
-          });
-        }
-
-        if (selfCustodyParameter?.tokens && selfCustodyParameter.tokens.length > 0) {
-          selfCustodyParameter.tokens.forEach((ct) => {
-            const foundMeta = currentVerifiedTokens.find(
-              (v: any) => v.symbol.toUpperCase() === ct.token.toUpperCase() || v.mint === ct.token
-            );
-            if (foundMeta) mintsToFetch.add(foundMeta.mint);
-          });
-        }
-
-        if (mintsToFetch.size > 0) {
-          const priceRes = await getJupiterPrices(Array.from(mintsToFetch).slice(0, 50));
-          if (priceRes.success && priceRes.prices) {
-            setLiveTokenPrices(priceRes.prices);
-          }
-        }
-      } catch (err) {
-        // console.error("[SolanaProvider] Failed to fetch global token data:", err);
-      }
-    };
-
- 
-    fetchGlobalTokenData();
-
-
-    const interval = setInterval(fetchGlobalTokenData, 60000);
-    return () => clearInterval(interval);
-
-    // balance?.tokens is intentionally omitted — heldMintsSignature (derived from it) is
-    // the dependency that should actually govern this effect's re-runs; see its comment.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet, heldMintsSignature, selfCustodyParameter, verifiedTokensData]);
 
 
   useEffect(() => {
@@ -2368,38 +1543,6 @@ const getConversion = async (txId: number | string | bigint) => {
       }
     }
   }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(
-          `/api/dapphub/list?network=SOLANA${addressQuery}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          },
-        );
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList(result.data);
-        } else {
-          setDappList([]); 
-        }
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]); 
-      }
-    };
-
-    fetchDapps();
-
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address, connected]);
 
 useEffect(() => {
     setSelfCustodyParameter(prev => ({ ...prev, tokens: [], fetched: false }));
@@ -2992,43 +2135,18 @@ const submitBitcoinMerkleProofWithTx = async (
         selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
-        toggleFavoriteDapp,
         connect,
         disconnect,
         signMessage,
+        getAnchorWallet,
         switchWallet,
         sendTokenTo,
         checkAddress,
         isValidAddress,
-        stakeToMarinade,
-        unstakeFromMarinade,
-        getMarinadeSOLData,
-        stakeNativeToMarinade,
-        unstakeNativeFromMarinade,
-        withdrawNativeStake,
-        depositUsdcToMarinade,
-        withdrawUsdcFromMarinade,
-        getMarinadeUSDCData,
-        getMarinadeUsdcRewardHistory,
-        getMarinadeUsdcTransactionHistory,
-        claimUsdcFromMarinade,
-        fetchMarinadeDepositQuote,
-        fetchMarinadeUnstakeQuote,
-        fetchMarinadeNativeDepositQuote,
-        fetchMarinadeNativeUnstakeQuote,
-        fetchMarinadeUsdcDepositQuote,
-        fetchMarinadeUsdcWithdrawQuote,
-        executeSwap,
-        fetchSwapQuote,
-        fetchStockAssets,
         setFeeSelection,
         fetchETA,
-        fetchTokenMeta,
         verifiedTokensData,
         liveTokenPrices,
-        isUltraFast,
-        setIsUltraFast,
         checkAtaRequired,
         balance: {
           ...balance,
@@ -3058,27 +2176,9 @@ const submitBitcoinMerkleProofWithTx = async (
         price,
         networkExplorer : currentNetworkConfig.networkExplorer,
 
-        estimateBitcoinFromNative,
-        estimateNativeFromBitcoin,
-        commitNativeToBitcoin,
-        commitBitcoinToNative,
-        depositApprovedConversion,
-        getMyTxIds,
-        getConversion,
-        refundIfNotApproved,
-        claimNativeAfterOperatorExpired,
-        refundAfterNoProofNativeToBitcoin,
         initializeProtocol,
         addSupportedNetwork,
-        // --- iPoW SPV & BLOCKSTREAM FUNCTIONS (ADDED) ---
-        anchorInfo,
-        windowsFor,
-        proofInfo,
-        globalHeightToHashLE,
-        submitBitcoinMerkleProofWithTx,
-        liveBetaPrice,
-        executeGaslessSend,
-        fetchGaslessSendQuote
+        ...convert,
       }}
     >
       {children}

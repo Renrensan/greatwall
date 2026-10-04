@@ -21,14 +21,14 @@ export function MainnetToggleRow({
         {testnetLabel && (
           <button
             onClick={() => onChange(false)}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${!isMainnet ? "bg-orange-500/10 border-orange-500 text-orange-500" : "bg-secondary/5 border-transparent opacity-50 hover:opacity-100"}`}
+            className={`flex-1 py-2.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${!isMainnet ? "bg-orange-500/10 border-orange-500 text-orange-500" : "bg-secondary/5 border-transparent opacity-50 hover:opacity-100"}`}
           >
             {testnetLabel}
           </button>
         )}
         <button
           onClick={() => onChange(true)}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${isMainnet ? "bg-green-500/10 border-green-500 text-green-500" : "bg-secondary/5 border-transparent opacity-50 hover:opacity-100"}`}
+          className={`flex-1 py-2.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${isMainnet ? "bg-green-500/10 border-green-500 text-green-500" : "bg-secondary/5 border-transparent opacity-50 hover:opacity-100"}`}
         >
           Mainnet
         </button>

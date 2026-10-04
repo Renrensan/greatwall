@@ -8,7 +8,7 @@ export default async function NetworkRootPage({
 }) {
   const { locale, network } = await params;
 
-  redirect(`/${locale}/${network}/vault/buy`);
+  redirect(`/${locale}/${network}/vault/assets`);
 
 }
 

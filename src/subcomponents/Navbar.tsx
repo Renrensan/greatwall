@@ -7,16 +7,16 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { logos } from "..";
+import { greatwallLogo } from "..";
 import Image from "next/image";
 import Link from "next/link";
-import { FiMenu } from "react-icons/fi";
+import { FiMoreVertical } from "react-icons/fi";
 import { FaCheckCircle } from "react-icons/fa";
 import { DynamicConnectButton, useNetwork, SupportedChain, SUPPORTED_CHAINS } from "@/app/network-provider";
 import { Icon } from "@iconify/react";
 import ButtonContrast from "./ButtonContrast";
 import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
-import { useTronWallet } from "@/components/tron/tron-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
@@ -25,7 +25,6 @@ import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
-import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
 
@@ -36,12 +35,12 @@ interface NavbarProps {
 function Navbar({ forceShow = false }: NavbarProps = {}) {
   const t = useTranslations("All");
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
 
-  const { locale, app } = useParams<{
+  const { locale, app, section } = useParams<{
     locale: string;
     network: string;
     app: string;
+    section?: string;
   }>();
 
   const pathname = usePathname();
@@ -50,7 +49,6 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   const [walletOpen, setWalletOpen] = useState(false);
   const [networkOpen, setNetworkOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
-  const [themeOpen, setThemeOpen] = useState(false);
   const [defaultNetworkOpen, setDefaultNetworkOpen] = useState(false);
   const [networkSearchQuery, setNetworkSearchQuery] = useState("");
 
@@ -66,7 +64,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
-  const tronNetwork = useTronWallet();
+  const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
   const baseNetwork = useBaseWallet();
@@ -78,7 +76,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
     { key: "solana", name: solanaNetwork.networkName, value: solanaNetwork.networkLogo },
     { key: "polkadot", name: polkadotNetwork.networkName, value: polkadotNetwork.networkLogo },
     { key: "hedera", name: hederaNetwork.networkName, value: hederaNetwork.networkLogo },
-    { key: "tron", name: tronNetwork.networkName, value: tronNetwork.networkLogo },
+    { key: "tempo", name: tempoNetwork.networkName, value: tempoNetwork.networkLogo },
     { key: "hyperliquid", name: hyperliquidNetwork.networkName, value: hyperliquidNetwork.networkLogo },
     { key: "robinhood", name: robinhoodNetwork.networkName, value: robinhoodNetwork.networkLogo },
     { key: "base", name: baseNetwork.networkName, value: baseNetwork.networkLogo },
@@ -121,7 +119,6 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         setGlobalPreferencesOpen(false);
         setNetworkOpen(false);
         setLanguageOpen(false);
-        setThemeOpen(false);
         setDefaultNetworkOpen(false);
       }
     }
@@ -130,7 +127,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   }, []);
 
   const handleAbout= () => {
-   router.push(`/${locale}/about`)
+   router.push(`/${locale}`)
   };
 
   const handleNetworkChange = (chain: SupportedChain) => {
@@ -150,76 +147,81 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         router.push(newPath, { scroll: false });
       }
     } else {
-      router.push(`/${locale}/${chain}/vault/buy`);
+      router.push(`/${locale}/${chain}/vault/assets`);
     }
 
     setNetworkOpen(false);
   };
 
-  const isTransactionDetailsPage =
-    pathname.includes("/convert/transaction/") ||
-    pathname.includes("/vault/transaction/");
+  // Greatwall's sections, by the app and section each opens.
+  const chain = selectedChain || "ethereum";
+  const navItems: { key: string; label: string; href: string; active: boolean }[] = [
+    { key: "create", label: t("navCreate"), href: `/${locale}/${chain}/beta/create`, active: app === "beta" && section === "create" },
+    { key: "mint", label: t("navMint"), href: `/${locale}/${chain}/beta/baskets`, active: app === "beta" && section !== "create" && section !== "explore" },
+    { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert" },
+    { key: "portfolio", label: t("navPortfolio"), href: `/${locale}/${chain}/vault/assets`, active: app === "vault" || app === "bridge" },
+    { key: "explore", label: t("navExplore"), href: `/${locale}/${chain}/beta/explore`, active: app === "beta" && section === "explore" },
+  ];
 
-  if (isTransactionDetailsPage) {
-    return null;
-  }
+  const navLink = (item: (typeof navItems)[number]) => (
+    <Link
+      key={item.key}
+      href={item.href}
+      aria-current={item.active ? "page" : undefined}
+      className={`whitespace-nowrap text-[15px] transition-colors ${
+        item.active ? "font-semibold text-ink" : "font-normal text-ink/80 hover:text-ink"
+      }`}
+    >
+      {item.label}
+    </Link>
+  );
 
   return (
     <>
       {!app && !forceShow ? null : (
-        <nav className="fixed z-20 w-full mt-5 left-0  px-4">
-          <div className="flex items-center justify-between py-4">
-            <Link 
-              href={selectedChain ? `/${locale}/${selectedChain}/vault/buy` : `/${locale}`} 
-              className="flex justify-start"
-            >
-        
-              <div className="flex gap-1 justify-start items-center">
-                <Image
-                  src={logos}
-                  alt="paradapp"
-                  className="w-auto h-auto max-w-7.5 mb-0.5"
-                />
-                <p className="text-lg font-black sm:text-lg">Paradapp</p>
-              </div>
-            </Link>
+        <header className="gw-nav fixed top-0 left-0 z-20 w-full bg-sand border-b border-black/5">
+          <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between gap-4 px-4 md:px-16">
+            <div className="flex items-center gap-8 lg:gap-10 min-w-0">
+              <Link href={`/${locale}/${chain}/vault/assets`} className="flex items-center gap-2 shrink-0" aria-label="Greatwall">
+                <Image src={greatwallLogo} alt="" className="h-[22px] w-auto" priority />
+                <span className="hidden md:inline font-display text-[22px] font-bold leading-none tracking-tight text-ink">Greatwall</span>
+              </Link>
+              <nav className="hidden md:flex items-center gap-7" aria-label="Main">
+                {navItems.map(navLink)}
+              </nav>
+            </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <>
-                <div ref={walletRef} className="flex items-center">
-                  <DynamicConnectButton
-                    isOpen={walletOpen}
-                    setIsOpen={(open: boolean) => {
-                      setWalletOpen(open);
-                      if (open) {
-                        setGlobalPreferencesOpen(false);
-                        setNetworkOpen(false);
-                      }
-                    }}
-                  />
-                </div>
-
-                <div ref={networkRef} className="relative">
-                  <button
-                    onClick={() => {
-                      setNetworkOpen(!networkOpen);
+            <div className="flex items-center gap-2">
+              <div ref={walletRef} className="flex items-center">
+                <DynamicConnectButton
+                  isOpen={walletOpen}
+                  setIsOpen={(open: boolean) => {
+                    setWalletOpen(open);
+                    if (open) {
                       setGlobalPreferencesOpen(false);
+                      setNetworkOpen(false);
+                    }
+                  }}
+                />
+              </div>
 
-                      setWalletOpen(false);
-                    }}
-                    className={`p-2 cursor-pointer shadow-buttonNav ${selectedChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${selectedChain}/10`} rounded-full glass-card text-base`}
-                  >
-                    <Image
-                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
-                      src={
-                        networkOptions.find(
-                          (a) => a.key === selectedChain,
-                        )?.value!
-                      }
-                      alt={selectedChain}
-                    />
-                  </button>
-
+              <div ref={networkRef} className="relative">
+                <button
+                  type="button"
+                  aria-label={t("text240")}
+                  onClick={() => {
+                    setNetworkOpen(!networkOpen);
+                    setGlobalPreferencesOpen(false);
+                    setWalletOpen(false);
+                  }}
+                  className="gw-icon-btn"
+                >
+                  <Image
+                    className="h-[18px] w-[18px] rounded-full"
+                    src={networkOptions.find((a) => a.key === selectedChain)?.value ?? networkOptions[1].value}
+                    alt={selectedChain}
+                  />
+                </button>
 
       <AnimatedModalNavbar
         isOpen={networkOpen}
@@ -235,7 +237,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
             <h2 className="text-xl font-bold">{t("text240")}</h2>
             <p className="text-[12px] opacity-70">{t("text241")}</p>
           </div>
-          <div className="flex items-center justify-between w-full px-4 py-2.5 rounded-full glass-card border border-black/5 dark:border-white/10 focus-within:border-black/20 dark:focus-within:border-white/20 transition-colors">
+          <div className="flex items-center justify-between w-full px-4 py-2.5 rounded-md bg-snow border border-sand focus-within:border-stone transition-colors">
             <input
               type="text"
               placeholder={t("text348")}
@@ -265,24 +267,20 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
                   setNetworkOpen(false);
                   setNetworkSearchQuery("");
                 }}
-                className={`w-full shrink-0 text-left cursor-pointer transition-all duration-200 p-3 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
-                  isSelected
-                    ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                    : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
-                }`}
+                className="gw-row justify-between"
               >
                 <div className="flex items-center gap-3">
                   <Image
                     src={network.value}
                     alt={network.name}
-                    className="w-8 h-8 object-contain shrink-0"
+                    className="w-6 h-6 object-contain shrink-0 rounded"
                   />
-                  <span className={`font-bold lg:text-sm ${isSelected ? "" : "opacity-80"}`}>
+                  <span>
                     {network.name}
                   </span>
                 </div>
                 {isSelected && (
-                  <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400 shrink-0" />
+                  <FaCheckCircle className="text-[18px] text-snow shrink-0" />
                 )}
               </button>
             );
@@ -290,7 +288,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         </div>
 
         {/* Mobile-Only Close Button Footer */}
-        <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+        <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
           <div className="flex justify-center w-full">
              <div className="w-full">
                <ButtonContrast
@@ -304,24 +302,21 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
           </div>
         </div>
       </AnimatedModalNavbar>
-                </div>
+              </div>
 
-               <div ref={globalPreferenceRef} className="relative">
-  {/* Trigger Button */}
-  <button
-    onClick={() => {
-      setGlobalPreferencesOpen(!globalPreferencesOpen);
-      setWalletOpen(false);
-      setNetworkOpen(false);
-    }}
-    className={`p-2 cursor-pointer shadow-buttonNav ${selectedChain === "base" ? "hover:bg-[#0052FF]/10" : `hover:bg-${selectedChain}/10`} rounded-full glass-card text-base`}
-  >
-    <FiMenu
-      className={`text-sm sm:text-lg ${
-        (selectedChain == "hedera" || selectedChain == "polkadot") ? "text-black dark:text-white" : (selectedChain === "base" ? "text-[#0052FF]" : `text-${selectedChain}`)
-      }`}
-    />
-  </button>
+              <div ref={globalPreferenceRef} className="relative">
+                <button
+                  type="button"
+                  aria-label={t("text242")}
+                  onClick={() => {
+                    setGlobalPreferencesOpen(!globalPreferencesOpen);
+                    setWalletOpen(false);
+                    setNetworkOpen(false);
+                  }}
+                  className="gw-icon-btn"
+                >
+                  <FiMoreVertical className="text-lg" />
+                </button>
 
   {/* --- GLOBAL PREFERENCES MODAL --- */}
   <AnimatedModalNavbar
@@ -335,35 +330,42 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         <p className="text-[12px] opacity-70">{t("text243")}</p>
       </div>
 
+      {/* On phones the sections live here, above the preferences. */}
+      <nav className="md:hidden flex flex-col gap-3 pb-5" aria-label="Main">
+        {navItems.map((item) => (
+          <Link
+            key={item.key}
+            href={item.href}
+            onClick={() => setGlobalPreferencesOpen(false)}
+            aria-current={item.active ? "page" : undefined}
+            className="gw-row justify-between"
+          >
+            <span>{item.label}</span>
+            {item.active && <FaCheckCircle className="text-[18px] text-snow shrink-0" />}
+          </Link>
+        ))}
+      </nav>
+
       <div className="flex flex-col gap-3 py-2">
         <button
           onClick={() => {
             setGlobalPreferencesOpen(false);
             setLanguageOpen(true);
           }}
-          className="w-full text-left cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10"
+          className="gw-row"
         >
-          <p className="font-bold lg:text-sm">{t("text244")}</p>
+          <p>{t("text244")}</p>
         </button>
 
-        <button
-          onClick={() => {
-            setGlobalPreferencesOpen(false);
-            setThemeOpen(true);
-          }}
-          className="w-full text-left cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10"
-        >
-          <p className="font-bold lg:text-sm">{t("text245")}</p>
-        </button>
 
         <button
           onClick={() => {
             setGlobalPreferencesOpen(false);
             setDefaultNetworkOpen(true);
           }}
-          className="w-full text-left cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10"
+          className="gw-row"
         >
-          <p className="font-bold lg:text-sm">{t("text302")}</p>
+          <p>{t("text302")}</p>
         </button>
 
         <button
@@ -371,15 +373,15 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
             handleAbout();
             setGlobalPreferencesOpen(false);
           }}
-          className="w-full text-left cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10"
+          className="gw-row"
         >
-          <p className="font-bold lg:text-sm">{t("text204")}</p>
+          <p>{t("text204")}</p>
         </button>
       </div>
     </div>
 
     {/* Mobile-Only Footer */}
-    <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+    <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
       <ButtonContrast buttonText={t("text22")} onClick={() => setGlobalPreferencesOpen(false)} />
     </div>
   </AnimatedModalNavbar>
@@ -410,66 +412,21 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
                 handleLocaleChange(lang.id);
                 setLanguageOpen(false);
               }}
-              className={`w-full text-left cursor-pointer p-3 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card transition-all ${
-                isActive
-                  ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                  : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
+              className="gw-row justify-between"
             >
               <div className="flex items-center gap-3">
                 <Icon icon={lang.icon} className="text-2xl shrink-0" />
-                <span className="font-bold lg:text-sm">{lang.label}</span>
+                <span>{lang.label}</span>
               </div>
-              {isActive && <FaCheckCircle className="text-[18px] text-green-500 shrink-0" />}
+              {isActive && <FaCheckCircle className="text-[18px] text-snow shrink-0" />}
             </button>
           );
         })}
       </div>
     </div>
 
-    <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+    <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
       <ButtonContrast buttonText={t("text22")} onClick={() => setLanguageOpen(false)} />
-    </div>
-  </AnimatedModalNavbar>
-
-  {/* --- THEME SELECTION MODAL --- */}
-  <AnimatedModalNavbar
-    isOpen={themeOpen}
-    onClose={() => setThemeOpen(false)}
-    maxWidthClass="lg:w-[280px]"
-  >
-    <div className="flex flex-col p-6 overflow-y-auto flex-1">
-      <div className="flex flex-col gap-1 pb-5">
-        <h2 className="text-xl font-bold">{t("text245")}</h2>
-        <p className="text-[12px] opacity-70">{t("text247")}</p>
-      </div>
-
-      <div className="flex flex-col gap-3 py-2">
-        {["light", "dark", "system"].map((mode) => {
-          const isActive = theme === mode;
-          return (
-            <button
-              key={mode}
-              onClick={() => {
-                setTheme(mode);
-                setThemeOpen(false);
-              }}
-              className={`w-full text-left cursor-pointer p-3 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card capitalize transition-all ${
-                isActive
-                  ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                  : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
-            >
-              <span className="font-bold lg:text-sm">{mode}</span>
-              {isActive && <FaCheckCircle className="text-[18px] text-green-500 shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-
-    <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
-      <ButtonContrast buttonText={t("text22")} onClick={() => setThemeOpen(false)} />
     </div>
   </AnimatedModalNavbar>
 
@@ -498,24 +455,20 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
                 setPreferredChain(networkKey);
                 setDefaultNetworkOpen(false);
               }}
-              className={`w-full text-left cursor-pointer transition-all duration-200 p-3 border rounded-xl flex items-center justify-between gap-2 bgBox glass-card ${
-                isSelected
-                  ? "border-black/20 dark:border-white/30 bg-black/5 dark:bg-white/10"
-                  : "border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10"
-              }`}
+              className="gw-row justify-between"
             >
               <div className="flex items-center gap-3">
                 <Image
                   src={network.value}
                   alt={network.name}
-                  className="w-8 h-8 object-contain shrink-0"
+                  className="w-6 h-6 object-contain shrink-0 rounded"
                 />
-                <span className={`font-bold lg:text-sm ${isSelected ? "" : "opacity-80"}`}>
+                <span>
                   {network.name}
                 </span>
               </div>
               {isSelected && (
-                <FaCheckCircle className="text-[18px] text-green-500 dark:text-green-400 shrink-0" />
+                <FaCheckCircle className="text-[18px] text-snow shrink-0" />
               )}
             </button>
           );
@@ -523,15 +476,14 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
       </div>
     </div>
 
-    <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+    <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
       <ButtonContrast buttonText={t("text22")} onClick={() => setDefaultNetworkOpen(false)} />
     </div>
   </AnimatedModalNavbar>
-</div>
-              </>
+              </div>
             </div>
           </div>
-        </nav>
+        </header>
       )}
     </>
   );

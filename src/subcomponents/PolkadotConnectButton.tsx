@@ -87,7 +87,7 @@ export function PolkadotConnectButton({ isOpen, setIsOpen }: PolkadotConnectButt
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-polkadot! hover:bg-polkadot/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -97,7 +97,7 @@ export function PolkadotConnectButton({ isOpen, setIsOpen }: PolkadotConnectButt
       {!connected ? (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-polkadot! hover:bg-polkadot/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -107,7 +107,7 @@ export function PolkadotConnectButton({ isOpen, setIsOpen }: PolkadotConnectButt
           alt={walletType ?? "Polkadot"}
           label={ellipsifyAddress(address!, 6)}
           isMainnet={polkadotMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-polkadot/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -170,7 +170,7 @@ function PolkadotWalletSheet({ isOpen, title, subtitle, detectedWallets, isMainn
           testnetLabel="Paseo"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {POLKADOT_WALLETS.map((w) => {
@@ -234,7 +234,7 @@ function PolkadotWalletSheet({ isOpen, title, subtitle, detectedWallets, isMainn
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text22")} />
       </div>
     </AnimatedModalNavbar>
@@ -266,10 +266,10 @@ function PolkadotSettingsSheet({
           <NetworkStatusCard
             label={`${t("text293")} ${isMainnet ? "Mainnet" : "Paseo"}`}
             isMainnet={isMainnet}
-            borderClassName="border-polkadot/20"
+            borderClassName="border-black/20"
           />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
 
@@ -285,7 +285,7 @@ function PolkadotSettingsSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>
@@ -310,7 +310,7 @@ function PolkadotAccountSheet({ isOpen, accounts, selectedAccount, onSelect, onC
               <button
                 key={acc.address}
                 onClick={() => onSelect(acc)}
-                className="w-full cursor-pointer p-3 border border-black/5 dark:border-white/10 rounded-xl bgBox glass-card hover:bg-black/5 dark:hover:bg-white/10"
+                className="w-full cursor-pointer p-3 border border-black/5 rounded-xl bgBox glass-card hover:bg-black/5"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col items-start min-w-0">
@@ -318,7 +318,7 @@ function PolkadotAccountSheet({ isOpen, accounts, selectedAccount, onSelect, onC
                     <p className="text-[11px] opacity-60">{ellipsifyAddress(acc.address, 6)}</p>
                   </div>
                   {isSelected && (
-                    <IoCheckmarkCircle className="text-[18px] text-black dark:text-white ml-auto shrink-0" />
+                    <IoCheckmarkCircle className="text-[18px] text-black ml-auto shrink-0" />
                   )}
                 </div>
               </button>
@@ -327,7 +327,7 @@ function PolkadotAccountSheet({ isOpen, accounts, selectedAccount, onSelect, onC
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text22")} />
       </div>
     </AnimatedModalNavbar>

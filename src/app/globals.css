@@ -1,39 +1,20 @@
-
-
 @import "tailwindcss";
 
-/*
- * Per-network color classes (text-${network}, bg-${network}, etc.) are built from a
- * runtime variable across the app, so Tailwind's static scanner can't discover them from
- * source text alone. Declare every variant actually used so they're always generated,
- * instead of relying on the class name happening to appear literally somewhere else.
- */
-@source inline("{text,bg,border,border-t}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}");
-@source inline("{bg,border,ring,shadow}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}/{10,20,50,80,90}");
-@source inline("{hover:bg,hover:text,group-hover:text}-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}");
-@source inline("hover:bg-{bitcoin,ethereum,solana,hedera,polkadot,tron,hyperliquid,robinhood,arbitrum}/{10,90}");
-
-@custom-variant dark (&:is(.dark *));
-
 @theme {
-  --font-grotesk: "Space Grotesk", sans-serif;
-  --color-bitcoin: #f7931a;
-  --color-hedera: #000000;
-  --color-solana: #8c52ff;
-  --color-ethereum: #7581aa;
-  --color-polkadot: #000000;
-  --color-tron: #FF0013;
-  --color-hyperliquid: #0F3933;
-  --color-robinhood: #CCFF00;
-  --color-arbitrum: #28A0F0;
-  /* No --color-base: "base" literally collides with Tailwind's own reserved font-size scale
-   * key (text-base = 1rem), so defining a theme color named "base" silently hijacks the
-   * global .text-base utility (used ~140x app-wide for font/icon sizing, unrelated to any
-   * network) to mean "color: Base blue" instead of its real font-size meaning. Base's brand
-   * color is applied via literal arbitrary-value classes (bg-[#0052FF] etc.) everywhere
-   * instead of the usual bg-${network}/text-${network} pattern — see each call site. */
+  /* Greatwall's type: TASA Explorer for headlines and the wordmark, TASA
+   * Orbiter for everything read (loaded by next/font in [locale]/layout). */
+  --font-explorer: var(--font-tasa-explorer), "TASA Explorer", ui-sans-serif, system-ui, sans-serif;
+  --font-orbiter: var(--font-tasa-orbiter), "TASA Orbiter", ui-sans-serif, system-ui, sans-serif;
+  --font-grotesk: var(--font-orbiter);
+  /* Greatwall's palette. */
+  --color-ink: #181818;
+  --color-pitch: #000000;
+  --color-stone: #6b6b6b;
+  --color-snow: #ffffff;
+  --color-paper: #fbf9f1;
+  --color-sand: #f1eadd;
   --color-secondary: #545c66;
-  --color-warning: var(--color-bitcoin);
+  --color-warning: #f7931a;
   --color-success: #057835;
   --color-expired: #ff0000;
   --color-pending: #fff3e4;
@@ -47,8 +28,12 @@
 
 @layer base {
   body {
-    font-family: "Space Grotesk", sans-serif;
-    @apply text-base font-normal antialiased bg-white dark:bg-[#0a0a0a] text-black dark:text-white;
+    font-family: var(--font-orbiter);
+    @apply text-base font-normal antialiased bg-paper text-ink;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-explorer);
   }
 
   section {
@@ -59,20 +44,49 @@
 
 @layer utilities {
   .bgBox {
-    @apply p-5 rounded-xl border border-secondary/10 shadow-buttonNav;
+    @apply p-5 rounded-xl border border-sand;
   }
 
   .bgRound {
-    @apply rounded-full border border-secondary/10 shadow-buttonNav;
+    @apply rounded-full border border-sand;
   }
 
+  /* Greatwall's card: a flat white sheet on the paper ground, edged in sand. */
   .glass-card {
-    @apply relative overflow-hidden bg-white/6 backdrop-blur-[10px] border border-white/20;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 0 0px 0px rgba(255, 255, 255, 0);
+    @apply relative overflow-hidden bg-snow border border-sand;
+  }
+
+  /* The wallet buttons of every network share one look. */
+  .gw-wallet-btn {
+    @apply inline-flex items-center gap-1.5 rounded-md bg-ink text-snow px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-pitch;
+  }
+
+  .gw-wallet-pill {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-sand bg-snow text-ink px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-sand;
+  }
+
+  /* In the navbar they are as tall as its icon buttons. */
+  .gw-nav .gw-wallet-btn,
+  .gw-nav .gw-wallet-pill {
+    @apply h-9 px-3 text-sm;
+  }
+
+  /* A choice in a picker (wallet, network, preference): a dark row, its
+   * icon on the left. */
+  .gw-row {
+    @apply flex w-full items-center gap-3 rounded-md bg-ink px-4 py-3.5 text-left text-[17px] font-medium text-snow cursor-pointer transition-colors hover:bg-pitch;
+  }
+
+  .gw-row:disabled {
+    @apply cursor-default opacity-50 hover:bg-ink;
+  }
+
+  .gw-row[aria-pressed="true"] {
+    @apply outline-2 outline-offset-2 outline-stone;
+  }
+
+  .gw-icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-ink text-snow cursor-pointer transition-colors hover:bg-pitch;
   }
 
   .glass-card:before {
@@ -98,23 +112,14 @@
   }
 }
 
-/* NextTopLoader Theme-Adaptive Monochrome Progress Bar */
+/* NextTopLoader Monochrome Progress Bar */
 #nprogress .bar {
   background: #000000 !important;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.35), 0 0 3px rgba(0, 0, 0, 0.2) !important;
 }
 
-.dark #nprogress .bar {
-  background: #ffffff !important;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 5px rgba(255, 255, 255, 0.4) !important;
-}
-
 #nprogress .peg {
   box-shadow: 0 0 10px #000000, 0 0 5px #000000 !important;
-}
-
-.dark #nprogress .peg {
-  box-shadow: 0 0 12px #ffffff, 0 0 6px #ffffff !important;
 }
 
 @theme inline {
@@ -126,8 +131,3 @@
   --color-buttonText: #fff;
 }
 
-.dark {
-  --color-current: #fff;
-  --color-buttonBackground: #fff;
-  --color-buttonText: #000;
-}

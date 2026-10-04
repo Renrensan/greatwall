@@ -7,7 +7,7 @@ export function BrandPulseLoader({
 }) {
   return (
     <div
-      className={`fixed inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-[1px] z-[9998] pointer-events-none transition-opacity duration-300 ${className}`}
+      className={`fixed inset-0 bg-black/20 backdrop-blur-[1px] z-[9998] pointer-events-none transition-opacity duration-300 ${className}`}
     />
   );
 }

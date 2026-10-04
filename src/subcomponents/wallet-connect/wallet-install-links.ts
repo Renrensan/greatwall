@@ -26,10 +26,6 @@ export const XVERSE_INSTALL_LINKS: WalletStoreLinks = {
   android: "https://play.google.com/store/apps/details?id=com.secretkeylabs.xverse",
 };
 
-export const TRONLINK_INSTALL_LINKS: WalletStoreLinks = {
-  website: "https://www.tronlink.org/",
-};
-
 export type WalletInstallTarget =
   | { kind: "store"; url: string; target: "mobile-app" | "browser-extension" }
   | { kind: "desktop-only" };

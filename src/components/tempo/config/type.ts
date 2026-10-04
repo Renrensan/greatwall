@@ -58,6 +58,8 @@ export interface TempoWalletContextType {
    * Polkadot's EVM-compat layers each scale `msg.value` differently, so their two
    * numbers diverge). */
   ipowDecimals: number;
+  /** The vault's fiat limits: none on Tempo, which paradapp's back end never served. */
+  selfCustodyParameter: {};
   networkName: "Tempo";
   networkDescription: {};
   networkLogo: typeof temponetwork;
@@ -65,8 +67,6 @@ export interface TempoWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: TempoWalletType) => Promise<void>;
   fetchETA: (
     txHash: string,

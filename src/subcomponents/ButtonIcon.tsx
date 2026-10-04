@@ -12,7 +12,7 @@ const ButtonIcon = ({
 }: ButtonIconProps) => {
   return (
     <button
-      className={`aspect-square flex items-center justify-center glass-card cursor-pointer text-current rounded-full border border-black/10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${className || ""}`}
+      className={`aspect-square flex items-center justify-center glass-card cursor-pointer text-current rounded-full border border-black/10 hover:bg-black/5 transition-colors ${className || ""}`}
       onClick={onClick}
     >
       {children}

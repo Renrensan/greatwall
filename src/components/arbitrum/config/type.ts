@@ -55,8 +55,6 @@ export interface ArbitrumWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: ArbitrumWalletType) => Promise<void>;
   fetchETA: (
     txHash: string,
@@ -73,6 +71,8 @@ export interface ArbitrumWalletContextType {
   ) => Promise<string | null>;
   checkAddress: (address: string) => AddressCheckResult;
   isValidAddress: (address: string) => boolean;
+  /** The connected wallet's signer, on this network (switched to it if needed): for the iPoW SDK. */
+  getSigner: () => Promise<import("ethers").Signer>;
   estimateErc20SendFee: (
     to: string,
     amount: number,

@@ -1,3 +1,4 @@
+import type { ConvertMethods } from "@/components/integrator/ipow/convertMethods";
 import { robinhoodnetwork } from "@/index";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
@@ -25,7 +26,7 @@ export type AppConfig = {
 // does, without rework).
 export type RobinhoodWalletType = "metamask";
 
-export interface RobinhoodWalletContextType {
+export interface RobinhoodWalletContextType extends ConvertMethods {
   connected: boolean;
   address: string | null;
   isConnecting: boolean;
@@ -56,8 +57,6 @@ export interface RobinhoodWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: RobinhoodWalletType) => Promise<void>;
   fetchETA: (
     txHash: string,
@@ -74,6 +73,8 @@ export interface RobinhoodWalletContextType {
   ) => Promise<string | null>;
   checkAddress: (address: string) => AddressCheckResult;
   isValidAddress: (address: string) => boolean;
+  /** The connected wallet's signer, on this network (switched to it if needed): for the iPoW SDK. */
+  getSigner: () => Promise<import("ethers").Signer>;
   estimateErc20SendFee: (
     to: string,
     amount: number,

@@ -84,37 +84,20 @@ function Convert() {
        
 
 {/* TABS */}
-<div className="flex justify-between glass-card bgRound border-black/5 dark:border-white/10">
+<div className="flex justify-between rounded-md bg-sand p-1 gap-1">
   {[
-    { label: "Convert Token", id: 0 },
+    { label: t("text25"), id: 0 },
     { label: t("text11"), id: 1 }
   ].map((tab) => {
     const isActive = activeComponent === tab.id;
-    
-
-    const activeBgClass = (network === 'hedera' || network === 'polkadot')
-      ? 'bg-black dark:bg-white'
-      : network === 'base'
-        ? 'bg-[#0052FF]'
-        : `bg-${network}`;
-      
-    const activeTextClass = (network === 'hedera' || network === 'polkadot')
-      ? 'text-white dark:text-black'
-      : network === 'robinhood'
-        ? 'text-black'
-        : 'text-white';
-
     return (
       <button
         key={tab.id}
         type="button"
+        aria-pressed={isActive}
         onClick={() => handleTabClick(tab.id)}
-        className={`w-full p-3 text-center rounded-full text-xs sm:text-sm transition-all duration-200 ${
-          isActive
-            ? `font-bold ${activeBgClass} ${activeTextClass}`
-            : network === 'base'
-              ? 'font-medium hover:bg-[#0052FF]/10'
-              : `font-medium  hover:bg-${network}/10`
+        className={`w-full px-3 py-2.5 text-center rounded text-xs sm:text-sm transition-colors ${
+          isActive ? "font-semibold bg-ink text-snow" : "font-medium text-ink/75 hover:text-ink"
         }`}
       >
         {tab.label}

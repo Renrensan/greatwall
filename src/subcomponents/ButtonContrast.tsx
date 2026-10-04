@@ -13,7 +13,7 @@ export default function ButtonContrast({
     <button
     disabled={disabled}
       onClick={onClick}
-      className="w-full py-3 font-bold text-white bg-[#515151] hover:bg-[#464646] rounded-lg text-xs sm:text-sm px-8"
+      className="w-full py-3 font-bold text-ink bg-sand hover:bg-[#e8dfcd] rounded-md text-xs sm:text-sm px-8 transition-colors"
     >
       {buttonText}
     </button>

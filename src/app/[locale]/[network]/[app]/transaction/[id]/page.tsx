@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import ConvertTransactionPage from "./ConvertTransactionPage";
 import VaultTransactionPage from "./VaultTransactionPage";
+import BridgeTransactionPage from "./BridgeTransactionPage";
+import BasketPage from "./BasketPage";
 
 export default async function TransactionPage({
   params,
@@ -20,6 +22,14 @@ export default async function TransactionPage({
 
   if (app === "convert") {
     return <ConvertTransactionPage />;
+  }
+
+  if (app === "bridge") {
+    return <BridgeTransactionPage />;
+  }
+
+  if (app === "beta") {
+    return <BasketPage />;
   }
 
   if (app === "vault") {

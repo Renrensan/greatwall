@@ -66,8 +66,6 @@ export interface EthereumWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
-  toggleFavoriteDapp: (dappId: number) => void;
   connect: (wallet: EthereumWalletType) => Promise<void>;
   fetchETA: (
     txHash: string,
@@ -86,6 +84,8 @@ export interface EthereumWalletContextType {
    * specific rule it failed (so forms can show a specific, actionable message). */
   checkAddress: (address: string) => AddressCheckResult;
   isValidAddress: (address: string) => boolean;
+  /** The connected wallet's signer, on this network (switched to it if needed): for the iPoW SDK. */
+  getSigner: () => Promise<import("ethers").Signer>;
   /** Live on-chain gas estimate (in ETH) for a specific ERC-20 transfer, for display before
    * the user confirms — null while inputs are incomplete/invalid or estimation fails. */
   estimateErc20SendFee: (

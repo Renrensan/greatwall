@@ -2,23 +2,17 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 const VALID_SECTIONS_BY_APP: Record<string, readonly string[]> = {
-  vault: ["buy", "history", "assets"],
+  vault: ["assets", "buy", "move", "history"],
   convert: ["create", "history"],
-  dapphub: ["trending", "favorite", "dappstore"],
+  bridge: ["send", "history"],
+  beta: ["baskets", "create", "explore"],
 };
 
 const DEFAULT_SECTION_BY_APP: Record<string, string> = {
-  vault: "buy",
+  vault: "assets",
   convert: "create",
-  dapphub: "trending",
-};
-
-const DAPP_NETWORK_MAP: Record<string, string> = {
-  "solana-swap": "solana",
-  "solana-stake": "solana",
-  "solana-tokenized-stocks": "solana",
-  "beta-global-index": "solana",
-  "hedera-stake": "hedera",
+  bridge: "send",
+  beta: "baskets",
 };
 
 export default async function SectionLayout({
@@ -34,23 +28,6 @@ export default async function SectionLayout({
   }>;
 }) {
   const { locale, network, app, section } = await params;
-
-  if (app === "dapp") {
-    if (!section) {
-      redirect(`/${locale}/${network}/dapphub/trending`);
-    }
-
-
-    const correctNetwork = DAPP_NETWORK_MAP[section];
-    
-
-    if (correctNetwork && correctNetwork !== network) {
-      redirect(`/${locale}/${correctNetwork}/dapp/${section}`);
-    }
-
-
-    return <>{children}</>;
-  }
 
   const validSections = VALID_SECTIONS_BY_APP[app] ?? VALID_SECTIONS_BY_APP["vault"];
   const defaultSection = DEFAULT_SECTION_BY_APP[app] ?? DEFAULT_SECTION_BY_APP["vault"];

@@ -68,7 +68,6 @@ export interface PolkadotWalletContextType {
   networkExplorer: {};
   ipowConvert: "testnet" | "mainnet" | "comingsoon";
   ipowNetworkId: number;
-  dappList: any[] | null;
   detectedWallets: PolkadotWalletType[];
   setFeeSelection: (fee: "low" | "high" | "medium") => void;
   setSelectedAccount: (acc: PolkadotAccount) => void;
@@ -91,7 +90,6 @@ export interface PolkadotWalletContextType {
   fetchETA: (
     txHash: string,
   ) => Promise<{ estimatedSeconds: number; isCongested: boolean } | null>;
-  toggleFavoriteDapp: (dappId: number) => void;
 
   // --- ipow convert (signed via the Substrate wallet through pallet-revive's
   // Revive.call — see polkadot-provider.tsx for how that maps to an EVM call) ---

@@ -1,9 +1,5 @@
 "use client";
 
-// Dynamic per-network classes (`` `bg-${network}` `` etc. in Assets.tsx/BuyToken.tsx/
-// Navbar.tsx) are generated for "hyperliquid" via the @source inline(...) directives in
-// globals.css — see that file.
-
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { hyperliquid } from "..";
 import { METAMASK_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
@@ -75,7 +71,7 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-hyperliquid! hover:bg-hyperliquid/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -85,7 +81,7 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
       {!connected && (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-hyperliquid! hover:bg-hyperliquid/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -97,7 +93,7 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
           alt="icon"
           label={ellipsifyAddress(address!)}
           isMainnet={hyperliquidMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-hyperliquid/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -152,7 +148,7 @@ function HyperliquidWalletSheet({
           testnetLabel="Testnet"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected ? (
@@ -163,7 +159,7 @@ function HyperliquidWalletSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text55")} />
       </div>
     </AnimatedModalNavbar>
@@ -182,16 +178,16 @@ function HyperliquidSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onC
         </div>
 
         <div className="flex flex-col gap-3 py-2">
-          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-hyperliquid/20" />
+          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-black/20" />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
           <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>

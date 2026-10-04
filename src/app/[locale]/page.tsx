@@ -18,9 +18,7 @@ export default async function LocaleRootPage({
   const cookieStore = await cookies();
   const preferred = cookieStore.get(PREFERRED_CHAIN_COOKIE)?.value;
 
-  if (preferred && VALID_NETWORKS.includes(preferred)) {
-    redirect(`/${locale}/${preferred}/vault/buy`);
-  }
-
-  redirect(`/${locale}/about`);
+  // The portfolio of the preferred network, else of Ethereum.
+  const network = preferred && VALID_NETWORKS.includes(preferred) ? preferred : "ethereum";
+  redirect(`/${locale}/${network}/vault/assets`);
 }

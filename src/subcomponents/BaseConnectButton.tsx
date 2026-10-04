@@ -1,10 +1,5 @@
 "use client";
 
-// "base" literally collides with Tailwind's own reserved text-base (font-size) utility, so
-// unlike every other chain's connect button, this one can't use bg-base/text-base/etc. —
-// globals.css deliberately has no --color-base theme token. Uses arbitrary-value hex classes
-// instead wherever another chain's button would use its generated color class.
-
 import { useBaseWallet } from "@/components/base/base-provider";
 import { base } from "..";
 import { METAMASK_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
@@ -76,7 +71,7 @@ export function BaseConnectButton({ isOpen, setIsOpen }: BaseConnectButtonProps)
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-[#0052FF]! hover:bg-[#0052FF]/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -86,7 +81,7 @@ export function BaseConnectButton({ isOpen, setIsOpen }: BaseConnectButtonProps)
       {!connected && (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-[#0052FF]! hover:bg-[#0052FF]/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -98,7 +93,7 @@ export function BaseConnectButton({ isOpen, setIsOpen }: BaseConnectButtonProps)
           alt="icon"
           label={ellipsifyAddress(address!)}
           isMainnet={baseMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-[#0052FF]/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -153,7 +148,7 @@ function BaseWalletSheet({
           testnetLabel="Sepolia"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected ? (
@@ -164,7 +159,7 @@ function BaseWalletSheet({
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text55")} />
       </div>
     </AnimatedModalNavbar>
@@ -183,16 +178,16 @@ function BaseSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onClose }:
         </div>
 
         <div className="flex flex-col gap-3 py-2">
-          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-[#0052FF]/20" />
+          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-black/20" />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
           <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>

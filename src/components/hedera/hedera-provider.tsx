@@ -72,10 +72,8 @@ const HederaWalletContext = createContext<HederaWalletContextType>({
   networkLogo: hederanetwork,
   selfCustodyParameter: {},
   networkDescription: {},
-  ipowConvert: "testnet",
+  ipowConvert: "comingsoon",
   ipowNetworkId: 1,
-  dappList: [],
-  toggleFavoriteDapp: () => {},
   connect: async () => {},
   disconnect: () => {},
   switchWallet: async () => {},
@@ -197,7 +195,6 @@ const readOnlyProvider = useMemo(() => {
 
   const [price, setPrice] = useState(null);
 
-  const [dappList, setDappList] = useState<any[] | null>(null);
 
 
 const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
@@ -738,60 +735,6 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
   };
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
-
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited
-              ? dapp.favoriteCount + 1
-              : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) {
-      clearTimeout(favoriteTimers.current[dappId]);
-    }
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress: address,
-            network: "HEDERA",
-            dappId: dappId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) =>
-              dapp.id === dappId
-                ? { ...dapp, favoriteCount: result.favoriteCount }
-                : dapp,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
 
 const estimateFee = useCallback(async () => {
     // Hedera has no gas-auction fee market like ETH/BTC — transfer fees are fixed by the
@@ -2345,38 +2288,6 @@ const commitNativeToBitcoin = async (
   //   return () => clearInterval(interval);
   // }, [address, resolvedAddress, isMainnet]);
 
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(
-          `/api/dapphub/list?network=HEDERA${addressQuery}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          },
-        );
-
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDappList(result.data);
-        } else {
-          setDappList([]);
-        }
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address, connected]);
  useEffect(() => {
     setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
 
@@ -2597,10 +2508,8 @@ const commitNativeToBitcoin = async (
         networkLogo: hederanetwork,
 
         selfCustodyParameter,
-        ipowConvert: "testnet",
+        ipowConvert: "comingsoon",
         ipowNetworkId: IPOW_NETWORK_ID,
-        dappList,
-        toggleFavoriteDapp,
         connect,
         disconnect,
         switchWallet,

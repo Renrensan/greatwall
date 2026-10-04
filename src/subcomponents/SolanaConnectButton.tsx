@@ -93,7 +93,7 @@ export function SolanaConnectButton({
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-solana! hover:bg-solana/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -105,7 +105,7 @@ export function SolanaConnectButton({
       {!connected ? (
         <button
           onClick={() => setWalletSheetOpen(true)}
-          className="text-[8px] md:text-xs flex bg-solana! hover:bg-solana/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-btn"
         >
           {t("text2")}
         </button>
@@ -115,7 +115,7 @@ export function SolanaConnectButton({
           alt={walletName ?? "Solana Wallet"}
           label={ellipsifyAddress(address!)}
           isMainnet={solanaMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-solana/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -168,7 +168,7 @@ function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets
           testnetLabel="Devnet"
         />
 
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3">
           {hasWallets &&
@@ -204,7 +204,7 @@ function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text22")} />
       </div>
     </AnimatedModalNavbar>
@@ -226,10 +226,10 @@ function SolanaSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitc
           <NetworkStatusCard
             label={`${t("text293")} ${isMainnet ? "Mainnet" : "Devnet"}`}
             isMainnet={isMainnet}
-            borderClassName="border-solana/20"
+            borderClassName="border-black/20"
           />
 
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
 
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
 
@@ -241,7 +241,7 @@ function SolanaSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitc
         </div>
       </div>
 
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text22")} />
       </div>
     </AnimatedModalNavbar>

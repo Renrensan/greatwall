@@ -14,7 +14,7 @@ const HederaProvider = dynamic(() => import("@/components/hedera/hedera-provider
 const EthereumProvider = dynamic(() => import("@/components/ethereum/ethereum-provider").then(m => m.EthereumProvider), { ssr: false });
 const SolanaProvider = dynamic(() => import("@/components/solana/solana-provider").then(m => m.SolanaProvider), { ssr: false });
 const BitcoinProvider = dynamic(() => import("@/components/bitcoin/bitcoin-provider").then(m => m.BitcoinProvider), { ssr: false });
-const TronProvider = dynamic(() => import("@/components/tron/tron-provider").then(m => m.TronProvider), { ssr: false });
+const TempoProvider = dynamic(() => import("@/components/tempo/tempo-provider").then(m => m.TempoProvider), { ssr: false });
 const HyperliquidProvider = dynamic(() => import("@/components/hyperliquid/hyperliquid-provider").then(m => m.HyperliquidProvider), { ssr: false });
 const RobinhoodProvider = dynamic(() => import("@/components/robinhood/robinhood-provider").then(m => m.RobinhoodProvider), { ssr: false });
 const BaseProvider = dynamic(() => import("@/components/base/base-provider").then(m => m.BaseProvider), { ssr: false });
@@ -29,7 +29,7 @@ const CHAIN_PROVIDERS: Record<SupportedChain, ChainProvider> = {
   solana: SolanaProvider,
   hedera: HederaProvider,
   polkadot: PolkadotProvider,
-  tron: TronProvider,
+  tempo: TempoProvider,
   hyperliquid: HyperliquidProvider,
   robinhood: RobinhoodProvider,
   base: BaseProvider,
@@ -38,15 +38,12 @@ const CHAIN_PROVIDERS: Record<SupportedChain, ChainProvider> = {
 
 /**
  * Mounts only the wallet provider(s) the current route actually needs:
- *  - vault/dapphub/dapp (single-network routes): just `network`'s provider.
+ *  - vault, bridge, beta (single-network routes): just `network`'s provider.
  *  - convert/history: every chain — a past conversion's partner can be any of
- *    them, and the list shows all of them at once, so there's no single
- *    "the other chain" to scope down to the way the live form has.
- *  - convert (everything else, e.g. the live exchange form): Bitcoin (always —
- *    IPOW's settlement/unit-of-account anchor, per protocol semantics, even when
- *    neither displayed side is Bitcoin) + fromChain (`network`) + toChain
- *    (resolved from `?to=`, or `?linked=` for the transaction detail page),
- *    deduplicated.
+ *    them, and the list shows all of them at once.
+ *  - convert (the form, a conversion's page): Bitcoin (always: every swap is
+ *    against BTC) + fromChain (`network`) + toChain (resolved from `?to=`, or
+ *    `?linked=` for the transaction page), deduplicated.
  *
  * NetworkProvider + WalletConnectProvider always mount: NetworkProvider is
  * cheap local UI state, and WalletConnectProvider's module owns the shared
@@ -85,7 +82,7 @@ export function AllDappProviders({ children }: { children: ReactNode }) {
             <SolanaProvider>
               <HederaProvider>
                 <PolkadotProvider>
-                  <TronProvider>
+                  <TempoProvider>
                     <HyperliquidProvider>
                       <RobinhoodProvider>
                         <BaseProvider>
@@ -93,25 +90,12 @@ export function AllDappProviders({ children }: { children: ReactNode }) {
                         </BaseProvider>
                       </RobinhoodProvider>
                     </HyperliquidProvider>
-                  </TronProvider>
+                  </TempoProvider>
                 </PolkadotProvider>
               </HederaProvider>
             </SolanaProvider>
           </EthereumProvider>
         </BitcoinProvider>
-      </WalletConnectProvider>
-    </NetworkProvider>
-  );
-}
-
-/** Solana-only wallet stack, for pages that embed a single-chain flow (e.g. landing-usdc's Phantom onboarding). */
-export function SolanaDappProviders({ children }: { children: ReactNode }) {
-  return (
-    <NetworkProvider initialChain="solana">
-      <WalletConnectProvider>
-        <SolanaProvider>
-          <OnboardingProvider>{children}</OnboardingProvider>
-        </SolanaProvider>
       </WalletConnectProvider>
     </NetworkProvider>
   );

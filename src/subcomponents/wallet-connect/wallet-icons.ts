@@ -1,10 +1,9 @@
 import type { StaticImageData } from "next/image";
-import { phantom, xverse, metamask, walletconnect, polkadot, talisman, subwallet, tronlink } from "@/index";
+import { phantom, xverse, metamask, walletconnect, polkadot, talisman, subwallet } from "@/index";
 import type { BitcoinWalletType } from "@/components/bitcoin/config/type";
 import type { EthereumWalletType } from "@/components/ethereum/config/type";
 import type { HederaWalletType } from "@/components/hedera/config/type";
 import type { PolkadotWalletType } from "@/components/polkadot/config/type";
-import type { TronWalletType } from "@/components/tron/config/type";
 import type { HyperliquidWalletType } from "@/components/hyperliquid/config/type";
 import type { RobinhoodWalletType } from "@/components/robinhood/config/type";
 import type { BaseWalletType } from "@/components/base/config/type";
@@ -38,10 +37,6 @@ export const POLKADOT_WALLET_ICONS: Record<PolkadotWalletType, StaticImageData> 
   "polkadot-js": polkadot,
   talisman,
   "subwallet-js": subwallet,
-};
-
-export const TRON_WALLET_ICONS: Record<TronWalletType, StaticImageData> = {
-  tronlink,
 };
 
 export const HYPERLIQUID_WALLET_ICONS: Record<HyperliquidWalletType, StaticImageData> = {

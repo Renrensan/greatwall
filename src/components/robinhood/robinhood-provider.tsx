@@ -14,13 +14,14 @@ import { ethers } from "ethers";
 
 import { useNetwork } from "@/app/network-provider";
 import { robinhoodnetwork } from "@/index";
+import { IPOW_NETWORK_ID } from "./config/constants";
+import { NO_CONVERT, evmConvertMethods } from "@/components/integrator/ipow/convertMethods";
 import { appConfig, RobinhoodWalletContextType, RobinhoodWalletType } from "./config";
 import { getEvmWalletProvider } from "@/subcomponents/wallet-connect/evm-wallet-detection";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
 import { fetchErc20Balances } from "@/components/ethereum/erc20-balances";
 
-const notSupported = async () => null;
 
 const RobinhoodWalletContext = createContext<RobinhoodWalletContextType>({
   connected: false,
@@ -40,10 +41,9 @@ const RobinhoodWalletContext = createContext<RobinhoodWalletContextType>({
   networkLogo: robinhoodnetwork,
   price: {},
   networkExplorer: {},
-  ipowConvert: "comingsoon",
-  ipowNetworkId: 0,
-  dappList: [],
-  toggleFavoriteDapp: () => {},
+  ipowConvert: "testnet",
+  ipowNetworkId: IPOW_NETWORK_ID,
+  ...NO_CONVERT,
   connect: async () => {},
   disconnect: () => {},
   switchWallet: async () => {},
@@ -51,24 +51,9 @@ const RobinhoodWalletContext = createContext<RobinhoodWalletContextType>({
   sendTokenTo: async () => null,
   checkAddress: () => ({ valid: false, reason: "invalid" }),
   isValidAddress: () => false,
+  getSigner: async () => { throw new Error("robinhood: no wallet"); },
   estimateErc20SendFee: async () => null,
   fetchETA: async () => null,
-  commitNativeToBitcoin: notSupported,
-  commitBitcoinToNative: notSupported,
-  depositApprovedConversion: notSupported,
-  submitBitcoinMerkleProofWithTx: notSupported,
-  getMyTxIds: async () => [],
-  getConversion: notSupported,
-  refundIfNotApproved: notSupported,
-  claimNativeAfterOperatorExpired: notSupported,
-  refundAfterNoProofNativeToBitcoin: notSupported,
-  estimateBitcoinFromNative: notSupported,
-  estimateNativeFromBitcoin: notSupported,
-  anchorInfo: notSupported,
-  proofInfo: notSupported,
-  windowsFor: notSupported,
-  globalHeightToHashLE: notSupported,
-  globalHeaders: notSupported,
 });
 
 export function useRobinhoodWallet() {
@@ -104,7 +89,6 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
     tokens: [],
     fetched: false,
   });
-  const [dappList, setDappList] = useState<any[] | null>(null);
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -462,46 +446,6 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
 
   const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
-  const toggleFavoriteDapp = async (dappId: number) => {
-    if (!address) return;
-
-    setDappList((prev) =>
-      prev!.map((dapp) => {
-        if (dapp.id === dappId) {
-          const willBeFavorited = !dapp.isFavorited;
-          return {
-            ...dapp,
-            favoriteCount: willBeFavorited ? dapp.favoriteCount + 1 : Math.max(0, dapp.favoriteCount - 1),
-            isFavorited: willBeFavorited,
-          };
-        }
-        return dapp;
-      }),
-    );
-
-    if (favoriteTimers.current[dappId]) clearTimeout(favoriteTimers.current[dappId]);
-
-    favoriteTimers.current[dappId] = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/dapphub/favorite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: address, network: "ROBINHOOD", dappId }),
-        });
-        const result = await response.json();
-        if (result.success) {
-          setDappList((prev) =>
-            prev!.map((dapp) => (dapp.id === dappId ? { ...dapp, favoriteCount: result.favoriteCount } : dapp)),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to sync favorite with server:", error);
-      } finally {
-        delete favoriteTimers.current[dappId];
-      }
-    }, 800);
-  };
-
   const fetchPrice = async () => {
     try {
       const envMode = isMainnet ? "MAINNET" : "TESTNET";
@@ -522,28 +466,6 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMainnet]);
-
-  useEffect(() => {
-    const fetchDapps = async () => {
-      try {
-        const addressQuery = address ? `&walletAddress=${address}` : "";
-        const response = await fetch(`/api/dapphub/list?network=ROBINHOOD${addressQuery}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        const result = await response.json();
-        setDappList(result.success ? result.data : []);
-      } catch (error) {
-        console.error(`[DAppHub] Fetch Error:`, error);
-        setDappList([]);
-      }
-    };
-
-    fetchDapps();
-    const interval = setInterval(fetchDapps, 300000);
-    return () => clearInterval(interval);
-  }, [address]);
 
   useEffect(() => {
     setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
@@ -655,6 +577,14 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMainnet]);
 
+  // The convert screens' methods, on the new protocol's Conversion.
+  const signerRef = useRef(getActiveSigner);
+  signerRef.current = getActiveSigner;
+  const convert = useMemo(
+    () => evmConvertMethods({ chain: "robinhood", getSigner: () => signerRef.current(), address, uiNetworkId: IPOW_NETWORK_ID }),
+    [address]
+  );
+
   return (
     <RobinhoodWalletContext.Provider
       value={{
@@ -686,10 +616,9 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
           id: "Robinhood Chain adalah Layer 2 Ethereum yang dibangun di atas Arbitrum Orbit untuk aset dunia nyata yang di-tokenisasi seperti saham dan ETF, dengan blok 100ms dan Chainlink sebagai lapisan oracle aslinya.",
         },
         selfCustodyParameter,
-        ipowConvert: "comingsoon",
-        ipowNetworkId: 0,
-        dappList,
-        toggleFavoriteDapp,
+        ipowConvert: "testnet",
+        ipowNetworkId: IPOW_NETWORK_ID,
+        ...convert,
         connect,
         setFeeSelection,
         disconnect,
@@ -698,24 +627,9 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
         sendTokenTo,
         checkAddress,
         isValidAddress,
+        getSigner: getActiveSigner,
         estimateErc20SendFee,
         fetchETA,
-        commitNativeToBitcoin: notSupported,
-        commitBitcoinToNative: notSupported,
-        depositApprovedConversion: notSupported,
-        submitBitcoinMerkleProofWithTx: notSupported,
-        getMyTxIds: async () => [],
-        getConversion: notSupported,
-        refundIfNotApproved: notSupported,
-        claimNativeAfterOperatorExpired: notSupported,
-        refundAfterNoProofNativeToBitcoin: notSupported,
-        estimateBitcoinFromNative: notSupported,
-        estimateNativeFromBitcoin: notSupported,
-        anchorInfo: notSupported,
-        proofInfo: notSupported,
-        windowsFor: notSupported,
-        globalHeightToHashLE: notSupported,
-        globalHeaders: notSupported,
       }}
     >
       {children}

@@ -292,16 +292,16 @@ export default function KtpCropModal({
     <AnimatedModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-md sm:max-w-lg">
       <div className="flex flex-col gap-2.5 p-3.5 sm:p-4.5 text-left">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 shrink-0">
+        <div className="flex items-center justify-between border-b border-black/10 pb-2 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 text-black dark:text-white shrink-0">
+            <div className="p-1.5 rounded-lg bg-black/5 text-black shrink-0">
               <Icon icon="solar:crop-minimalistic-bold" className="text-lg" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+              <h3 className="text-sm font-bold text-neutral-900">
                 {isId ? "Sesuaikan Foto Kartu Identitas" : "Adjust ID Photo"}
               </h3>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              <p className="text-[11px] text-neutral-500">
                 {isId
                   ? "Posisikan kartu agar pas di dalam bingkai."
                   : "Position your card squarely inside the frame."}
@@ -311,7 +311,7 @@ export default function KtpCropModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-black/5 text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
           >
             <Icon icon="solar:close-circle-bold" className="text-xl" />
           </button>
@@ -390,13 +390,13 @@ export default function KtpCropModal({
         </div>
 
         {/* Compact Toolbar Controls */}
-        <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-black/10 dark:border-white/10 shrink-0">
+        <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-neutral-50 border border-black/10 shrink-0">
           {/* Zoom Slider with buttons */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setZoom((z) => Math.max(1, +(z - 0.2).toFixed(2)))}
-              className="p-1 rounded-lg bg-white dark:bg-neutral-800 border border-black/10 dark:border-white/10 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 shrink-0 cursor-pointer"
+              className="p-1 rounded-lg bg-white border border-black/10 text-neutral-700 hover:bg-neutral-100 shrink-0 cursor-pointer"
               title="Zoom Out"
             >
               <Icon icon="solar:magnifer-zoom-out-bold" className="text-sm" />
@@ -409,46 +409,46 @@ export default function KtpCropModal({
               step="0.05"
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
-              className="flex-1 accent-black dark:accent-white cursor-pointer h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-lg"
+              className="flex-1 accent-black cursor-pointer h-1.5 bg-neutral-200 rounded-lg"
             />
 
             <button
               type="button"
               onClick={() => setZoom((z) => Math.min(3, +(z + 0.2).toFixed(2)))}
-              className="p-1 rounded-lg bg-white dark:bg-neutral-800 border border-black/10 dark:border-white/10 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 shrink-0 cursor-pointer"
+              className="p-1 rounded-lg bg-white border border-black/10 text-neutral-700 hover:bg-neutral-100 shrink-0 cursor-pointer"
               title="Zoom In"
             >
               <Icon icon="solar:magnifer-zoom-in-bold" className="text-sm" />
             </button>
 
-            <span className="text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-300 w-7 text-right shrink-0">
+            <span className="text-[10px] font-mono font-bold text-neutral-600 w-7 text-right shrink-0">
               {zoom.toFixed(1)}x
             </span>
           </div>
 
           {/* Action buttons: Rotate & Reset */}
-          <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/5">
+          <div className="flex items-center justify-between pt-1 border-t border-black/5">
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleRotate}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-black/10 dark:border-white/10 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-black/10 text-[11px] font-semibold text-neutral-800 hover:bg-neutral-100 transition-colors cursor-pointer"
               >
-                <Icon icon="solar:refresh-square-bold" className="text-xs text-neutral-600 dark:text-neutral-300" />
+                <Icon icon="solar:refresh-square-bold" className="text-xs text-neutral-600" />
                 <span>{isId ? `Putar (${rotation}°)` : `Rotate (${rotation}°)`}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleReset}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-medium text-neutral-600 dark:text-neutral-400 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-transparent hover:bg-neutral-100 text-[11px] font-medium text-neutral-600 transition-colors cursor-pointer"
               >
                 <Icon icon="solar:restart-bold" className="text-xs" />
                 <span>{isId ? "Reset" : "Reset"}</span>
               </button>
             </div>
 
-            <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+            <p className="text-[10px] text-neutral-400">
               {isId ? "Cubit / geser posisi" : "Drag to align"}
             </p>
           </div>
@@ -459,7 +459,7 @@ export default function KtpCropModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl border border-black/10 text-xs font-bold text-neutral-700 hover:bg-black/5 transition-colors cursor-pointer"
           >
             {isId ? "Batal" : "Cancel"}
           </button>

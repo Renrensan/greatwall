@@ -87,7 +87,7 @@ export function TempoConnectButton({ isOpen, setIsOpen }: TempoConnectButtonProp
     return (
       <ConnectingButton
         label={t("text3")}
-        className="text-[8px] md:text-xs flex bg-tempo! hover:bg-tempo/80 cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+        className="gw-wallet-btn"
       />
     );
   }
@@ -95,7 +95,7 @@ export function TempoConnectButton({ isOpen, setIsOpen }: TempoConnectButtonProp
   return (
     <>
       {!connected ? (
-        <button onClick={() => setWalletSheetOpen(true)} className="text-[8px] md:text-xs flex bg-tempo! hover:bg-tempo/80! cursor-pointer text-white items-center gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full">
+        <button onClick={() => setWalletSheetOpen(true)} className="gw-wallet-btn">
           {t("text2")}
         </button>
       ) : (
@@ -104,7 +104,7 @@ export function TempoConnectButton({ isOpen, setIsOpen }: TempoConnectButtonProp
           alt={walletType ?? "wallet"}
           label={ellipsifyAddress(address!)}
           isMainnet={tempoMainnet}
-          className="text-[8px] md:text-xs flex items-center hover:bg-tempo/10 cursor-pointer gap-1 glass-card shadow-buttonNav px-2 py-1 rounded-full"
+          className="gw-wallet-pill"
           onClick={toggleSettings}
         />
       )}
@@ -149,7 +149,7 @@ function TempoWalletSheet({ isOpen, title, subtitle, detected, isMainnet, setIsM
           onChange={setIsMainnet}
           testnetLabel="Sepolia"
         />
-        <hr className="border-black/5 dark:border-white/5 mb-6" />
+        <hr className="border-black/5 mb-6" />
         <div className="flex flex-col gap-3">
           {detected.metamask && (
             <WalletListItem
@@ -184,7 +184,7 @@ function TempoWalletSheet({ isOpen, title, subtitle, detected, isMainnet, setIsM
           />
         </div>
       </div>
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast onClick={onClose} buttonText={t("text22")} />
       </div>
     </AnimatedModalNavbar>
@@ -204,9 +204,9 @@ function TempoSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitch
           <NetworkStatusCard
             label={`${t("text293")} ${isMainnet ? "Mainnet" : "Sepolia"}`}
             isMainnet={isMainnet}
-            borderClassName="border-tempo/20"
+            borderClassName="border-black/20"
           />
-          <hr className="border-black/5 dark:border-white/5 my-2" />
+          <hr className="border-black/5 my-2" />
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />
           {canSwitch && (
             <SettingsRow icon={<IoWalletOutline className="text-[16px]" />} label={t("text35")} onClick={onChangeWallet} />
@@ -214,7 +214,7 @@ function TempoSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitch
           <SettingsRow icon={<VscDebugDisconnect className="text-[16px]" />} label={t("text4")} onClick={onDisconnect} />
         </div>
       </div>
-      <div className="px-6 py-5 border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#121212] block lg:hidden">
+      <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
         <ButtonContrast buttonText={t("text22")} onClick={onClose} />
       </div>
     </AnimatedModalNavbar>
