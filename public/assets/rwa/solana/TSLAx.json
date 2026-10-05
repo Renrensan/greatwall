@@ -1,0 +1,7 @@
+{
+  "name": "Tesla xStock (GW Devnet)",
+  "symbol": "TSLAx",
+  "description": "Greatwall.finance's test stand-in for Tesla xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/TSLAx",
+  "image": "https://greatwall.finance/assets/rwa/solana/TSLAx.png",
+  "external_url": "https://greatwall.finance"
+}

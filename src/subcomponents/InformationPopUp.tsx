@@ -81,7 +81,7 @@ const InformationPopUp = ({
 
             
               <div className="px-5 py-5 border-t border-black/5 bg-white">
-                <Button onClick={onClose} buttonText={t("text239")} chain="hedera"/>
+                <Button onClick={onClose} buttonText={t("text239")} chain="ethereum"/>
               </div>
             </motion.div>
           </div>

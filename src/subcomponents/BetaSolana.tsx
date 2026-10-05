@@ -4,18 +4,21 @@
 // is an SPL token: SOL (wrapped as it is minted), a vault receipt of an EVM
 // network's coin (vETH…), or any token by its mint.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { parseUnits } from "ethers";
-import { SOLANA, WRAPPED_SOL, type SolanaBasket } from "@ipow/sdk";
+import { SOLANA, SOLANA_BASKET_NAMING, WRAPPED_SOL, type SolanaBasket } from "@ipow/sdk";
 
 import Button from "./Button";
 import { SolanaConnectButton } from "./SolanaConnectButton";
 import { Field, Notice, coin, errorText, shortHash } from "./ipow/common";
 import { solanaBeta } from "@/components/integrator/ipow/sdk";
-import { mintExists, receiptMints, solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
+import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
+import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
+import { crossChoicesOn, pairedWith, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
+import { PartButton, PartPicker, type PickGroup, type PickItem } from "./ipow/PartPicker";
 import { isSolanaBasket, knownBaskets, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 
@@ -118,17 +121,23 @@ export function SolanaBetaCreate() {
   const { locale } = useParams<{ locale: string }>();
   const sol = useSolanaWallet();
   const [parts, setParts] = useState<Part[]>([{ mint: WRAPPED_SOL, amount: "", info: null, error: null }]);
-  const [receipts, setReceipts] = useState<{ mint: string; symbol: string }[]>([]);
+  const [cross, setCross] = useState<CrossChoice[]>([]);
+  const [picking, setPicking] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [description, setDescription] = useState("");
+  const [image, setImage] = useState("");
   const [mintFee, setMintFee] = useState("0");
   const [burnFee, setBurnFee] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The vault receipts made here so far: those can be parts.
+  // The EVM networks' assets as their receipts here (vETH…), by the
+  // original asset's name; those not bridged yet cannot be parts.
   useEffect(() => {
     let live = true;
-    Promise.all(receiptMints().map(async (r) => ((await mintExists(r.mint)) ? r : null)))
-      .then((found) => live && setReceipts(found.filter((r): r is NonNullable<typeof r> => r !== null)))
+    crossChoicesOn("solana")
+      .then((list) => live && setCross(list))
       .catch(() => {});
     return () => {
       live = false;
@@ -138,7 +147,7 @@ export function SolanaBetaCreate() {
   const mintsKey = parts.map((p) => p.mint).join(",");
   useEffect(() => {
     parts.forEach((p, i) => {
-      if (!isSolanaBasket(p.mint)) return;
+      if (!isSolanaBasket(p.mint) || isPending(p.mint)) return;
       solanaToken(p.mint)
         .then((info) => setParts((all) => all.map((q, j) => (j === i && q.mint === p.mint ? { ...q, info, error: null } : q))))
         .catch(() => setParts((all) => all.map((q, j) => (j === i && q.mint === p.mint ? { ...q, info: null, error: t("notATokenSolana") } : q))));
@@ -156,7 +165,23 @@ export function SolanaBetaCreate() {
     }
   });
   const fee = (x: string) => (/^\d+$/.test(x.trim()) && Number(x) <= MAX_FEE_BPS ? Number(x) : null);
-  const problem = parts.some((p) => !p.info)
+  // The token's metadata (E4) as a data URI: Token Metadata keeps 200 bytes
+  // of URI, so the description must be short.
+  const metadataUri = useMemo(() => {
+    const meta: Record<string, string> = { name: name.trim(), symbol: symbol.trim() };
+    if (description.trim()) meta.description = description.trim();
+    if (image.trim()) meta.image = image.trim();
+    return `data:application/json;base64,${btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(meta))))}`;
+  }, [name, symbol, description, image]);
+  const bytes = (v: string) => new TextEncoder().encode(v).length;
+  const nameOk = bytes(name.trim()) >= 1 && bytes(name.trim()) <= SOLANA_BASKET_NAMING.name;
+  const symbolOk = bytes(symbol.trim()) >= 1 && bytes(symbol.trim()) <= SOLANA_BASKET_NAMING.symbol;
+  const uriOk = bytes(metadataUri) <= SOLANA_BASKET_NAMING.uri;
+  const problem = !nameOk || !symbolOk
+    ? t("enterName")
+    : !uriOk
+      ? t("descriptionTooLong")
+      : parts.some((p) => !p.info)
     ? t("pickTokens")
     : new Set(parts.map((p) => p.mint)).size !== parts.length
       ? t("duplicateToken")
@@ -175,7 +200,10 @@ export function SolanaBetaCreate() {
       // An id of the creator's own; the time keeps it new for each basket.
       const { basket } = await solanaBeta(wallet).createBasket({
         id: BigInt(Date.now()),
-        parts: parts.map((p, i) => ({ mint: p.mint, amount: amounts[i]! })),
+        name: name.trim(),
+        symbol: symbol.trim(),
+        uri: metadataUri,
+        parts: parts.map((p, i) => ({ mint: p.mint, amount: amounts[i]!, pending: isPending(p.mint) })),
         mintFeeBps: fee(mintFee)!,
         burnFeeBps: fee(burnFee)!,
       });
@@ -187,7 +215,34 @@ export function SolanaBetaCreate() {
     }
   }
 
-  const choices = [{ value: WRAPPED_SOL, label: "SOL" }, ...receipts.map((r) => ({ value: r.mint, label: r.symbol })), { value: "custom", label: t("otherToken") }];
+  const nameOfChain = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
+  const here: PickItem[] = [
+    { token: WRAPPED_SOL, symbol: "SOL", name: "Solana", logo: "/assets/networks/solana.png" },
+    ...rwaTokensOf("solana").map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, logo: r.logo ?? null })),
+  ];
+  const groups: PickGroup[] = [
+    { key: "solana", label: "Solana", logo: "/assets/networks/solana.png", items: here },
+    ...pairedWith("solana").map((from) => ({
+      key: from,
+      label: nameOfChain(from),
+      logo: `/assets/networks/${from}.png`,
+      items: cross.filter((c) => c.from === from).map((c) => ({ token: c.token, symbol: c.symbol, name: c.name, logo: c.logo, exists: c.exists })),
+    })),
+  ];
+  const itemOf = (mint: string): PickItem | null => groups.flatMap((g) => g.items).find((it) => it.token === mint) ?? null;
+  const pick = (i: number, mint: string) => {
+    // A receipt not made yet (E5): its mint is the vault's address for it,
+    // its symbol and decimals known from the vault; the program records it
+    // pending and reads it at the first mint.
+    const pending = mint.startsWith("pending:") ? cross.find((c) => !c.exists && `pending:${c.symbol}` === mint) ?? null : null;
+    if (pending) {
+      update(i, { mint: pending.token, info: { mint: pending.token, symbol: pending.symbol, decimals: pending.decimals }, error: null });
+    } else {
+      update(i, { mint, info: null, error: null });
+    }
+    setPicking(null);
+  };
+  const isPending = (mint: string) => cross.some((c) => !c.exists && c.token === mint);
 
   return (
     <div className="flex flex-col gap-4">
@@ -196,10 +251,30 @@ export function SolanaBetaCreate() {
         <SolanaConnectButton />
       </div>
 
+      {/* The token's name and what it is (E4). */}
+      <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
+        <p className="text-xs sm:text-sm opacity-70">{t("namingExplainer")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_minmax(0,160px)] gap-4">
+          <Field label={t("tokenName")} hint={`${bytes(name)}/${SOLANA_BASKET_NAMING.name}`}>
+            <input id="beta-sol-name" type="text" maxLength={SOLANA_BASKET_NAMING.name} placeholder={t("tokenNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} className="w-full text-base font-bold bg-transparent outline-none" />
+          </Field>
+          <Field label={t("tokenSymbol")} hint={`${bytes(symbol)}/${SOLANA_BASKET_NAMING.symbol}`}>
+            <input id="beta-sol-symbol" type="text" maxLength={SOLANA_BASKET_NAMING.symbol} placeholder="GTB" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/\s+/g, ""))} className="w-full text-base font-bold bg-transparent outline-none uppercase" />
+          </Field>
+        </div>
+        <Field label={t("tokenDescription")} hint={`${bytes(metadataUri)}/${SOLANA_BASKET_NAMING.uri} · ${t("tokenDescriptionHintSolana")}`}>
+          <textarea id="beta-sol-description" rows={2} placeholder={t("tokenDescriptionPlaceholderSolana")} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full text-sm bg-transparent outline-none resize-y" />
+        </Field>
+        <Field label={t("tokenImage")} hint={t("tokenImageHint")}>
+          <input id="beta-sol-image" type="url" placeholder="https://…/logo.png" value={image} onChange={(e) => setImage(e.target.value.trim())} className="w-full text-sm bg-transparent outline-none font-mono" />
+        </Field>
+      </div>
+
       <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-5">
         <p className="text-xs sm:text-sm opacity-70">{t("partsExplainerSolana")}</p>
         {parts.map((p, i) => {
-          const choice = choices.some((c) => c.value !== "custom" && c.value === p.mint) ? p.mint : "custom";
+          const known = itemOf(p.mint);
+          const custom = !known && p.mint !== "";
           return (
             <div key={i} className="flex flex-col gap-3 border-b border-black/10 pb-4 last:border-b-0 last:pb-0">
               <div className="flex items-center justify-between gap-3">
@@ -210,19 +285,25 @@ export function SolanaBetaCreate() {
                   </button>
                 )}
               </div>
-              <select
-                id={`beta-sol-part-${i}-token`}
-                value={choice}
-                onChange={(e) => update(i, { mint: e.target.value === "custom" ? "" : e.target.value, info: null, error: null })}
-                className="w-full glass-card rounded-lg p-2 text-xs sm:text-sm bg-transparent"
-              >
-                {choices.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              {choice === "custom" && (
+              <PartButton
+                item={known ?? (isPending(p.mint) ? { token: p.mint, symbol: p.info?.symbol ?? "", name: `${cross.find((c) => c.token === p.mint)?.name ?? ""} · ${t("notBridgedYet")}`, logo: cross.find((c) => c.token === p.mint)?.logo ?? null } : p.info ? { token: p.mint, symbol: p.info.symbol, name: p.mint, logo: null } : null)}
+                placeholder={t("pickToken")}
+                subtitle={p.mint || t("byAddress")}
+                open={picking === i}
+                onClick={() => setPicking(picking === i ? null : i)}
+                chooseLabel={t("chooseLabel")}
+              />
+              {picking === i && (
+                <PartPicker
+                  groups={groups}
+                  selected={p.mint}
+                  taken={parts.filter((_, j) => j !== i).map((q) => q.mint)}
+                  onPick={(mint) => pick(i, mint)}
+                  onByAddress={() => pick(i, "")}
+                  labels={{ byAddress: t("byAddress"), notBridgedYet: t("notBridgedYet"), none: t("noneBridged") }}
+                />
+              )}
+              {custom && (
                 <input
                   id={`beta-sol-part-${i}-mint`}
                   type="text"

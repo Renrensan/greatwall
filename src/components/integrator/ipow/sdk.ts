@@ -11,8 +11,7 @@ import type { SupportedChain } from "@/app/network-provider";
 
 /**
  * The networks Greatwall's iPoW apps (Convert, Bridge, BETA) run on now: EVM
- * networks whose wallet gives an ethers signer. Hedera and Polkadot sign
- * through their own wallets, not an EVM one; Tempo sends its own
+ * networks whose wallet gives an ethers signer. Tempo sends its own
  * transactions; Solana signs with its own wallet, not wired yet. They show
  * "coming soon".
  */

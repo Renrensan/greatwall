@@ -1,0 +1,7 @@
+{
+  "name": "Gold xStock (GW Devnet)",
+  "symbol": "GLDx",
+  "description": "Greatwall.finance's test stand-in for Gold xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/GLDx",
+  "image": "https://greatwall.finance/assets/rwa/solana/GLDx.png",
+  "external_url": "https://greatwall.finance"
+}

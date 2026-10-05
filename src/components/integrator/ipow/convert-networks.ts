@@ -6,10 +6,8 @@ import type { SupportedChain } from "@/app/network-provider";
  */
 export const CONVERT_NETWORK_ORDER: readonly SupportedChain[] = [
   "bitcoin",
-  "hedera",
   "ethereum",
   "solana",
-  "polkadot",
   "tempo",
   "hyperliquid",
   "robinhood",

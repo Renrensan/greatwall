@@ -2,7 +2,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const VALID_NETWORKS = ["bitcoin", "ethereum", "hedera", "solana", "polkadot"];
+const VALID_NETWORKS = ["bitcoin", "ethereum", "solana"];
 // Mirrors PREFERRED_CHAIN_KEY in @/app/network-provider — duplicated (rather than
 // imported from that 'use client' module) to keep this server component clean of
 // any client-boundary import.

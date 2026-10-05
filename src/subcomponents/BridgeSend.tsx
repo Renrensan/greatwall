@@ -6,7 +6,7 @@
 // (9 decimals), so a finer amount is refused before it reaches the wallet.
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Contract, parseUnits } from "ethers";
 import { burn, homeAssets, lock, quoteLock, receiptTokens, type HomeAsset } from "@ipow/sdk";
@@ -42,6 +42,9 @@ export default function BridgeSend({ chain }: { chain: EvmChain }) {
   const [fee, setFee] = useState("");
   const [fastFee, setFastFee] = useState("");
   const [asset, setAsset] = useState<HomeAsset | null>(null);
+  const tokenParam = useSearchParams().get("token");
+  const en = (useParams<{ locale: string }>().locale ?? "en") === "en";
+  const [notCarried, setNotCarried] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null | "none">(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +65,12 @@ export default function BridgeSend({ chain }: { chain: EvmChain }) {
       try {
         const [assets, receipts] = await Promise.all([homeAssets(provider, d), receiptTokens(provider, d, 0, 4)]);
         if (!live) return;
-        setAsset(assets[0] ?? null);
+        // A token asked for (`?token=`, as the Portfolio links here): the
+        // vault's asset for it, when the vault carries it.
+        const wanted = tokenParam?.toLowerCase();
+        const picked = wanted ? assets.find((a) => a.token.toLowerCase() === wanted) : undefined;
+        setAsset(picked ?? assets[0] ?? null);
+        if (wanted && !picked) setNotCarried(true);
         const token = receipts.get(SOL_ASSET);
         if (!token) return setReceipt("none");
         const c = new Contract(token, ERC20, provider);
@@ -81,13 +89,15 @@ export default function BridgeSend({ chain }: { chain: EvmChain }) {
     };
   }, [provider, d, wallet.address]);
 
+  // Whether Solana has made this asset's receipt yet (the coin's, or a token's).
   useEffect(() => {
+    if (!asset) return;
     const conn = solanaConnection();
     conn
-      .getAccountInfo(solanaVaultOf(chain).receiptMint(0))
+      .getAccountInfo(solanaVaultOf(chain).receiptMint(asset.number))
       .then((info) => setReceiptOnSolana(info !== null))
       .catch(() => setReceiptOnSolana(null));
-  }, [chain]);
+  }, [chain, asset]);
 
   useEffect(() => {
     setRentFloor(null);
@@ -158,7 +168,7 @@ export default function BridgeSend({ chain }: { chain: EvmChain }) {
       const onChain = (await signer.provider?.getNetwork())?.chainId;
       if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(t("wrongNetwork"));
       if (direction === "out") {
-        const quote = await quoteLock(provider, d, { asset: 0, amount: amountUnits, fee: feeUnits, fastFee: fastUnits });
+        const quote = await quoteLock(provider, d, { asset: asset?.number ?? 0, amount: amountUnits, fee: feeUnits, fastFee: fastUnits });
         const { lockId } = await lock(signer, d, quote, recipient.trim());
         router.push(`/${locale}/${chain}/bridge/transaction/lock-${lockId}`);
       } else {
@@ -176,6 +186,9 @@ export default function BridgeSend({ chain }: { chain: EvmChain }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {notCarried && (
+        <p className="text-xs text-stone">{en ? "This token is not carried by the vault on this network yet, so it cannot be bridged; the vault's own assets are below." : "Token ini belum dibawa vault di jaringan ini, jadi belum bisa dijembatani; aset vault sendiri ada di bawah."}</p>
+      )}
       <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
         <span className="text-xs sm:text-sm opacity-70">{t("wallet")}</span>
         <ConnectNetworkButton chain={chain} />

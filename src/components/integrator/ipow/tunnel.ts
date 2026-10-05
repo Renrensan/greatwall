@@ -1,9 +1,9 @@
 // A conversion between two programmable networks is a tunnel (iPoW repo,
 // docs/drafts/ipow-conversion-tunnel.md). The SDK has the client of the
-// operator's tunnel API, the registration's message and the estimates'
-// arithmetic; this file adds what is this app's: the names its networks have
-// at the node, the server route that holds the node's key, and the record
-// in this browser that links a buy to the source network it was asked from.
+// operator's tunnel API, the buy's memo that names the sale, and the
+// estimates' arithmetic; this file adds what is this app's: the names its
+// networks have at the node, the server route that holds the node's key,
+// and the record in this browser that links a buy to its source network.
 
 import {
   NATIVE,
@@ -12,7 +12,7 @@ import {
   fromUnits,
   satsFor as satsForAsset,
   toUnits,
-  tunnelMessage as sdkTunnelMessage,
+  tunnelMemo,
   type TunnelAsset as SdkTunnelAsset,
 } from "@ipow/sdk";
 
@@ -93,26 +93,16 @@ export async function coinFor(chain: SupportedChain, token: string, sats: number
 }
 
 /** What the operator gives for `amountIn` (smallest units) of `fromToken`
- *  on `from`: the sats between the two networks, and the destination's
- *  amount of `token` (smallest units). */
+ *  on `from`: the sats between the two networks, the destination's amount
+ *  of `token` (smallest units), and whether it could take the tunnel now. */
 export function tunnelQuote(from: SupportedChain, fromToken: string, amountIn: bigint, to: SupportedChain, token = NATIVE) {
   return api.quote(nodeName(from), fromToken, amountIn, nodeName(to), token);
 }
 
-type Terms = { to: SupportedChain; buyId: bigint; from: SupportedChain; fromToken: string; amountIn: bigint };
-
-const registration = (o: Terms) => ({ to: nodeName(o.to), swapId: o.buyId, from: nodeName(o.from), fromToken: o.fromToken, amountIn: o.amountIn });
-
-/** What the buy's owner signs to register a tunnel. */
-export function tunnelMessage(o: Terms): string {
-  return sdkTunnelMessage(registration(o));
-}
-
-/** Registers with the operator the buy the user opened on `to`, signed by
- *  the wallet that opened it: from then on the operator takes its sale at
- *  the terms it quoted. */
-export function registerTunnel(o: Terms & { signature: string }) {
-  return api.register(registration(o), o.signature);
+/** The memo a tunnel's buy carries, naming the sale that will pay it, for
+ *  the operator to read from the chain. */
+export function tunnelMemoFor(from: SupportedChain, fromToken: string, amountIn: bigint): string {
+  return tunnelMemo(nodeName(from), fromToken, amountIn);
 }
 
 export type Tunnel = {

@@ -1,0 +1,7 @@
+{
+  "name": "SP500 xStock (GW Devnet)",
+  "symbol": "SPYx",
+  "description": "Greatwall.finance's test stand-in for SP500 xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/SPYx",
+  "image": "https://greatwall.finance/assets/rwa/solana/SPYx.png",
+  "external_url": "https://greatwall.finance"
+}

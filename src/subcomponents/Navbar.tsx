@@ -15,14 +15,12 @@ import { FaCheckCircle } from "react-icons/fa";
 import { DynamicConnectButton, useNetwork, SupportedChain, SUPPORTED_CHAINS } from "@/app/network-provider";
 import { Icon } from "@iconify/react";
 import ButtonContrast from "./ButtonContrast";
-import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
 import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
 import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
-import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { useTranslations } from "next-intl";
@@ -59,9 +57,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
 
   const { selectedChain, setSelectedChain, preferredChain, setPreferredChain } = useNetwork();
 
-  const polkadotNetwork = usePolkadotWallet();
   const bitcoinNetwork = useBitcoinWallet();
-  const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
   const tempoNetwork = useTempoWallet();
@@ -74,8 +70,6 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
     { key: "bitcoin", name: bitcoinNetwork.networkName, value: bitcoinNetwork.networkLogo },
     { key: "ethereum", name: ethereumNetwork.networkName, value: ethereumNetwork.networkLogo },
     { key: "solana", name: solanaNetwork.networkName, value: solanaNetwork.networkLogo },
-    { key: "polkadot", name: polkadotNetwork.networkName, value: polkadotNetwork.networkLogo },
-    { key: "hedera", name: hederaNetwork.networkName, value: hederaNetwork.networkLogo },
     { key: "tempo", name: tempoNetwork.networkName, value: tempoNetwork.networkLogo },
     { key: "hyperliquid", name: hyperliquidNetwork.networkName, value: hyperliquidNetwork.networkLogo },
     { key: "robinhood", name: robinhoodNetwork.networkName, value: robinhoodNetwork.networkLogo },
@@ -156,11 +150,12 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   // Greatwall's sections, by the app and section each opens.
   const chain = selectedChain || "ethereum";
   const navItems: { key: string; label: string; href: string; active: boolean }[] = [
+    // Minting lives under Explore: a basket is picked there, previewed, and
+    // minted on its own page.
+    { key: "explore", label: t("navExplore"), href: `/${locale}/${chain}/beta/explore`, active: app === "beta" && section !== "create" },
     { key: "create", label: t("navCreate"), href: `/${locale}/${chain}/beta/create`, active: app === "beta" && section === "create" },
-    { key: "mint", label: t("navMint"), href: `/${locale}/${chain}/beta/baskets`, active: app === "beta" && section !== "create" && section !== "explore" },
-    { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert" },
     { key: "portfolio", label: t("navPortfolio"), href: `/${locale}/${chain}/vault/assets`, active: app === "vault" || app === "bridge" },
-    { key: "explore", label: t("navExplore"), href: `/${locale}/${chain}/beta/explore`, active: app === "beta" && section === "explore" },
+    { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert" },
   ];
 
   const navLink = (item: (typeof navItems)[number]) => (

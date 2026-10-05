@@ -18,6 +18,7 @@ import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
 import { Field, Notice, Row, coin, errorText, shortHash } from "@/subcomponents/ipow/common";
 import { solanaBeta, solanaConnection, solanaExplorer } from "@/components/integrator/ipow/sdk";
 import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
+import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { isSolanaBasket, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 
@@ -40,6 +41,7 @@ export default function SolanaBasketPage() {
 
   const [basket, setBasket] = useState<SolanaBasket | null>(null);
   const [infos, setInfos] = useState<SolanaToken[]>([]);
+  const [pending, setPending] = useState<CrossChoice[]>([]);
   const [mine, setMine] = useState<Mine | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [side, setSide] = useState<"mint" | "burn">("mint");
@@ -57,14 +59,25 @@ export default function SolanaBasketPage() {
     try {
       const b = await reader.getBasket(address);
       setBasket(b);
-      setInfos(await Promise.all(b.parts.map((p) => solanaToken(p.mint))));
+      // A receipt part not made yet (E5) is named from the vaults' assets.
+      const cross = b.parts.some((p) => !p.made) ? await crossChoicesOn("solana").catch(() => [] as CrossChoice[]) : [];
+      setPending(cross);
+      setInfos(
+        await Promise.all(
+          b.parts.map((p) => {
+            if (p.made) return solanaToken(p.mint);
+            const c = cross.find((x) => x.token === p.mint);
+            return Promise.resolve({ mint: p.mint, symbol: c?.symbol ?? "v?", decimals: c?.decimals ?? 9 });
+          })
+        )
+      );
       setLoadError(null);
       rememberBasket(SOLANA.programs.betaBasket, address);
       if (sol.address) {
         const me = new PublicKey(sol.address);
         const [beta, parts, lamports, wrapped, owed, fees] = await Promise.all([
           reader.betaBalance(address, me),
-          Promise.all(b.parts.map((p) => reader.tokenBalance(me, new PublicKey(p.mint)))),
+          Promise.all(b.parts.map((p) => (p.made ? reader.tokenBalance(me, new PublicKey(p.mint)) : Promise.resolve(ZERO)))),
           solanaConnection().getBalance(me),
           reader.tokenBalance(me, new PublicKey(WRAPPED_SOL)),
           Promise.all(b.parts.map((_, i) => reader.owed(address, i, me))),
@@ -126,10 +139,13 @@ export default function SolanaBasketPage() {
   const canGive = (i: number) =>
     mine ? (basket.parts[i].mint === WRAPPED_SOL ? mine.parts[i] + (mine.sol > SOL_RESERVE ? mine.sol - SOL_RESERVE : ZERO) : mine.parts[i]) : null;
 
+  const unmade = basket.parts.some((p) => !p.made);
   const problem = !amountUnits
     ? t("enterBeta")
     : side === "mint"
-      ? firstMint && amountUnits % ONE !== ZERO
+      ? unmade
+        ? t("partNotMadeYet")
+        : firstMint && amountUnits % ONE !== ZERO
         ? t("firstMintWhole")
         : quoteError
           ? quoteError
@@ -179,7 +195,7 @@ export default function SolanaBasketPage() {
 
       <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
         <p className="font-bold text-base sm:text-lg">
-          {t("basketName", { id: String(basket.id) })} · {shortHash(address)}
+          {basket.name && basket.name !== "BETA" ? `${basket.name} (${basket.symbol})` : t("basketName", { id: String(basket.id) })} · {shortHash(address)}
         </p>
         <div className="flex flex-col gap-2 text-xs sm:text-sm">
           <p className="font-bold">{firstMint ? t("mixAtFirst") : t("oneBetaHolds")}</p>
@@ -187,6 +203,23 @@ export default function SolanaBasketPage() {
             <Row key={p.mint} label={infos[i].symbol} value={coin(perBeta[i], infos[i].decimals)} />
           ))}
         </div>
+        {unmade && (
+          <div className="flex flex-col gap-1 text-[11px] sm:text-xs opacity-70 border-t border-black/10 pt-3">
+            {basket.parts.map((p, i) => {
+              if (p.made) return null;
+              const c = pending.find((x) => x.token === p.mint);
+              const from = c?.from ?? "ethereum";
+              return (
+                <p key={p.mint}>
+                  {infos[i].symbol} · {t("waitingBridge", { network: from.charAt(0).toUpperCase() + from.slice(1) })}{" "}
+                  <Link href={`/${locale}/${from}/bridge/send${c?.home ? `?token=${c.home}` : ""}`} className="underline">
+                    {t("bridgeIt")}
+                  </Link>
+                </p>
+              );
+            })}
+          </div>
+        )}
         <div className="flex flex-col gap-2 text-xs sm:text-sm border-t border-black/10 pt-3">
           <Row label={t("supplyLabel")} value={`${coin(supply, 9)} BETA`} />
           {mine && <Row label={t("yourBeta")} value={`${coin(mine.beta, 9)} BETA`} bold />}

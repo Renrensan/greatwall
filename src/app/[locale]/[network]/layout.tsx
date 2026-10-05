@@ -6,7 +6,7 @@ import { ScopedDappProviders } from "@/components/providers/dapp-providers";
 import { BrandPulseLoader } from "@/components/ui/BrandPulseLoader";
 
 
-const VALID_NETWORKS = ["bitcoin", "ethereum", "hedera", "solana", "polkadot", "tempo", "hyperliquid", "robinhood", "base", "arbitrum"];
+const VALID_NETWORKS = ["bitcoin", "ethereum", "solana", "tempo", "hyperliquid", "robinhood", "base", "arbitrum"];
 const FALLBACK_NETWORK = "solana";
 // Mirrors PREFERRED_CHAIN_KEY in @/app/network-provider — duplicated (rather than
 // imported from that 'use client' module) to keep this server component clean of

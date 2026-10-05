@@ -1,5 +1,7 @@
 "use client";
 
+import toast from "react-hot-toast";
+
 import {
   createContext,
   useContext,
@@ -15,7 +17,7 @@ import { BytesLike, Eip1193Provider, ethers } from "ethers";
 import { useNetwork } from "@/app/network-provider";
 import { ethereumnetwork } from "@/index";
 import { appConfig, EthereumWalletContextType, EthereumWalletType } from "./config";
-import { getEvmWalletProvider } from "@/subcomponents/wallet-connect/evm-wallet-detection";
+import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
 import { IPOW_NETWORK_ID } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 import { mainnet, sepolia } from "@reown/appkit/networks";
@@ -151,7 +153,7 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
         { chainId: targetChainIdHex },
       ]);
     } catch (switchError: any) {
-      if (switchError.code === 4902) {
+      if (walletErrorCode(switchError) === 4902) {
         try {
           await prov.send("wallet_addEthereumChain", [
             {
@@ -169,8 +171,10 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
             `Your wallet doesn't have ${currentNetworkConfig.network} added. Please add or switch to it manually.`,
           );
         }
-      } else {
+      } else if (walletRejected(switchError)) {
         throw new Error("User rejected network switch");
+      } else {
+        throw new Error(`Could not switch the wallet's network: ${switchError?.shortMessage ?? switchError?.message ?? switchError}`);
       }
     }
   };
@@ -220,6 +224,7 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
       }
     } catch (err: any) {
       console.error("Connection Flow Error:", err.message);
+      if (!isAutoConnect && !walletRejected(err)) toast.error(err?.shortMessage ?? err?.message ?? String(err));
     } finally {
       setIsConnecting(false);
     }

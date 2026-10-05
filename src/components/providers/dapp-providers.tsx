@@ -9,8 +9,6 @@ import { WalletConnectProvider } from "@/components/walletconnect/wallet-connect
 import { OnboardingProvider } from "@/components/providers/onboarding-provider";
 import { resolveToChain } from "@/components/integrator/ipow/convert-networks";
 
-const PolkadotProvider = dynamic(() => import("@/components/polkadot/polkadot-provider").then(m => m.PolkadotProvider), { ssr: false });
-const HederaProvider = dynamic(() => import("@/components/hedera/hedera-provider").then(m => m.HederaProvider), { ssr: false });
 const EthereumProvider = dynamic(() => import("@/components/ethereum/ethereum-provider").then(m => m.EthereumProvider), { ssr: false });
 const SolanaProvider = dynamic(() => import("@/components/solana/solana-provider").then(m => m.SolanaProvider), { ssr: false });
 const BitcoinProvider = dynamic(() => import("@/components/bitcoin/bitcoin-provider").then(m => m.BitcoinProvider), { ssr: false });
@@ -27,8 +25,6 @@ const CHAIN_PROVIDERS: Record<SupportedChain, ChainProvider> = {
   bitcoin: BitcoinProvider,
   ethereum: EthereumProvider,
   solana: SolanaProvider,
-  hedera: HederaProvider,
-  polkadot: PolkadotProvider,
   tempo: TempoProvider,
   hyperliquid: HyperliquidProvider,
   robinhood: RobinhoodProvider,
@@ -80,19 +76,15 @@ export function AllDappProviders({ children }: { children: ReactNode }) {
         <BitcoinProvider>
           <EthereumProvider>
             <SolanaProvider>
-              <HederaProvider>
-                <PolkadotProvider>
-                  <TempoProvider>
-                    <HyperliquidProvider>
-                      <RobinhoodProvider>
-                        <BaseProvider>
-                          <OnboardingProvider>{children}</OnboardingProvider>
-                        </BaseProvider>
-                      </RobinhoodProvider>
-                    </HyperliquidProvider>
-                  </TempoProvider>
-                </PolkadotProvider>
-              </HederaProvider>
+              <TempoProvider>
+                <HyperliquidProvider>
+                  <RobinhoodProvider>
+                    <BaseProvider>
+                      <OnboardingProvider>{children}</OnboardingProvider>
+                    </BaseProvider>
+                  </RobinhoodProvider>
+                </HyperliquidProvider>
+              </TempoProvider>
             </SolanaProvider>
           </EthereumProvider>
         </BitcoinProvider>

@@ -4,7 +4,6 @@
 //
 //   GET  /api/tunnel/assets
 //   GET  /api/tunnel/quote?from&fromToken&amount&to&token
-//   POST /api/tunnel/register  {to, swapId, from, fromToken, amountIn, signature}
 
 import { NextResponse } from "next/server";
 
@@ -43,25 +42,4 @@ export async function GET(req: Request, { params }: { params: Promise<{ action: 
     if (v) out.set(k, v);
   }
   return forward(`/quote?${out}`);
-}
-
-export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
-  const { action } = await params;
-  if (action !== "register") return NextResponse.json({ error: "No such route" }, { status: 404 });
-  const text = await req.text();
-  if (text.length > 2048) return NextResponse.json({ error: "Request too large" }, { status: 413 });
-  let body: { to?: unknown; swapId?: unknown; from?: unknown; fromToken?: unknown; amountIn?: unknown; signature?: unknown };
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return NextResponse.json({ error: "Not JSON" }, { status: 400 });
-  }
-  const { to, swapId, from, fromToken, amountIn, signature } = body;
-  if (typeof to !== "string" || typeof from !== "string" || !Number.isInteger(swapId) || typeof amountIn !== "string" || !/^\d{1,40}$/.test(amountIn) || typeof signature !== "string" || signature.length > 200)
-    return NextResponse.json({ error: "to, swapId, from, amountIn (a whole number) and the owner's signature are needed" }, { status: 400 });
-  return forward("/register", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ to, swapId, from, fromToken: typeof fromToken === "string" ? fromToken : "native", amountIn, signature }),
-  });
 }

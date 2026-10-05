@@ -25,7 +25,7 @@ The **Paradapp IPoW** code repository is available here:
 **https://github.com/kelwinshen/ipow**
 
 This is now a monorepo containing the IPoW cross-chain programs/contracts for every
-supported network (Ethereum, Hedera, Solana, and Polkadot Hub).
+supported network (Ethereum, Solana, Base, HyperEVM, Robinhood and Tempo).
 
 ---
 
@@ -49,13 +49,7 @@ This channel contains our **brand materials** and **demo videos** for Paradapp.
 
 ### Supported Networks
 
-Paradapp Client currently supports: **Bitcoin**, **Ethereum**, **Hedera**, **Solana**, and **Polkadot**.
-
-Polkadot's cross-chain Convert (ipow) runs on Polkadot Hub's EVM-compatible layer
-(pallet-revive), signed directly through the connected Substrate wallet (Polkadot{.js},
-Talisman, or SubWallet) — no separate EVM wallet connection is required. Like the other
-chains' ipow deployments, it's currently testnet-only (Paseo Asset Hub) and needs no
-additional `.env` configuration.
+Greatwall currently supports: **Bitcoin**, **Ethereum**, **Solana**, **Base**, **HyperEVM**, **Robinhood** and **Tempo** (Arbitrum's wallet is wired, without the protocol yet).
 
 ---
 
@@ -137,48 +131,6 @@ PARA_AI_API_KEY=
 
 ---
 
-### Hedera – Testnet
-
-#### `NEXT_PUBLIC_HEDERA_TESTNET_MIRROR_NODE_URL`
-
-Hedera Testnet Mirror Node API
-
-- Free public: `https://testnet.mirrornode.hedera.com`
-
-#### `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL`
-
-Hedera Testnet JSON-RPC
-
-- Free public: `https://testnet.hashio.io/api`
-
-```env
-NEXT_PUBLIC_HEDERA_TESTNET_MIRROR_NODE_URL=https://testnet.mirrornode.hedera.com
-NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL=https://testnet.hashio.io/api
-```
-
----
-
-### Hedera – Mainnet
-
-#### `NEXT_PUBLIC_HEDERA_MAINNET_MIRROR_NODE_URL`
-
-Hedera Mainnet Mirror Node API
-
-- Free public: `https://mainnet.mirrornode.hedera.com`
-
-#### `NEXT_PUBLIC_HEDERA_MAINNET_RPC_URL`
-
-Hedera Mainnet JSON-RPC
-
-- Free public: `https://mainnet.hashio.io/api`
-
-```env
-NEXT_PUBLIC_HEDERA_MAINNET_MIRROR_NODE_URL=https://mainnet.mirrornode.hedera.com
-NEXT_PUBLIC_HEDERA_MAINNET_RPC_URL=https://mainnet.hashio.io/api
-```
-
----
-
 ### Ethereum – Testnet (Sepolia)
 
 #### `ETH_TESTNET_RPC_URL`
@@ -222,22 +174,6 @@ Mainnet block explorer
 ETH_MAINNET_RPC_URL=
 ETH_MAINNET_EXPLORER=https://etherscan.io
 ```
-
----
-
-### Polkadot – Testnet & Mainnet
-
-No `.env` configuration is needed for Polkadot — its RPC endpoints are fixed in
-`src/components/polkadot/config/networks.ts` (with automatic failover across multiple
-endpoints per network):
-
-- **Mainnet** (Asset Hub): `wss://polkadot-asset-hub-rpc.polkadot.io` and others
-- **Testnet** (Paseo Asset Hub): `wss://asset-hub-paseo-rpc.n.dwellir.com` and others
-
-Convert (ipow) signs through the connected Substrate wallet via pallet-revive's
-`Revive.call` and is testnet-only for now, reading Polkadot Hub's EVM-compatible RPC
-(`IPOW_EVM_RPC_URL_TESTNET` in `src/components/polkadot/config/constants.ts`) for
-read-only contract calls.
 
 ---
 

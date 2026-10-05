@@ -13,15 +13,11 @@ import {
   qris,
   bitcoin,
   ethereum,
-  hedera,
-  polkadot,
   solana,
   usdc,
   bitcoinnetwork,
-  hederanetwork,
   ethereumnetwork,
   solananetwork,
-  paseo,
 } from "..";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -29,9 +25,7 @@ import { SupportedChain, useNetwork } from "@/app/network-provider";
 import { useOnboarding } from "@/components/providers/onboarding-provider";
 import { savePendingTransaction, getPendingTransaction, clearPendingTransaction } from "@/lib/onboarding-storage";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
-import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
-import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
 import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
@@ -97,10 +91,8 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   const qrisInfo = t("text21");
 
   const bitcoinNetwork = useBitcoinWallet();
-  const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
-  const polkadotNetwork = usePolkadotWallet();
   const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
@@ -110,14 +102,10 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   const {
     bitcoinMainnet,
     setBitcoinMainnet,
-    hederaMainnet,
-    setHederaMainnet,
     ethereumMainnet,
     setEthereumMainnet,
     solanaMainnet,
     setSolanaMainnet,
-    polkadotMainnet,
-    setPolkadotMainnet,
     tempoMainnet,
     setTempoMainnet,
     hyperliquidMainnet,
@@ -131,7 +119,7 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   } = useNetwork();
 
   let connected,
-    isConnecting,
+    isConnecting = false,
     address,
     currencyTicker,
     networkName,
@@ -155,18 +143,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
     isMainnet = bitcoinMainnet;
     price = bitcoinNetwork.price;
     networkBanner = bitcoinnetwork;
-  } else if (network === "hedera") {
-    networkName = hederaNetwork.networkName;
-    connected = hederaNetwork.connected;
-    isConnecting = hederaNetwork.isConnecting;
-    address = hederaNetwork.address;
-    balance = hederaNetwork.balance;
-    currencyTicker = hederaNetwork.currencyTicker;
-    selfCustodyParameter = hederaNetwork.selfCustodyParameter;
-    decimals = hederaNetwork.decimals;
-    price = hederaNetwork.price;
-    isMainnet = hederaMainnet;
-    networkBanner = hederanetwork;
   } else if (network === "ethereum") {
     networkName = ethereumNetwork.networkName;
     connected = ethereumNetwork.connected;
@@ -179,18 +155,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
     price = ethereumNetwork.price;
     isMainnet = ethereumMainnet;
     networkBanner = ethereumnetwork;
-  } else if (network === "polkadot") {
-    networkName = polkadotNetwork.networkName;
-    connected = polkadotNetwork.connected;
-    isConnecting = polkadotNetwork.isConnecting;
-    address = polkadotNetwork.address;
-    balance = polkadotNetwork.balance;
-    currencyTicker = polkadotNetwork.currencyTicker;
-    selfCustodyParameter = polkadotNetwork.selfCustodyParameter;
-    decimals = polkadotNetwork.decimals;
-    price = polkadotNetwork.price;
-    isMainnet = polkadotMainnet;
-    networkBanner = polkadotNetwork.networkLogo;
   } else if (network === "tempo") {
     networkName = tempoNetwork.networkName;
     connected = tempoNetwork.connected;
@@ -271,12 +235,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         setter: setBitcoinMainnet,
       },
       {
-        key: "hedera",
-        isMainnet: hederaMainnet,
-        params: hederaNetwork.selfCustodyParameter as any,
-        setter: setHederaMainnet,
-      },
-      {
         key: "ethereum",
         isMainnet: ethereumMainnet,
         params: ethereumNetwork.selfCustodyParameter as any,
@@ -287,12 +245,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         isMainnet: solanaMainnet,
         params: solanaNetwork.selfCustodyParameter as any,
         setter: setSolanaMainnet,
-      },
-      {
-        key: "polkadot",
-        isMainnet: polkadotMainnet,
-        params: polkadotNetwork.selfCustodyParameter as any,
-        setter: setPolkadotMainnet,
       },
       {
         key: "tempo",
@@ -345,16 +297,12 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
   }, [
     network,
     bitcoinMainnet,
-    hederaMainnet,
     ethereumMainnet,
     solanaMainnet,
-    polkadotMainnet,
     tempoMainnet,
     bitcoinNetwork,
-    hederaNetwork,
     ethereumNetwork,
     solanaNetwork,
-    polkadotNetwork,
     tempoNetwork,
     hyperliquidMainnet,
     hyperliquidNetwork,
@@ -484,15 +432,13 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
       let localLogo = null;
       if (network === "bitcoin") localLogo = bitcoin;
       if (network === "ethereum") localLogo = ethereum;
-      if (network === "hedera") localLogo = hedera;
-      if (network === "polkadot") localLogo = isMainnet ? polkadot : paseo;
       if (network === "tempo") localLogo = networkBanner;
       if (network === "hyperliquid") localLogo = networkBanner;
       if (network === "robinhood") localLogo = networkBanner;
       if (network === "base") localLogo = networkBanner;
       if (network === "arbitrum") localLogo = networkBanner;
 
-      const localName = network === "polkadot" && !isMainnet ? "Paseo" : networkName;
+      const localName = networkName;
 
       return [
         {
@@ -865,8 +811,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           bitcoin: bitcoinNetwork,
           ethereum: ethereumNetwork,
           solana: solanaNetwork,
-          hedera: hederaNetwork,
-          polkadot: polkadotNetwork,
           tempo: tempoNetwork,
           hyperliquid: hyperliquidNetwork,
           robinhood: robinhoodNetwork,
@@ -908,12 +852,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const ref = urlParams.get("ref");
-
-    if (ref) {
-      localStorage.setItem("paradapp-ref", ref);
-    }
-
     const urlAmount = urlParams.get("amount");
     if (urlAmount && /^\d+(\.\d+)?$/.test(urlAmount)) {
       setCustomAmount(urlAmount);
@@ -935,12 +873,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
 
     setStatusTxCreated("");
 
-    const refAddress = localStorage.getItem("paradapp-ref")
-      ? localStorage.getItem("paradapp-ref") == address
-        ? undefined
-        : localStorage.getItem("paradapp-ref")
-      : undefined;
-
     setIsProcessing(true);
     try {
       const isQris = selectedPaymentMethod === "qris";
@@ -950,7 +882,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
         tokenType: activeSelectedToken?.symbol || selectedToken?.symbol,
         network: network.toUpperCase(),
         networkEnv: isMainnet ? "MAINNET" : "TESTNET",
-        refAddress: refAddress,
         idrAmount: idrAmount,
         paymentDetails: {
           method: "IDRX",
@@ -992,7 +923,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           tokenType: activeSelectedToken?.symbol || selectedToken?.symbol || "USDC",
           network: network.toString(),
           networkEnv: isMainnet ? "MAINNET" : "TESTNET",
-          refAddress: refAddress || undefined,
           idrAmount: idrAmount,
           paymentDetails: {
             method: "IDRX",
@@ -1028,7 +958,6 @@ function BuyToken({ networkOverride, lockToken, openTxInNewTab = false }: BuyTok
           tokenType: activeSelectedToken?.symbol || selectedToken?.symbol || "USDC",
           network: network.toString(),
           networkEnv: isMainnet ? "MAINNET" : "TESTNET",
-          refAddress: refAddress || undefined,
           idrAmount: idrAmount,
           paymentDetails: {
             method: "IDRX",

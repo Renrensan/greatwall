@@ -11,8 +11,6 @@
  * - Phantom: https://docs.phantom.com/phantom-deeplinks/other-methods/browse
  * - MetaMask: https://github.com/MetaMask/metamask-deeplinks/blob/master/js/index.js
  * - Xverse: https://docs.xverse.app/sats-connect/guides/mobile-integration
- * - SubWallet: no public docs page — format lives in deeplink.subwallet.app's own
- *   generator bundle (js/main.*.js)
  */
 export type WalletBrowseLinkBuilder = (targetUrl: string) => string;
 
@@ -28,9 +26,6 @@ export const METAMASK_BROWSE_LINK: WalletBrowseLinkBuilder = (targetUrl) =>
 
 export const XVERSE_BROWSE_LINK: WalletBrowseLinkBuilder = (targetUrl) =>
   `https://connect.xverse.app/browser?url=${encodeURIComponent(targetUrl)}`;
-
-export const SUBWALLET_BROWSE_LINK: WalletBrowseLinkBuilder = (targetUrl) =>
-  `https://mobile.subwallet.app/browser?url=${encodeURIComponent(targetUrl)}`;
 
 export function isMobileUserAgent(): boolean {
   if (typeof navigator === "undefined") return false;

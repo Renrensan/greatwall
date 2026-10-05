@@ -13,10 +13,8 @@ import QRCode from "qrcode";
 import { logos, mandiri, bri, bca, bni, permata, qris, gopay, ovo, dana, shopeepay, linkaja } from "@/index";
 import Image from "next/image";
 import { SupportedChain } from "@/app/network-provider";
-import { useHederaWallet } from "@/components/hedera/hedera-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
-import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
 import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
@@ -27,10 +25,8 @@ import { useNetwork } from "@/app/network-provider";
 import { Icon } from "@iconify/react";
 import { FaCheckCircle, FaExclamationCircle, FaLink } from "react-icons/fa";
 import { BitcoinConnectButton } from "@/subcomponents/BitcoinConnectButton";
-import { HederaConnectButton } from "@/subcomponents/HederaConnectButton";
 import { EthereumConnectButton } from "@/subcomponents/EthereumConnectButton";
 import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
-import { PolkadotConnectButton } from "@/subcomponents/PolkadotConnectButton";
 import { TempoConnectButton } from "@/subcomponents/TempoConnectButton";
 import { HyperliquidConnectButton } from "@/subcomponents/HyperliquidConnectButton";
 import { RobinhoodConnectButton } from "@/subcomponents/RobinhoodConnectButton";
@@ -231,10 +227,8 @@ export default function VaultTransactionPage() {
   const router = useRouter();
 
   const bitcoinNetwork = useBitcoinWallet();
-  const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
-  const polkadotNetwork = usePolkadotWallet();
   const tempoNetwork = useTempoWallet();
   const hyperliquidNetwork = useHyperliquidWallet();
   const robinhoodNetwork = useRobinhoodWallet();
@@ -244,14 +238,10 @@ export default function VaultTransactionPage() {
   const {
     bitcoinMainnet,
     setBitcoinMainnet,
-    hederaMainnet,
-    setHederaMainnet,
     ethereumMainnet,
     setEthereumMainnet,
     solanaMainnet,
     setSolanaMainnet,
-    polkadotMainnet,
-    setPolkadotMainnet,
     tempoMainnet,
     setTempoMainnet,
     hyperliquidMainnet,
@@ -285,11 +275,6 @@ export default function VaultTransactionPage() {
         setter: setBitcoinMainnet,
         name: bitcoinNetwork?.networkName,
       },
-      hedera: {
-        isMainnet: hederaMainnet,
-        setter: setHederaMainnet,
-        name: hederaNetwork?.networkName,
-      },
       ethereum: {
         isMainnet: ethereumMainnet,
         setter: setEthereumMainnet,
@@ -299,11 +284,6 @@ export default function VaultTransactionPage() {
         isMainnet: solanaMainnet,
         setter: setSolanaMainnet,
         name: solanaNetwork?.networkName,
-      },
-      polkadot: {
-        isMainnet: polkadotMainnet,
-        setter: setPolkadotMainnet,
-        name: polkadotNetwork?.networkName,
       },
       tempo: {
         isMainnet: tempoMainnet,
@@ -335,20 +315,16 @@ export default function VaultTransactionPage() {
   }, [
     network,
     bitcoinMainnet,
-    hederaMainnet,
     ethereumMainnet,
     solanaMainnet,
-    polkadotMainnet,
     tempoMainnet,
     hyperliquidMainnet,
     robinhoodMainnet,
     baseMainnet,
     arbitrumMainnet,
     bitcoinNetwork,
-    hederaNetwork,
     ethereumNetwork,
     solanaNetwork,
-    polkadotNetwork,
     tempoNetwork,
     hyperliquidNetwork,
     robinhoodNetwork,
@@ -419,15 +395,9 @@ const handleConfirmSend = async (toAddress: string, amountToken: number) => {
   if (network == "bitcoin") {
     fetchETA = bitcoinNetwork.fetchETA;
     networkExplorer = bitcoinNetwork.networkExplorer;
-  } else if (network == "hedera") {
-    fetchETA = hederaNetwork.fetchETA;
-    networkExplorer = hederaNetwork.networkExplorer;
   } else if (network == "ethereum") {
     fetchETA = ethereumNetwork.fetchETA;
     networkExplorer = ethereumNetwork.networkExplorer;
-  } else if (network == "polkadot") {
-    fetchETA = polkadotNetwork.fetchETA;
-    networkExplorer = polkadotNetwork.networkExplorer;
   } else if (network == "tempo") {
     fetchETA = tempoNetwork.fetchETA;
     networkExplorer = tempoNetwork.networkExplorer;
@@ -476,15 +446,9 @@ let connected, address;
   if (network === "bitcoin") {
     connected = bitcoinNetwork.connected;
     address = bitcoinNetwork.address;
-  } else if (network === "hedera") {
-    connected = hederaNetwork.connected;
-    address = hederaNetwork.address;
   } else if (network === "ethereum") {
     connected = ethereumNetwork.connected;
     address = ethereumNetwork.address;
-  } else if (network === "polkadot") {
-    connected = polkadotNetwork.connected;
-    address = polkadotNetwork.address;
   } else if (network === "tempo") {
     connected = tempoNetwork.connected;
     address = tempoNetwork.address;
@@ -509,14 +473,10 @@ let connected, address;
     switch (network) {
       case "bitcoin":
         return bitcoinNetwork;
-      case "hedera":
-        return hederaNetwork;
       case "ethereum":
         return ethereumNetwork;
       case "solana":
         return solanaNetwork;
-      case "polkadot":
-        return polkadotNetwork;
       case "tempo":
         return tempoNetwork;
       case "hyperliquid":
@@ -530,16 +490,13 @@ let connected, address;
       default:
         return null;
     }
-  }, [network, bitcoinNetwork, hederaNetwork, ethereumNetwork, solanaNetwork, polkadotNetwork, tempoNetwork, hyperliquidNetwork, robinhoodNetwork, baseNetwork, arbitrumNetwork]);
+  }, [network, bitcoinNetwork, ethereumNetwork, solanaNetwork, tempoNetwork, hyperliquidNetwork, robinhoodNetwork, baseNetwork, arbitrumNetwork]);
 
   const isAuthorized = useMemo(() => {
     if (!transaction || !activeProvider || !activeProvider.connected)
       return false;
 
-    const connectedAddress =
-      network === "hedera" && activeProvider.resolvedAddress
-        ? activeProvider.resolvedAddress.toLowerCase()
-        : activeProvider.address?.toLowerCase();
+    const connectedAddress = activeProvider.address?.toLowerCase();
 
     const txAddress = transaction.walletAddress?.toLowerCase();
 
@@ -957,14 +914,10 @@ let connected, address;
           </div>
           {network === "bitcoin" ? (
             <BitcoinConnectButton />
-          ) : network === "hedera" ? (
-            <HederaConnectButton />
           ) : network === "ethereum" ? (
             <EthereumConnectButton />
           ) : network === "solana" ? (
             <SolanaConnectButton />
-          ) : network === "polkadot" ? (
-            <PolkadotConnectButton />
           ) : network === "tempo" ? (
             <TempoConnectButton />
           ) : network === "hyperliquid" ? (
@@ -1258,14 +1211,10 @@ let connected, address;
 
         {network === "bitcoin" ? (
           <BitcoinConnectButton />
-        ) : network === "hedera" ? (
-          <HederaConnectButton />
         ) : network === "ethereum" ? (
           <EthereumConnectButton />
         ) : network === "solana" ? (
           <SolanaConnectButton />
-        ) : network === "polkadot" ? (
-          <PolkadotConnectButton />
         ) : network === "tempo" ? (
           <TempoConnectButton />
         ) : network === "hyperliquid" ? (

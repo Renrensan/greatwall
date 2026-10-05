@@ -15,11 +15,9 @@ import {
    FaInfoCircle,
 } from 'react-icons/fa';
 
-import { useHederaWallet } from '@/components/hedera/hedera-provider';
 import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
-import { usePolkadotWallet } from '@/components/polkadot/polkadot-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
@@ -27,6 +25,7 @@ import { setTunnelSell } from '@/components/integrator/ipow/tunnel';
 import { TUNNEL_MARGIN_BLOCKS } from '@/components/integrator/ipow/convertMethods';
 import { bitcoinExplorer } from '@/components/integrator/ipow/sdk';
 import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
+import ConvertDetails from '@/subcomponents/ConvertDetails';
 import { Bitcoin } from '@ipow/sdk';
 
 const bitcoinChain = bitcoinExplorer;
@@ -34,10 +33,8 @@ import { SupportedChain, useNetwork } from '@/app/network-provider';
 
 import Button from "@/subcomponents/Button"; 
 import { BitcoinConnectButton } from '@/subcomponents/BitcoinConnectButton';
-import { HederaConnectButton } from '@/subcomponents/HederaConnectButton';
 import { EthereumConnectButton } from '@/subcomponents/EthereumConnectButton';
 import { SolanaConnectButton } from '@/subcomponents/SolanaConnectButton';
-import { PolkadotConnectButton } from '@/subcomponents/PolkadotConnectButton';
 import { BaseConnectButton } from '@/subcomponents/BaseConnectButton';
 import { RobinhoodConnectButton } from '@/subcomponents/RobinhoodConnectButton';
 import { HyperliquidConnectButton } from '@/subcomponents/HyperliquidConnectButton';
@@ -151,11 +148,9 @@ export default function ConvertTransactionPage() {
   const [txid, setTxid] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null); 
   
-  const hederaWallet = useHederaWallet();
   const ethereumWallet = useEthereumWallet();
   const bitcoinWallet = useBitcoinWallet();
   const solanaWallet = useSolanaWallet();
-  const polkadotWallet = usePolkadotWallet();
   const baseWallet = useBaseWallet();
   const robinhoodWallet = useRobinhoodWallet();
   const hyperliquidWallet = useHyperliquidWallet();
@@ -163,25 +158,18 @@ export default function ConvertTransactionPage() {
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
   // here reads ipowDecimals — not each chain's own `.decimals` (wallet balance/transfer
-  // display precision, which only coincidentally matches for hedera/ethereum/solana; see
-  // each provider's ipowDecimals doc comment for why they can diverge, as they do for
-  // Polkadot). Bitcoin is the one exception: it's the settlement side, not an ipow
+  // display precision, which only coincidentally matches for ethereum/solana; see
+  // each provider's ipowDecimals doc comment for why they can diverge). Bitcoin is the one exception: it's the settlement side, not an ipow
   // caller, and its `bitcoinAmount` field is always raw satoshis regardless of the
   // paired native chain, which its own `.decimals` already correctly represents.
   const networkConfigs = useMemo(() => [
       { id:  bitcoinWallet.ipowNetworkId, key: "bitcoin", name: bitcoinWallet.networkName, logo: bitcoinWallet.networkLogo, nativeToken: { symbol: bitcoinWallet.currencyTicker, decimals: bitcoinWallet.decimals, logo: bitcoinWallet.networkLogo } },
-      { id: hederaWallet.ipowNetworkId, key: "hedera", name: hederaWallet.networkName, logo: hederaWallet.networkLogo, nativeToken: { symbol: hederaWallet.currencyTicker, decimals: hederaWallet.ipowDecimals, logo: hederaWallet.networkLogo } },
       { id: ethereumWallet.ipowNetworkId, key: "ethereum", name: ethereumWallet.networkName, logo: ethereumWallet.networkLogo, nativeToken: { symbol: ethereumWallet.currencyTicker, decimals: ethereumWallet.ipowDecimals, logo: ethereumWallet.networkLogo } },
       { id: solanaWallet.ipowNetworkId, key: "solana", name: solanaWallet.networkName, logo: solanaWallet.networkLogo, nativeToken: { symbol: solanaWallet.currencyTicker, decimals: solanaWallet.ipowDecimals, logo: solanaWallet.networkLogo } },
-      // Same treatment as every other chain here (Hedera included): the big icon + name
-      // badge both stay Polkadot's own branding — only the unit text under the amount
-      // (nativeToken.symbol, via currencyTicker) reads "PAS", since that's the actual
-      // testnet ticker ipow convert runs against.
-      { id: polkadotWallet.ipowNetworkId, key: "polkadot", name: polkadotWallet.networkName, logo: polkadotWallet.networkLogo, nativeToken: { symbol: polkadotWallet.currencyTicker, decimals: polkadotWallet.ipowDecimals, logo: polkadotWallet.networkLogo } },
       { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
       { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
       { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
-    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
+    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
   );
 
   const activeProvider: any = useMemo(() => {
@@ -190,16 +178,14 @@ export default function ConvertTransactionPage() {
         : network;
 
     switch(effectiveNetwork) {
-        case 'hedera': return hederaWallet;
         case 'ethereum': return ethereumWallet;
         case 'solana': return solanaWallet;
-        case 'polkadot': return polkadotWallet;
         case 'base': return baseWallet;
         case 'robinhood': return robinhoodWallet;
         case 'hyperliquid': return hyperliquidWallet;
         default: return ethereumWallet;
     }
-  }, [network, linkedParam, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
+  }, [network, linkedParam, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
 
   const [conversion, setConversion] = useState<any>(null);
   const [partnerConversion, setPartnerConversion] = useState<any>(null); 
@@ -215,19 +201,15 @@ export default function ConvertTransactionPage() {
 
   const {
     bitcoinMainnet, setBitcoinMainnet,
-    hederaMainnet, setHederaMainnet,
     ethereumMainnet, setEthereumMainnet,
-    solanaMainnet, setSolanaMainnet,
-    polkadotMainnet, setPolkadotMainnet
+    solanaMainnet, setSolanaMainnet
   } = useNetwork();
 
   const mismatches = useMemo(() => {
     const checks = [
       { name: bitcoinWallet.networkName, current: bitcoinMainnet, required: bitcoinWallet.ipowConvert, setter: setBitcoinMainnet },
-      { name: hederaWallet.networkName, current: hederaMainnet, required: hederaWallet.ipowConvert, setter: setHederaMainnet },
       { name: ethereumWallet.networkName, current: ethereumMainnet, required: ethereumWallet.ipowConvert, setter: setEthereumMainnet },
       { name: solanaWallet.networkName, current: solanaMainnet, required: solanaWallet.ipowConvert, setter: setSolanaMainnet },
-      { name: polkadotWallet.networkName, current: polkadotMainnet, required: polkadotWallet.ipowConvert, setter: setPolkadotMainnet },
     ];
     return checks.filter(c => {
       if (c.required === 'comingsoon') return false;
@@ -235,9 +217,9 @@ export default function ConvertTransactionPage() {
       return c.current !== isRequiredMainnet;
     });
   }, [
-      bitcoinMainnet, hederaMainnet, ethereumMainnet, solanaMainnet, polkadotMainnet,
-      bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet,
-      setBitcoinMainnet, setHederaMainnet, setEthereumMainnet, setSolanaMainnet, setPolkadotMainnet
+      bitcoinMainnet, ethereumMainnet, solanaMainnet,
+      bitcoinWallet, ethereumWallet, solanaWallet,
+      setBitcoinMainnet, setEthereumMainnet, setSolanaMainnet
   ]);
   
   const isAllFulfilled = mismatches.length === 0;
@@ -274,7 +256,7 @@ export default function ConvertTransactionPage() {
             } catch (e) { isMatch = false; }
         }
     } else {
-        const activeAddress = (network == "hedera" || network == "polkadot") && activeProvider?.resolvedAddress ? activeProvider?.resolvedAddress : activeProvider.address?.toLowerCase();
+        const activeAddress = activeProvider.address?.toLowerCase();
         const activeConnected = activeProvider.connected;
 
         if (activeConnected && activeAddress) {
@@ -295,7 +277,6 @@ export default function ConvertTransactionPage() {
     conversion, 
     network,
     activeProvider,
-    hederaWallet.address, hederaWallet.connected,
     ethereumWallet.address, ethereumWallet.connected,
     bitcoinWallet.address, bitcoinWallet.connected
   ]);
@@ -471,10 +452,8 @@ export default function ConvertTransactionPage() {
         const isNativeToNative = partnerId !== 0;
 
         const getProviderById = (id: number) => {
-            if (id === hederaWallet.ipowNetworkId) return hederaWallet;
             if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
             if (id === solanaWallet.ipowNetworkId) return solanaWallet;
-            if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
             if (id === baseWallet.ipowNetworkId) return baseWallet;
             if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
             if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
@@ -596,7 +575,10 @@ export default function ConvertTransactionPage() {
             lastHeight: windowRes[2]
         } : { headersStarted: false, windowStartHeight: 0, lastHeight: 0 };
 
-        const anchorHeight = (anchorRes && anchorRes[0]) ? anchorRes[0].toString() : null;
+        // The new protocol's anchor: the block before the payment blocks (a
+        // buy) or the payment window (a tunnel's sale).
+        const anchorFromSwap: number | null = localData.payBlocks ? localData.payBlocks.first - 1 : localData.swap?.payWindow ? localData.swap.payWindow.first - 1 : null;
+        const anchorHeight = (anchorRes && anchorRes[0]) ? anchorRes[0].toString() : anchorFromSwap ? String(anchorFromSwap) : null;
         const epochFirstHeight = (anchorRes && anchorRes[1]) ? anchorRes[1].toString() : null;
         
         let epochFirstHash = null;
@@ -635,6 +617,32 @@ export default function ConvertTransactionPage() {
             }
         }
 
+        // The new protocol streams no headers per swap: the strip shows the
+        // Bitcoin blocks from the anchor up, as the explorers have them. The
+        // light client accepted the anchor and the proof's block; the rest
+        // show where Bitcoin stands against the payment blocks.
+        let windows = localWindows;
+        if (!windows.headersStarted && anchorFromSwap) {
+            const tipNow = await bitcoinChain.tip().catch(() => null);
+            if (tipNow) {
+                const windowEnd = localData.payBlocks?.last ?? localData.swap?.payWindow?.last ?? anchorFromSwap + 12;
+                const last = Math.min(tipNow, Math.max(windowEnd, Number(localProof?.blockHeight ?? 0)));
+                const heights: number[] = [];
+                for (let h = anchorFromSwap; h <= last; h++) heights.push(h);
+                const got = await Promise.all(heights.map(async (h) => {
+                    const k = String(h);
+                    if (headerCache.current[k]) return { height: k, hashLE: headerCache.current[k] };
+                    const display = await bitcoinChain.blockHashAt(h).catch(() => null);
+                    if (!display) return { height: k, hashLE: null as string | null };
+                    const hashLE = "0x" + (display.match(/../g) ?? []).reverse().join("");
+                    headerCache.current[k] = hashLE;
+                    return { height: k, hashLE };
+                }));
+                for (const r of got) { if (r.hashLE) headersList.push(r as any); else break; }
+                windows = { headersStarted: headersList.length > 0, windowStartHeight: anchorFromSwap, lastHeight: tipNow };
+            }
+        }
+
         // A buy's payment must be in its payment blocks; nothing else in the
         // new protocol ends at a block (the operator's deadline is a time).
         const depositEndHeight = localData.payBlocks ? String(localData.payBlocks.last) : null;
@@ -655,7 +663,7 @@ export default function ConvertTransactionPage() {
             epochFirstHeight, 
             epochFirstHash, 
             proof: localProof, 
-            windows: localWindows, 
+            windows, 
             headers: [...headersList],
             endpointBlock,
             latestStreamed,
@@ -671,7 +679,7 @@ export default function ConvertTransactionPage() {
     } finally {
         setLoading(false);
     }
-  }, [activeProvider, txIdStr, hederaWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, scriptPubKeyHexToAddress]);
+  }, [activeProvider, txIdStr, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, scriptPubKeyHexToAddress]);
 
 
   useEffect(() => {
@@ -1088,7 +1096,7 @@ export default function ConvertTransactionPage() {
             <Image src={greatwallLogo} alt="Greatwall" className="w-auto h-5"/>
             <span className="text-sm font-bold">Greatwall</span>
           </div>
-            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
+            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
         </div>
 
            <div className="max-w-2xl mx-auto mt-4">
@@ -1172,6 +1180,23 @@ export default function ConvertTransactionPage() {
           address: rawDestAddr, 
           isEstimate: (partnerNetId === 0) ? !isCompleted  : !isDestCompleted 
       };
+      // A tunnel's sale: what it buys is fixed on the other network (the
+      // buy's amount, to the buy's user), known from the buy or the
+      // tunnel's record; not an estimate, and not the old protocol's
+      // "network address" field.
+      const tn = conversion.tunnel?.leg === "sell" ? conversion.tunnel.tunnel : null;
+      if (tn) {
+          const amount = partnerConversion?.nativeAmount ?? tn.amountOut;
+          const decimals = partnerConversion?.tokenDecimals ?? tn.toDecimals ?? partnerNet?.nativeToken.decimals ?? 18;
+          destAsset = {
+              ...destAsset,
+              nativeToken: { ...partnerNet?.nativeToken, symbol: partnerConversion?.tokenSymbol ?? tn.toSymbol ?? partnerNet?.nativeToken.symbol, decimals },
+              amountRaw: amount,
+              amountFmt: formatAmt(amount, decimals),
+              address: partnerConversion?.user ?? tn.recipient ?? null,
+              isEstimate: false,
+          };
+      }
   } else {
       const rawInput = partnerConversion ? partnerConversion.nativeAmount : conversion.bitcoinAmount;
       const inputDecimals = partnerConversion ? partnerNet?.nativeToken.decimals : bitcoinWallet.decimals;
@@ -1209,17 +1234,6 @@ export default function ConvertTransactionPage() {
 let fromAddressDisplay = sourceAsset.address;
 let toAddressDisplay = destAsset.address;
 
-if (network === "hedera" || network === "polkadot") {
-    const user = activeProvider.address?.toLowerCase();
-    const userEVM = activeProvider.resolvedAddress?.toLowerCase();
-    
-    if (sourceAsset.address?.toLowerCase() === userEVM || sourceAsset.address?.toLowerCase() === user) {
-        fromAddressDisplay = activeProvider.address;
-    }
-    if (destAsset.address?.toLowerCase() === userEVM || destAsset.address?.toLowerCase() === user) {
-        toAddressDisplay = activeProvider.address;
-    }
-}
   if (!isOutbound) {
       if (partnerNetId === 0) {
           // The user's own Bitcoin address, as given when the buy was made
@@ -1236,7 +1250,9 @@ if (network === "hedera" || network === "polkadot") {
   if (isOutbound) {
       if (partnerNetId === 0) {
           try { toAddressDisplay = scriptPubKeyHexToAddress(conversion.userProgram); } catch { toAddressDisplay = "BTC Script"; }
-      } else {
+      } else if (!conversion.tunnel) {
+          // The old protocol named the destination's address in the swap; a
+          // tunnel's destination is the buy's user (destAsset.address).
           toAddressDisplay = decodeNetworkAddress(conversion.networkAddress, partnerNet?.key); 
       }
   }
@@ -1256,7 +1272,7 @@ if (network === "hedera" || network === "polkadot") {
             <span className="text-sm font-bold">Greatwall</span>
           </div>
 
-            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "hedera" ? <HederaConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "polkadot" ? <PolkadotConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
+            {network === "bitcoin" ? <BitcoinConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
         </div>
 
       <div className={`bgBox glass-card p-2 shadow-lg max-w-2xl mx-auto mt-8`}>
@@ -1344,8 +1360,10 @@ if (network === "hedera" || network === "polkadot") {
     const anchorHeight = extraData?.anchorHeight?.toString();
     const epochStartHeight = extraData?.epochFirstHeight?.toString();
     const proofHeight = extraData?.proof?.blockHeight?.toString();
-    const proofEndHeight = (Number(extraData?.anchorHeight) + 40).toString();
-    const depositEndHeight = (Number(extraData?.anchorHeight) + 10).toString();
+    // The new protocol: a payment counts in the 12 blocks after the anchor;
+    // the operator's proof range is 25 blocks plus its confirmations.
+    const proofEndHeight = (Number(extraData?.anchorHeight) + 30).toString();
+    const depositEndHeight = (conversion.payBlocks?.last ?? conversion.swap?.payWindow?.last ?? Number(extraData?.anchorHeight) + 12).toString();
 
     const isProofBlock =  selectedBlockHeight === proofHeight;
     const proofData = extraData.proof;
@@ -1795,6 +1813,16 @@ if (network === "hedera" || network === "polkadot") {
       <Button chain={network} buttonText={busy ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")} onClick={() => withdrawFeeCredit()} disabled={busy} />
     </div>
   )}
+
+  <ConvertDetails
+    network={network as any}
+    explorer={activeProvider?.networkExplorer}
+    conversion={conversion}
+    partner={partnerConversion}
+    partnerChain={(partnerNet0?.key as any) ?? null}
+    partnerExplorer={partnerNet0?.key ? (sourceWalletOf(partnerNet0.key)?.networkExplorer ?? null) : null}
+    locale={locale}
+  />
 
   <div className="w-30 pt-5">
           <Button chain={network} buttonText={t("text105")} onClick={()=>{router.replace(`/${locale}/${network}/convert`);}}></Button>

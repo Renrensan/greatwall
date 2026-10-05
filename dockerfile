@@ -6,7 +6,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 FROM --platform=$BUILDPLATFORM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY .papi ./.papi
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
@@ -16,8 +15,6 @@ COPY . .
 ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-RUN pnpm exec papi
 
 RUN --mount=type=cache,target=/app/.next/cache \
     pnpm run build
@@ -34,7 +31,6 @@ ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.papi ./.papi
 
 EXPOSE 3000
 

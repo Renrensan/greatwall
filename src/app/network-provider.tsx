@@ -3,20 +3,18 @@
 import dynamic from 'next/dynamic'
 import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react'
 
-const PolkadotConnectButton = dynamic(() => import('@/subcomponents/PolkadotConnectButton').then(m => m.PolkadotConnectButton), { ssr: false })
 const BitcoinConnectButton = dynamic(() => import('@/subcomponents/BitcoinConnectButton').then(m => m.BitcoinConnectButton), { ssr: false })
 const EthereumConnectButton = dynamic(() => import('@/subcomponents/EthereumConnectButton').then(m => m.EthereumConnectButton), { ssr: false })
 const SolanaConnectButton = dynamic(() => import('@/subcomponents/SolanaConnectButton').then(m => m.SolanaConnectButton), { ssr: false })
-const HederaConnectButton = dynamic(() => import('@/subcomponents/HederaConnectButton').then(m => m.HederaConnectButton), { ssr: false })
 const TempoConnectButton = dynamic(() => import('@/subcomponents/TempoConnectButton').then(m => m.TempoConnectButton), { ssr: false })
 const HyperliquidConnectButton = dynamic(() => import('@/subcomponents/HyperliquidConnectButton').then(m => m.HyperliquidConnectButton), { ssr: false })
 const RobinhoodConnectButton = dynamic(() => import('@/subcomponents/RobinhoodConnectButton').then(m => m.RobinhoodConnectButton), { ssr: false })
 const BaseConnectButton = dynamic(() => import('@/subcomponents/BaseConnectButton').then(m => m.BaseConnectButton), { ssr: false })
 const ArbitrumConnectButton = dynamic(() => import('@/subcomponents/ArbitrumConnectButton').then(m => m.ArbitrumConnectButton), { ssr: false })
 
-export type SupportedChain = 'polkadot' | 'bitcoin' | 'hedera' | 'ethereum' | 'solana' | 'tempo' | 'hyperliquid' | 'robinhood' | 'base' | 'arbitrum'
+export type SupportedChain = 'bitcoin' | 'ethereum' | 'solana' | 'tempo' | 'hyperliquid' | 'robinhood' | 'base' | 'arbitrum'
 
-export const SUPPORTED_CHAINS: SupportedChain[] = ['polkadot', 'bitcoin', 'hedera', 'ethereum', 'solana', 'tempo', 'hyperliquid', 'robinhood', 'base', 'arbitrum']
+export const SUPPORTED_CHAINS: SupportedChain[] = ['bitcoin', 'ethereum', 'solana', 'tempo', 'hyperliquid', 'robinhood', 'base', 'arbitrum']
 export const DEFAULT_CHAIN: SupportedChain = 'solana'
 const PREFERRED_CHAIN_KEY = 'preferred-default-chain'
 
@@ -50,12 +48,8 @@ interface NetworkContextType {
   preferredChain: SupportedChain
   setPreferredChain: (chain: SupportedChain) => void
 
-  polkadotMainnet: boolean
-  setPolkadotMainnet: (val: boolean) => void
   bitcoinMainnet: boolean
   setBitcoinMainnet: (val: boolean) => void
-  hederaMainnet: boolean
-  setHederaMainnet: (val: boolean) => void
   ethereumMainnet: boolean
   setEthereumMainnet: (val: boolean) => void
   solanaMainnet: boolean
@@ -125,14 +119,8 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
     preferredChain,
     setPreferredChain,
 
-    polkadotMainnet: isMainnet('polkadot'),
-    setPolkadotMainnet: (val: boolean) => updateNetwork('polkadot', val),
-
     bitcoinMainnet: isMainnet('bitcoin'),
     setBitcoinMainnet: (val: boolean) => updateNetwork('bitcoin', val),
-    
-    hederaMainnet: isMainnet('hedera'),
-    setHederaMainnet: (val: boolean) => updateNetwork('hedera', val),
     
     ethereumMainnet: isMainnet('ethereum'),
     setEthereumMainnet: (val: boolean) => updateNetwork('ethereum', val),
@@ -176,16 +164,12 @@ export function DynamicConnectButton({
   const { selectedChain } = useNetwork()
 
   switch (selectedChain) {
-    case 'polkadot':
-      return <PolkadotConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'bitcoin':
       return <BitcoinConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'ethereum':
       return <EthereumConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'solana':
       return <SolanaConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
-    case 'hedera':
-      return <HederaConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'tempo':
       return <TempoConnectButton isOpen={isOpen} setIsOpen={setIsOpen} />
     case 'hyperliquid':

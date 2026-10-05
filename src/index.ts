@@ -4,10 +4,6 @@ import greatwallLogo from "@/assets/greatwall-logo.png";
 import bitcoin from "@/assets/bitcoin.png";
 import phantom from "@/assets/phantom.png";
 import xverse from "@/assets/xverse.svg";
-import subwallet from "@/assets/subwallet.png";
-
-import talisman from "@/assets/talisman.png";
-import paseo from "@/assets/paseo.png";
 import permata from "@/assets/permata.jpg";
 import mandiri from "@/assets/mandiri.jpg";
 import bni from "@/assets/bni.jpg";
@@ -21,8 +17,6 @@ import ovo from "@/assets/ovo.png";
 import shopeepay from "@/assets/shopeepay.png";
 
 import bitcoinnetwork from "@/assets/bitcoin-network.png";
-import hederanetwork from "@/assets/hedera-network.png";
-import hedera from "@/assets/hedera.png";
 
 import ethereum from "@/assets/ethereum.png";
 import ethereumnetwork from "@/assets/ethereum-network.png";
@@ -31,9 +25,6 @@ import ethereumnetwork from "@/assets/ethereum-network.png";
 import solana from "@/assets/solana.png";
 import solananetwork from "@/assets/solana-network.png";
 
-
-import polkadot from "@/assets/polkadot.png";
-import polkadotnetwork from "@/assets/polkadot-network.png";
 
 import temponetwork from "@/assets/tempo-network.svg";
 
@@ -50,9 +41,6 @@ import arbitrumnetwork from "@/assets/arbitrum-network.png";
 
 
 import metamask from "@/assets/metamask.png";
-import hashpack from "@/assets/hashpack.png";
-import hederahashgraph from "@/assets/hedera-hashgraph.png";
-import hederastakebanner from "@/assets/hedera-stake-banner.png";
 import marinadesolanastakebanner from "@/assets/msol-stake-banner.webp";
 import solanastakebanner from "@/assets/solana-stake-banner.webp";
 import usdcstakebanner from "@/assets/usdc-stake-banner.webp";
@@ -88,7 +76,6 @@ import msoltoken from "@/assets/msol-token-coin.webp";
 
 import bgdAppEthereum from "@/assets/stake-bg-ethereum.webp";
 import bgdAppSolana from "@/assets/stake-bg-solana.webp"
-import bgdAppHedera from "@/assets/stake-bg-hedera.webp";
 
 import betaIcon from "@/assets/beta-icon.svg";
 import sketchyCoins from "@/assets/sketchy-coins.png";
@@ -114,7 +101,6 @@ export {
   betaIcon,
   bgdAppEthereum,
   bgdAppSolana,
-  bgdAppHedera,
   msoltoken,
   marinadesol,
   usdc,
@@ -138,7 +124,6 @@ export {
   icon_cross_chain,
   icon_self_custody,
   icon_validator,
-  hederastakebanner,
   marinadesolanastakebanner,
   solanastakebanner,
   usdcstakebanner
@@ -146,16 +131,11 @@ export {
 };
 export {
   walletconnect,
-  hederahashgraph,
-  hashpack,
   metamask,
   ethereum,
   ethereumnetwork,
   solana,
   solananetwork,
-  hederanetwork,
-  hedera,
-  polkadotnetwork,
   bitcoinnetwork,
   temponetwork,
   hyperliquid,
@@ -179,11 +159,7 @@ export {
   qris,
   phantom,
   xverse,
-  subwallet,
-  talisman,
   logos,
   greatwallLogo,
-  bitcoin,
-  polkadot,
-  paseo
+  bitcoin
 };

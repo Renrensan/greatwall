@@ -99,3 +99,15 @@ export async function detectEvmWallets(): Promise<{ metamask: boolean; phantom: 
   ]);
   return { metamask: !!metamaskProvider, phantom: !!phantomProvider };
 }
+
+/** The wallet's own error code (EIP-1193: 4001 rejected, 4902 chain not
+ *  added), whether it comes bare or wrapped by ethers (`error.error`,
+ *  `error.info.error`) or by MetaMask (`data.originalError`). */
+export function walletErrorCode(e: any): number | undefined {
+  for (const c of [e?.code, e?.error?.code, e?.info?.error?.code, e?.data?.originalError?.code, e?.error?.data?.originalError?.code])
+    if (typeof c === "number") return c;
+  return undefined;
+}
+
+/** Whether the wallet's user declined a prompt. */
+export const walletRejected = (e: any): boolean => walletErrorCode(e) === 4001 || e?.code === "ACTION_REJECTED";

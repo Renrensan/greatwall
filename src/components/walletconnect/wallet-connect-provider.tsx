@@ -7,7 +7,6 @@ import { BitcoinAdapter } from '@reown/appkit-adapter-bitcoin';
 import { PROJECT_ID } from './config/constants';
 import { ReactNode } from 'react';
 import { SolanaAdapter } from '@reown/appkit-adapter-solana';
-import { HederaAdapter, HederaChainDefinition, hederaNamespace } from '@hashgraph/hedera-wallet-connect';
 
 const metadata = {
   name: "Paradapp",
@@ -20,28 +19,14 @@ const metadata = {
 };
 
 
-// Native Hedera adapter (`hedera` namespace) — the `eip155` variant is deliberately not
-// wired here: the package's own types mark it deprecated in favor of `WagmiAdapter`, and
-// Hedera's EVM side already connects directly via MetaMask (evm-wallet-detection.ts),
-// untouched by this. See hedera-provider.tsx for the migration this replaces (a standalone
-// DAppConnector spinning up its own WalletConnect Core client under this same PROJECT_ID,
-// which raced with this shared appKit client and caused WalletConnect init errors).
-const hederaAdapter = new HederaAdapter({
-  projectId: PROJECT_ID,
-  networks: [HederaChainDefinition.Native.Mainnet, HederaChainDefinition.Native.Testnet],
-  namespace: hederaNamespace,
-});
-
 export const appKit = createAppKit({
-  adapters: [new EthersAdapter(), new BitcoinAdapter(), new SolanaAdapter(), hederaAdapter],
+  adapters: [new EthersAdapter(), new BitcoinAdapter(), new SolanaAdapter()],
   networks: [
     mainnet,
     sepolia,
     bitcoin,
     solana,
     solanaDevnet,
-    HederaChainDefinition.Native.Mainnet,
-    HederaChainDefinition.Native.Testnet,
   ],
   defaultNetwork: sepolia,
   projectId: PROJECT_ID,

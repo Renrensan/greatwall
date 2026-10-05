@@ -11,13 +11,10 @@ import {
     FaWallet
 } from 'react-icons/fa';
 import Image from "next/image";
-import { paseo } from "@/index";
 
-import { useHederaWallet } from '@/components/hedera/hedera-provider';
 import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
-import { usePolkadotWallet } from '@/components/polkadot/polkadot-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
@@ -47,34 +44,27 @@ export default function ConvertHistory() {
 
   const locale = params.locale as string;
 
-  const hederaWallet = useHederaWallet();
   const ethereumWallet = useEthereumWallet();
   const bitcoinWallet = useBitcoinWallet();
   const solanaWallet = useSolanaWallet();
-  const polkadotWallet = usePolkadotWallet();
   const baseWallet = useBaseWallet();
   const robinhoodWallet = useRobinhoodWallet();
   const hyperliquidWallet = useHyperliquidWallet();
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
   // here reads ipowDecimals — not each chain's own `.decimals` (wallet balance/transfer
-  // display precision, which only coincidentally matches for hedera/ethereum/solana; see
-  // each provider's ipowDecimals doc comment for why they can diverge, as they do for
-  // Polkadot). Bitcoin is the one exception: it's the settlement side, not an ipow
+  // display precision, which only coincidentally matches for ethereum/solana; see
+  // each provider's ipowDecimals doc comment for why they can diverge). Bitcoin is the one exception: it's the settlement side, not an ipow
   // caller, and its `bitcoinAmount` field is always raw satoshis regardless of the
   // paired native chain, which its own `.decimals` already correctly represents.
   const networkConfigs = useMemo(() => [
       { id:  bitcoinWallet.ipowNetworkId, key: "bitcoin", name: bitcoinWallet.networkName, logo: bitcoinWallet.networkLogo, nativeToken: { symbol: bitcoinWallet.currencyTicker, decimals: bitcoinWallet.decimals, logo: bitcoinWallet.networkLogo } },
-      { id: hederaWallet.ipowNetworkId, key: "hedera", name: hederaWallet.networkName, logo: hederaWallet.networkLogo, nativeToken: { symbol: hederaWallet.currencyTicker, decimals: hederaWallet.ipowDecimals, logo: hederaWallet.networkLogo } },
       { id: ethereumWallet.ipowNetworkId, key: "ethereum", name: ethereumWallet.networkName, logo: ethereumWallet.networkLogo, nativeToken: { symbol: ethereumWallet.currencyTicker, decimals: ethereumWallet.ipowDecimals, logo: ethereumWallet.networkLogo } },
       { id: solanaWallet.ipowNetworkId, key: "solana", name: solanaWallet.networkName, logo: solanaWallet.networkLogo, nativeToken: { symbol: solanaWallet.currencyTicker, decimals: solanaWallet.ipowDecimals, logo: solanaWallet.networkLogo } },
-      // The network stays "Polkadot" (logo above) — but ipow convert only ever runs on
-      // its testnet (Paseo), so the token itself (nativeToken.logo) is PAS, not DOT.
-      { id: polkadotWallet.ipowNetworkId, key: "polkadot", name: polkadotWallet.networkName, logo: polkadotWallet.networkLogo, nativeToken: { symbol: polkadotWallet.currencyTicker, decimals: polkadotWallet.ipowDecimals, logo: paseo } },
       { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
       { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
       { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
-    ], [bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
+    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
   );
 
 
@@ -90,10 +80,8 @@ const timeAgo = (timestamp: any) => {
 
 const {
   bitcoinMainnet, setBitcoinMainnet,
-  hederaMainnet, setHederaMainnet,
   ethereumMainnet, setEthereumMainnet,
-  solanaMainnet, setSolanaMainnet,
-  polkadotMainnet, setPolkadotMainnet
+  solanaMainnet, setSolanaMainnet
 } = useNetwork();
 
 
@@ -104,12 +92,6 @@ const mismatches = useMemo(() => {
         current: bitcoinMainnet,
         required: bitcoinWallet.ipowConvert,
         setter: setBitcoinMainnet
-    },
-    {
-        name: hederaWallet.networkName,
-        current: hederaMainnet,
-        required: hederaWallet.ipowConvert,
-        setter: setHederaMainnet
     },
     {
         name: ethereumWallet.networkName,
@@ -123,12 +105,6 @@ const mismatches = useMemo(() => {
         required: solanaWallet.ipowConvert,
         setter: setSolanaMainnet
     },
-    {
-        name: polkadotWallet.networkName,
-        current: polkadotMainnet,
-        required: polkadotWallet.ipowConvert,
-        setter: setPolkadotMainnet
-    },
   ];
 
 
@@ -138,9 +114,9 @@ const mismatches = useMemo(() => {
     return c.current !== isRequiredMainnet;
   });
 }, [
-    bitcoinMainnet, hederaMainnet, ethereumMainnet, solanaMainnet, polkadotMainnet,
-    bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet,
-    setBitcoinMainnet, setHederaMainnet, setEthereumMainnet, setSolanaMainnet, setPolkadotMainnet
+    bitcoinMainnet, ethereumMainnet, solanaMainnet,
+    bitcoinWallet, ethereumWallet, solanaWallet,
+    setBitcoinMainnet, setEthereumMainnet, setSolanaMainnet
 ]);
 
 
@@ -172,17 +148,15 @@ const handleSwitchAll = () => {
 
   const activeProvider: any = useMemo(() => {
       switch (network) {
-          case 'hedera': return hederaWallet;
           case 'ethereum': return ethereumWallet;
           case 'solana': return solanaWallet;
           case 'bitcoin': return bitcoinWallet;
-          case 'polkadot': return polkadotWallet;
           case 'base': return baseWallet;
           case 'robinhood': return robinhoodWallet;
           case 'hyperliquid': return hyperliquidWallet;
-          default: return hederaWallet;
+          default: return ethereumWallet;
       }
-  }, [network, hederaWallet, ethereumWallet, solanaWallet, bitcoinWallet, polkadotWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
+  }, [network, ethereumWallet, solanaWallet, bitcoinWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
 
   // The fees of the user's untaken jobs, held by the protocol: withdrawn in
   // one transaction, apart from any refund.
@@ -268,10 +242,8 @@ const fetchHistory = useCallback(async (showLoader = false) => {
               const currentTx = { ...tx }; 
               
               const getProviderById = (id: number) => {
-                  if (id === hederaWallet.ipowNetworkId) return hederaWallet;
                   if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
                   if (id === solanaWallet.ipowNetworkId) return solanaWallet;
-                  if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
                   if (id === baseWallet.ipowNetworkId) return baseWallet;
                   if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
                   if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
@@ -338,10 +310,8 @@ const fetchHistory = useCallback(async (showLoader = false) => {
           const processedTxs = await Promise.all(linkedTxs.map(async (tx) => {
                if (requestId !== lastFetchId.current) return tx;
               const getProviderById = (id: number) => {
-                  if (id === hederaWallet.ipowNetworkId) return hederaWallet;
                   if (id === ethereumWallet.ipowNetworkId) return ethereumWallet;
                   if (id === solanaWallet.ipowNetworkId) return solanaWallet;
-                  if (id === polkadotWallet.ipowNetworkId) return polkadotWallet;
                   if (id === baseWallet.ipowNetworkId) return baseWallet;
                   if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
                   if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
@@ -443,7 +413,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
       } finally { 
           if (requestId === lastFetchId.current && showLoader) setIsLoading(false); 
       }
-  }, [activeProvider, connected, network, bitcoinWallet, hederaWallet, ethereumWallet, solanaWallet, polkadotWallet]);
+  }, [activeProvider, connected, network, bitcoinWallet, ethereumWallet, solanaWallet]);
   
 useEffect(() => {
 

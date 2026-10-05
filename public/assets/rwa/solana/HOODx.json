@@ -1,0 +1,7 @@
+{
+  "name": "Robinhood xStock (GW Devnet)",
+  "symbol": "HOODx",
+  "description": "Greatwall.finance's test stand-in for Robinhood xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/HOODx",
+  "image": "https://greatwall.finance/assets/rwa/solana/HOODx.png",
+  "external_url": "https://greatwall.finance"
+}

@@ -19,18 +19,20 @@ import { knownBaskets } from "@/components/integrator/ipow/basketList";
 /** Baskets shown, newest first. */
 const SHOWN = 30;
 
-type Card = { key: string; id: string; mix: string; supply: bigint };
+type Card = { key: string; id: string; name: string | null; mix: string; supply: bigint };
+/** A basket's title: the creator's name and symbol (E4), or its number. */
+const titleOf = (c: Card, t: (k: string, v: any) => string) => (c.name ? c.name : t("basketName", { id: c.id }));
 
 async function evmCard(chain: EvmChain, key: string): Promise<Card> {
   const b = await getBasket(readProvider(chain), deploymentOf(chain)!, key);
   const parts = await Promise.all(b.parts.map((p) => tokenInfo(chain, p.token)));
-  return { key, id: String(b.id), supply: b.supply, mix: b.parts.map((p, i) => `${coin(p.amount, parts[i].decimals)} ${parts[i].symbol}`).join(" + ") };
+  return { key, id: String(b.id), name: b.name && b.name !== "BETA" ? `${b.name} (${b.symbol})` : null, supply: b.supply, mix: b.parts.map((p, i) => `${coin(p.amount, parts[i].decimals)} ${parts[i].symbol}`).join(" + ") };
 }
 
 async function solanaCard(address: string): Promise<Card> {
   const b = await solanaBeta(null).getBasket(address);
   const parts = await Promise.all(b.parts.map((p) => solanaToken(p.mint)));
-  return { key: address, id: String(b.id), supply: b.supply, mix: b.parts.map((p, i) => `${coin(p.amount, parts[i].decimals)} ${parts[i].symbol}`).join(" + ") };
+  return { key: address, id: String(b.id), name: b.name && b.name !== "BETA" ? `${b.name} (${b.symbol})` : null, supply: b.supply, mix: b.parts.map((p, i) => `${coin(p.amount, parts[i].decimals)} ${parts[i].symbol}`).join(" + ") };
 }
 
 export default function BetaExplore() {
@@ -99,7 +101,7 @@ export default function BetaExplore() {
                 className="glass-card rounded-md p-4 flex flex-col gap-1 hover:border-stone transition-colors"
               >
                 <span className="font-display font-bold text-sm sm:text-base">
-                  {t("basketName", { id: c.id })} · {shortHash(c.key)}
+                  {titleOf(c, t)} · {shortHash(c.key)}
                 </span>
                 <span className="text-[11px] sm:text-xs text-stone tabular-nums">
                   {c.mix} {t("perBeta")} · {t("supply", { amount: coin(c.supply, 9) })}

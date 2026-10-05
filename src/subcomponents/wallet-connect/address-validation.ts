@@ -4,7 +4,7 @@
 export type AddressErrorReason =
   | "wrong-prefix"
   | "invalid-characters"
-  /** Fixed-length formats (e.g. Ethereum/Hedera-EVM's 42 chars) where under and
+  /** Fixed-length formats (e.g. Ethereum's 42 chars) where under and
    * over show the same message either way. */
   | "wrong-length"
   /** Variable-length formats (Bitcoin, Solana) where under vs. over need
@@ -20,7 +20,7 @@ export type AddressCheckResult = {
   reason: AddressErrorReason;
 };
 
-export type ValidatableNetwork = "bitcoin" | "ethereum" | "solana" | "hedera" | "polkadot" | "tempo" | "hyperliquid" | "robinhood" | "base" | "arbitrum";
+export type ValidatableNetwork = "bitcoin" | "ethereum" | "solana" | "tempo" | "hyperliquid" | "robinhood" | "base" | "arbitrum";
 
 /**
  * Maps a network + failure reason to the specific, existing translation key
@@ -46,15 +46,6 @@ const REASON_MESSAGE_KEYS: Record<ValidatableNetwork, Partial<Record<NonNullable
     "too-short": "text141",
     "too-long": "text308",
     invalid: "text308",
-  },
-  hedera: {
-    "wrong-prefix": "text145",
-    "invalid-characters": "text143",
-    "wrong-length": "text144",
-    invalid: "text309",
-  },
-  polkadot: {
-    invalid: "text310",
   },
   tempo: {
     "wrong-prefix": "text333",

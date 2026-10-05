@@ -9,12 +9,9 @@ import { AllDappProviders } from "@/components/providers/dapp-providers";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
-import { usePolkadotWallet } from "@/components/polkadot/polkadot-provider";
 import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
 import { EthereumConnectButton } from "@/subcomponents/EthereumConnectButton";
 import { BitcoinConnectButton } from "@/subcomponents/BitcoinConnectButton";
-import { HederaConnectButton } from "@/subcomponents/HederaConnectButton";
-import { PolkadotConnectButton } from "@/subcomponents/PolkadotConnectButton";
 import Button from "@/subcomponents/Button";
 import toast from "react-hot-toast";
 import bs58 from "bs58";
@@ -95,7 +92,6 @@ function VerifyContent() {
   const solanaWallet = useSolanaWallet();
   const ethWallet = useEthereumWallet();
   const btcWallet = useBitcoinWallet();
-  const polkadotWallet = usePolkadotWallet();
 
   const [step, setStep] = useState<VerifyStep>("init");
   const [errorMessage, setErrorMessage] = useState("");
@@ -157,11 +153,7 @@ function VerifyContent() {
           ? solanaWallet.address
           : null;
       }
-      if (
-        upperNet === "ETHEREUM" ||
-        upperNet === "EVM" ||
-        upperNet === "HEDERA"
-      ) {
+      if (upperNet === "ETHEREUM" || upperNet === "EVM") {
         return ethWallet.connected && ethWallet.address
           ? ethWallet.address
           : null;
@@ -169,11 +161,6 @@ function VerifyContent() {
       if (upperNet === "BITCOIN") {
         return btcWallet.connected && btcWallet.address
           ? btcWallet.address
-          : null;
-      }
-      if (upperNet === "POLKADOT") {
-        return polkadotWallet.connected && polkadotWallet.address
-          ? polkadotWallet.address
           : null;
       }
       return null;
@@ -185,8 +172,6 @@ function VerifyContent() {
       ethWallet.address,
       btcWallet.connected,
       btcWallet.address,
-      polkadotWallet.connected,
-      polkadotWallet.address,
     ]
   );
 
@@ -230,16 +215,12 @@ function VerifyContent() {
     if (net === "SOLANA") return <SolanaConnectButton />;
     if (net === "ETHEREUM" || net === "EVM") return <EthereumConnectButton />;
     if (net === "BITCOIN") return <BitcoinConnectButton />;
-    if (net === "HEDERA") return <HederaConnectButton />;
-    if (net === "POLKADOT") return <PolkadotConnectButton />;
 
     return (
       <div className="flex flex-wrap items-center justify-center gap-2">
         <SolanaConnectButton />
         <EthereumConnectButton />
         <BitcoinConnectButton />
-        <HederaConnectButton />
-        <PolkadotConnectButton />
       </div>
     );
   }, [isNetworkPending, activeNetwork]);
@@ -341,8 +322,8 @@ function VerifyContent() {
         );
       }
 
-      // 2. Ethereum / EVM / Hedera Target Network
-      if (net === "ETHEREUM" || net === "EVM" || net === "HEDERA") {
+      // 2. Ethereum / EVM Target Network
+      if (net === "ETHEREUM" || net === "EVM") {
         if (ethWallet?.connected && ethWallet?.signMessage) {
           const sig = await ethWallet.signMessage(messageString);
           if (!sig) {
@@ -381,26 +362,6 @@ function VerifyContent() {
         );
       }
 
-      // 4. Polkadot Target Network
-      if (net === "POLKADOT") {
-        if (polkadotWallet?.connected && (polkadotWallet as any)?.signMessage) {
-          const sig = await (polkadotWallet as any).signMessage(messageString);
-          if (!sig) {
-            throw new Error(
-              isId
-                ? "Tanda tangan dompet Polkadot dibatalkan."
-                : "Polkadot wallet signature request was cancelled."
-            );
-          }
-          return sig;
-        }
-        throw new Error(
-          isId
-            ? "Dompet Polkadot tidak terhubung. Harap hubungkan dompet Polkadot Anda."
-            : "Polkadot wallet not connected. Please connect your Polkadot wallet."
-        );
-      }
-
       // General fallback
       if (ethWallet?.connected && ethWallet?.signMessage) {
         const sig = await ethWallet.signMessage(messageString);
@@ -410,10 +371,6 @@ function VerifyContent() {
         const sig = await btcWallet.signMessage(messageString);
         if (sig) return sig.trim();
       }
-      if (polkadotWallet?.connected && (polkadotWallet as any)?.signMessage) {
-        const sig = await (polkadotWallet as any).signMessage(messageString);
-        if (sig) return sig;
-      }
 
       throw new Error(
         isId
@@ -421,7 +378,7 @@ function VerifyContent() {
           : "No wallet connected. Please connect your wallet first."
       );
     },
-    [activeNetwork, solanaWallet, ethWallet, btcWallet, polkadotWallet, isId]
+    [activeNetwork, solanaWallet, ethWallet, btcWallet, isId]
   );
 
   // Handle signing wallet authorization first (Step 1 for intent "new")

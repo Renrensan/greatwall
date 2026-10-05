@@ -15,11 +15,13 @@ import Button from "@/subcomponents/Button";
 import { ComingSoon, ConnectNetworkButton, Field, Notice, Row, accentText, coin, errorText, evmTxLink, shortHash } from "@/subcomponents/ipow/common";
 import { deploymentOf, isEvmChain, readProvider, type EvmChain } from "@/components/integrator/ipow/sdk";
 import { balanceOf, tokenInfo, type TokenInfo } from "@/components/integrator/ipow/tokens";
+import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { isBasketKey, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import SolanaBasketPage from "./SolanaBasketPage";
 
 const ZERO = BigInt(0);
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 /** One whole BETA in its smallest units (BetaBaskets.ONE). */
 const ONE = BigInt(1_000_000_000);
 const BPS = BigInt(10_000);
@@ -42,6 +44,7 @@ function BasketView({ chain }: { chain: EvmChain }) {
 
   const [basket, setBasket] = useState<Basket | null>(null);
   const [infos, setInfos] = useState<TokenInfo[]>([]);
+  const [pending, setPending] = useState<CrossChoice[]>([]);
   const [mine, setMine] = useState<Mine | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [side, setSide] = useState<"mint" | "burn">("mint");
@@ -59,7 +62,18 @@ function BasketView({ chain }: { chain: EvmChain }) {
     try {
       const b = await getBasket(provider, d, key);
       setBasket(b);
-      setInfos(await Promise.all(b.parts.map((p) => tokenInfo(chain, p.token))));
+      // A receipt part not made yet (E5) is named from the vault's assets.
+      const cross = b.parts.some((p) => !p.made) ? await crossChoicesOn(chain).catch(() => [] as CrossChoice[]) : [];
+      setPending(cross);
+      setInfos(
+        await Promise.all(
+          b.parts.map((p) => {
+            if (p.made) return tokenInfo(chain, p.token);
+            const c = cross.find((x) => x.asset === p.asset && x.receipts?.toLowerCase() === p.receipts.toLowerCase());
+            return Promise.resolve({ address: "", symbol: c?.symbol ?? `v#${p.asset}`, decimals: c?.decimals ?? 9 });
+          })
+        )
+      );
       setLoadError(null);
       rememberBasket(d.betaBaskets, key);
       if (wallet.address) {
@@ -67,7 +81,7 @@ function BasketView({ chain }: { chain: EvmChain }) {
         const who = wallet.address;
         const [beta, parts, owed, fees] = await Promise.all([
           balanceOf(chain, b.beta, who),
-          Promise.all(b.parts.map((p) => balanceOf(chain, p.token, who))),
+          Promise.all(b.parts.map((p) => (p.made ? balanceOf(chain, p.token, who) : Promise.resolve(ZERO)))),
           Promise.all(b.parts.map((_, i) => c.owed(key, who, i) as Promise<bigint>)),
           Promise.all(b.parts.map((_, i) => c.fees(key, who, i) as Promise<bigint>)),
         ]);
@@ -132,10 +146,13 @@ function BasketView({ chain }: { chain: EvmChain }) {
         })
       : null;
 
+  const unmade = basket.parts.some((p) => !p.made);
   const problem = !amountUnits
     ? t("enterBeta")
     : side === "mint"
-      ? firstMint && amountUnits % ONE !== ZERO
+      ? unmade
+        ? t("partNotMadeYet")
+        : firstMint && amountUnits % ONE !== ZERO
         ? t("firstMintWhole")
         : quoteError
           ? quoteError
@@ -190,14 +207,49 @@ function BasketView({ chain }: { chain: EvmChain }) {
 
       <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
         <p className="font-bold text-base sm:text-lg">
-          {t("basketName", { id: String(basket.id) })} · {shortHash(key)}
+          {basket.name && basket.name !== "BETA" ? `${basket.name} (${basket.symbol})` : t("basketName", { id: String(basket.id) })} · {shortHash(key)}
         </p>
         <div className="flex flex-col gap-2 text-xs sm:text-sm">
           <p className="font-bold">{firstMint ? t("mixAtFirst") : t("oneBetaHolds")}</p>
           {basket.parts.map((p, i) => (
-            <Row key={p.token} label={infos[i].symbol} value={coin(perBeta[i], infos[i].decimals)} />
+            <Row key={`${p.token}-${i}`} label={infos[i].symbol} value={coin(perBeta[i], infos[i].decimals)} />
           ))}
         </div>
+        {basket.parts.some((p) => p.receipts !== ZERO_ADDRESS) && (
+          <div className="flex flex-col gap-1 text-[11px] sm:text-xs opacity-70 border-t border-black/10 pt-3">
+            {basket.parts.map((p, i) => {
+              if (p.receipts === ZERO_ADDRESS) return null;
+              const c = pending.find((x) => x.asset === p.asset && x.receipts?.toLowerCase() === p.receipts.toLowerCase());
+              const from = c?.from ?? "solana";
+              const fromName = from.charAt(0).toUpperCase() + from.slice(1);
+              const vaults = d.vaults.some((v) => v.receipts.toLowerCase() === p.receipts.toLowerCase());
+              // The Bridge app on Solana locks SOL only so far: a token's
+              // receipt waits for that to be built.
+              const canBridge = from !== "solana" || !c?.home;
+              return (
+                <p key={i} className={vaults ? "" : "text-red-600"}>
+                  {t("receiptVia", { symbol: infos[i].symbol, network: fromName, n: p.asset })} {shortHash(p.receipts)} · {vaults ? t("receiptsIsVault") : t("receiptsNotVault")}
+                  {!p.made && (
+                    <>
+                      {" · "}
+                      {t("waitingBridge", { network: fromName })}
+                      {canBridge ? (
+                        <>
+                          {" "}
+                          <Link href={`/${locale}/${from}/bridge/send${c?.home ? `?token=${c.home}` : ""}`} className="underline">
+                            {t("bridgeIt")}
+                          </Link>
+                        </>
+                      ) : (
+                        ` (${t("tokenBridgeSoon", { network: fromName })})`
+                      )}
+                    </>
+                  )}
+                </p>
+              );
+            })}
+          </div>
+        )}
         <div className="flex flex-col gap-2 text-xs sm:text-sm border-t border-black/10 pt-3">
           <Row label={t("supplyLabel")} value={`${coin(supply, 9)} BETA`} />
           {mine && <Row label={t("yourBeta")} value={`${coin(mine.beta, 9)} BETA`} bold />}

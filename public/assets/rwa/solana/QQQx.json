@@ -1,0 +1,7 @@
+{
+  "name": "Nasdaq xStock (GW Devnet)",
+  "symbol": "QQQx",
+  "description": "Greatwall.finance's test stand-in for Nasdaq xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/QQQx",
+  "image": "https://greatwall.finance/assets/rwa/solana/QQQx.png",
+  "external_url": "https://greatwall.finance"
+}

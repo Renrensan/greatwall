@@ -1,5 +1,7 @@
 "use client";
 
+import toast from "react-hot-toast";
+
 import {
   createContext,
   useContext,
@@ -15,7 +17,9 @@ import { BytesLike, Eip1193Provider, ethers } from "ethers";
 import { useNetwork } from "@/app/network-provider";
 import { temponetwork } from "@/index";
 import { appConfig, TempoWalletContextType, TempoWalletType } from "./config";
-import { getEvmWalletProvider } from "@/subcomponents/wallet-connect/evm-wallet-detection";
+import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
+import { fetchErc20Balances } from "@/components/ethereum/erc20-balances";
+import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
 import { IPOW_CONTRACT_ADDRESS_TESTNET, IPOW_GAS_LIMIT, IPOW_NETWORK_ID } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 import IPOW_ABI_JSON from "../integrator/ipow/evm/abi.json";
@@ -137,7 +141,7 @@ export function TempoProvider({ children }: { children: ReactNode }) {
         { chainId: targetChainIdHex },
       ]);
     } catch (switchError: any) {
-      if (switchError.code === 4902) {
+      if (walletErrorCode(switchError) === 4902) {
         try {
           await prov.send("wallet_addEthereumChain", [
             {
@@ -155,8 +159,10 @@ export function TempoProvider({ children }: { children: ReactNode }) {
             `Your wallet doesn't have ${currentNetworkConfig.network} added. Please add or switch to it manually.`,
           );
         }
-      } else {
+      } else if (walletRejected(switchError)) {
         throw new Error("User rejected network switch");
+      } else {
+        throw new Error(`Could not switch the wallet's network: ${switchError?.shortMessage ?? switchError?.message ?? switchError}`);
       }
     }
   };
@@ -206,6 +212,7 @@ export function TempoProvider({ children }: { children: ReactNode }) {
       }
     } catch (err: any) {
       console.error("Connection Flow Error:", err.message);
+      if (!isAutoConnect && !walletRejected(err)) toast.error(err?.shortMessage ?? err?.message ?? String(err));
     } finally {
       setIsConnecting(false);
     }
@@ -845,11 +852,16 @@ const commitNativeToBitcoin = async (
 const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => {
     if (!address) return;
     try {
-      const [confirmedWei, pendingWei] = await Promise.all([
+      const [confirmedWei, pendingWei, tokens] = await Promise.all([
         readOnlyProvider.getBalance(address, "latest"),
         readOnlyProvider
           .getBalance(address, "pending")
           .catch(() => readOnlyProvider.getBalance(address, "latest")),
+        // The allowlisted ERC-20s the wallet holds (Multicall3 is on Tempo's testnet).
+        fetchErc20Balances(readOnlyProvider, address, VERIFIED_ERC20_TOKENS[netKey]).catch((err) => {
+          console.error("Failed to fetch Tempo ERC-20 balances:", err);
+          return [];
+        }),
       ]);
 
     
@@ -864,13 +876,33 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
       const confirmed = Number(ethers.formatEther(confirmedWei)) || 0;
       const unconfirmed = Number(ethers.formatEther(unconfirmedWei)) || 0;
 
-      setBalance({ confirmed, unconfirmed, fetched: true, tokens: [] });
+      setBalance({ confirmed, unconfirmed, fetched: true, tokens });
     } catch (err) {
       if (signal?.aborted) return;
       console.error("Failed to fetch balance:", err);
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
-  }, [address, currentNetworkConfig.jsonRpcUrl]);
+  }, [address, currentNetworkConfig.jsonRpcUrl, netKey]);
+
+  /** The test RWA tokens' faucet (MockRWA.faucet): a few tokens to the
+   *  wallet, once every few hours; sent as an ordinary transaction, like
+   *  sendTokenTo. */
+  const faucet = async (token: string): Promise<string> => {
+    const signer = await getActiveSigner();
+    const c = new ethers.Contract(token, ["function faucet()", "error FaucetCoolingDown(uint256 nextAt)"], signer);
+    try {
+      const tx = await c.faucet();
+      await tx.wait();
+      fetchBalance().catch(() => {});
+      return tx.hash;
+    } catch (e: any) {
+      // ethers v6 decodes only Error(string) and Panic; the custom error is parsed here.
+      let parsed: any = null;
+      try { parsed = e?.data ? c.interface.parseError(e.data) : null; } catch {}
+      if (parsed?.name === "FaucetCoolingDown") throw new Error(`The faucet gave you some already: again at ${new Date(Number(parsed.args[0]) * 1000).toLocaleTimeString()}`);
+      throw e;
+    }
+  };
 
 const estimateFee = useCallback(async (signal?: AbortSignal) => {
     if (!address) return;
@@ -1227,6 +1259,7 @@ useEffect(() => {
         switchWallet,
         signMessage,
         sendTokenTo,
+        faucet,
         checkAddress,
         isValidAddress,
         fetchETA,

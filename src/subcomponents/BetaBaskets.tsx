@@ -81,7 +81,7 @@ export default function BetaBaskets({ chain }: { chain: EvmChain }) {
                 className="glass-card rounded-2xl p-4 flex flex-col gap-1 hover:opacity-90 transition-opacity"
               >
                 <span className="font-bold text-sm sm:text-base">
-                  {t("basketName", { id: r.basket ? String(r.basket.id) : "?" })} · {shortHash(r.key)}
+                  {r.basket && r.basket.name && r.basket.name !== "BETA" ? `${r.basket.name} (${r.basket.symbol})` : t("basketName", { id: r.basket ? String(r.basket.id) : "?" })} · {shortHash(r.key)}
                 </span>
                 {r.basket ? (
                   <span className="text-[11px] sm:text-xs opacity-70 tabular-nums">

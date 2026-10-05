@@ -1,9 +1,7 @@
 import type { StaticImageData } from "next/image";
-import { phantom, xverse, metamask, walletconnect, polkadot, talisman, subwallet } from "@/index";
+import { phantom, xverse, metamask, walletconnect } from "@/index";
 import type { BitcoinWalletType } from "@/components/bitcoin/config/type";
 import type { EthereumWalletType } from "@/components/ethereum/config/type";
-import type { HederaWalletType } from "@/components/hedera/config/type";
-import type { PolkadotWalletType } from "@/components/polkadot/config/type";
 import type { HyperliquidWalletType } from "@/components/hyperliquid/config/type";
 import type { RobinhoodWalletType } from "@/components/robinhood/config/type";
 import type { BaseWalletType } from "@/components/base/config/type";
@@ -12,8 +10,7 @@ import type { ArbitrumWalletType } from "@/components/arbitrum/config/type";
 /**
  * Universal rule across every chain: an injected/expected wallet shows its own
  * bundled icon; anything connected via WalletConnect shows the generic WalletConnect
- * icon, regardless of which wallet the user picked inside that modal. Polkadot has no
- * WalletConnect path today, so all three of its wallet types get their own icon.
+ * icon, regardless of which wallet the user picked inside that modal.
  */
 export const BITCOIN_WALLET_ICONS: Record<BitcoinWalletType, StaticImageData> = {
   phantom,
@@ -25,18 +22,6 @@ export const ETHEREUM_WALLET_ICONS: Record<EthereumWalletType, StaticImageData> 
   phantom,
   metamask,
   walletconnect,
-};
-
-export const HEDERA_WALLET_ICONS: Record<HederaWalletType, StaticImageData> = {
-  metamask,
-  walletconnect,
-  walletconnect_evm: walletconnect,
-};
-
-export const POLKADOT_WALLET_ICONS: Record<PolkadotWalletType, StaticImageData> = {
-  "polkadot-js": polkadot,
-  talisman,
-  "subwallet-js": subwallet,
 };
 
 export const HYPERLIQUID_WALLET_ICONS: Record<HyperliquidWalletType, StaticImageData> = {

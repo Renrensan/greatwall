@@ -3,7 +3,6 @@
 import { useParams } from 'next/navigation';
 import { SupportedChain } from '@/app/network-provider';
 import { useBitcoinWallet } from '@/components/bitcoin/bitcoin-provider';
-import { useHederaWallet } from '@/components/hedera/hedera-provider';
 import { useEthereumWallet } from '@/components/ethereum/ethereum-provider';
 import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { useTempoWallet } from '@/components/tempo/tempo-provider';
@@ -22,7 +21,6 @@ const HeadlineConvert = () => {
 
 
   const bitcoinNetwork = useBitcoinWallet();
-  const hederaNetwork = useHederaWallet();
   const ethereumNetwork = useEthereumWallet();
   const solanaNetwork = useSolanaWallet();
   const tempoNetwork = useTempoWallet();
@@ -37,9 +35,6 @@ const HeadlineConvert = () => {
   if (network === 'bitcoin') {
     networkName = bitcoinNetwork.networkName;
     networkDescription = bitcoinNetwork.networkDescription;
-  } else if (network === 'hedera') {
-    networkName = hederaNetwork.networkName;
-    networkDescription = hederaNetwork.networkDescription;
   } else if (network === 'ethereum') {
     networkName = ethereumNetwork.networkName;
     networkDescription = ethereumNetwork.networkDescription;

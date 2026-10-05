@@ -1,5 +1,7 @@
 "use client";
 
+import toast from "react-hot-toast";
+
 import {
   createContext,
   useContext,
@@ -15,7 +17,7 @@ import { ethers } from "ethers";
 import { useNetwork } from "@/app/network-provider";
 import { arbitrumnetwork } from "@/index";
 import { appConfig, ArbitrumWalletContextType, ArbitrumWalletType } from "./config";
-import { getEvmWalletProvider } from "@/subcomponents/wallet-connect/evm-wallet-detection";
+import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
 import { fetchErc20Balances } from "@/components/ethereum/erc20-balances";
@@ -142,7 +144,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
     try {
       await prov.send("wallet_switchEthereumChain", [{ chainId: targetChainIdHex }]);
     } catch (switchError: any) {
-      if (switchError.code === 4902) {
+      if (walletErrorCode(switchError) === 4902) {
         try {
           await prov.send("wallet_addEthereumChain", [
             {
@@ -158,8 +160,10 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
             `Your wallet doesn't have ${isMainnet ? "Arbitrum One" : "Arbitrum Sepolia"} added. Please add or switch to it manually.`,
           );
         }
-      } else {
+      } else if (walletRejected(switchError)) {
         throw new Error("User rejected network switch");
+      } else {
+        throw new Error(`Could not switch the wallet's network: ${switchError?.shortMessage ?? switchError?.message ?? switchError}`);
       }
     }
   };
@@ -194,6 +198,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
       }
     } catch (err: any) {
       console.error("Connection Flow Error:", err.message);
+      if (!isAutoConnect && !walletRejected(err)) toast.error(err?.shortMessage ?? err?.message ?? String(err));
     } finally {
       setIsConnecting(false);
     }

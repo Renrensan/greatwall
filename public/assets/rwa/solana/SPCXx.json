@@ -1,0 +1,7 @@
+{
+  "name": "SpaceX xStock (GW Devnet)",
+  "symbol": "SPCXx",
+  "description": "Greatwall.finance's test stand-in for SpaceX xStock on Solana devnet: no backing, no value. See https://app.rwa.xyz/assets/SPCXx",
+  "image": "https://greatwall.finance/assets/rwa/solana/SPCXx.png",
+  "external_url": "https://greatwall.finance"
+}

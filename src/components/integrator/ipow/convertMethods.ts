@@ -339,17 +339,13 @@ export function evmConvertMethods(ctx: ConvertContext) {
      * job fees: `amount` (smallest units) of the coin or of `token` for
      * `sats`, at the operator's quote. The user's own address receives it.
      */
-    tunnelBuy: async (o: { token?: string; amount: bigint; sats: bigint }): Promise<bigint> => {
+    tunnelBuy: async (o: { token?: string; amount: bigint; sats: bigint; memo: string }): Promise<bigint> => {
       const signer = await ctx.getSigner();
       const quote = await quoteSwap(read(), d);
-      const { swapId, txHash } = await buy(signer, d, quote, { token: o.token && o.token !== NATIVE ? o.token : undefined, amount: o.amount, sats: o.sats });
+      const { swapId, txHash } = await buy(signer, d, quote, { token: o.token && o.token !== NATIVE ? o.token : undefined, amount: o.amount, sats: o.sats, memo: o.memo });
       made.set(txHash, swapId);
       return swapId;
     },
-
-    /** The wallet's plain-message signature (EIP-191), with which the user
-     *  shows a buy is theirs. */
-    signTunnel: async (message: string): Promise<string> => (await ctx.getSigner()).signMessage(message),
 
     /** Buys `amount` of the coin, or of `token`, for `sats`. The user pays
      *  once an operator locks the coin and names its address. */
@@ -526,8 +522,10 @@ export function evmConvertMethods(ctx: ConvertContext) {
         await tx.wait();
         return tx.hash;
       } catch (e: any) {
-        const next = e?.revert?.args?.[0] ?? e?.errorArgs?.[0];
-        if (next !== undefined) throw new Error(`The faucet gave you some already: again at ${new Date(Number(next) * 1000).toLocaleTimeString()}`);
+        // ethers v6 decodes only Error(string) and Panic; the custom error is parsed here.
+        let parsed: any = null;
+        try { parsed = e?.data ? c.interface.parseError(e.data) : null; } catch {}
+        if (parsed?.name === "FaucetCoolingDown") throw new Error(`The faucet gave you some already: again at ${new Date(Number(parsed.args[0]) * 1000).toLocaleTimeString()}`);
         throw e;
       }
     },
@@ -596,7 +594,6 @@ export const NO_CONVERT: ConvertMethods = {
   checkPayable: async () => ({ ok: false, reason: "Convert is not open on this network yet" }),
   tunnelSell: notHere,
   tunnelBuy: notHere,
-  signTunnel: notHere,
   sellPaying: async () => null,
   faucet: notHere,
   feeCredit: async () => BigInt(0),

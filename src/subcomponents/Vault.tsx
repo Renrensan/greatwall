@@ -5,32 +5,22 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import Assets from "./Assets";
-import HeadlineVault from "./HeadlineVault";
-import BuyToken from "./BuyToken";
-import BuyHistory from "./History";
-import Link from "next/link";
-import BridgeSend from "./BridgeSend";
-import { BridgeSendSolana } from "./BridgeSolana";
-import { ComingSoon } from "./ipow/common";
-import { isEvmChain } from "@/components/integrator/ipow/sdk";
+import PortfolioBeta from "./PortfolioBeta";
 
-// Portfolio: what the wallet holds, buying, moving it to another network
-// (the vault's bridge), and history.
-const VALID_SECTIONS = ["assets", "buy", "move", "history"] as const;
+// Portfolio: the regular assets the wallet holds (with the faucet, convert
+// and send), and the BETA it holds (with the bridge and send). Moving assets
+// to another network is the Bridge app's.
+const VALID_SECTIONS = ["assets", "beta"] as const;
 const DEFAULT_SECTION = "assets";
 
 const vaultTabMap: Record<string, number> = {
   assets: 0,
-  buy: 1,
-  move: 2,
-  history: 3,
+  beta: 1,
 };
 
 const reverseVaultTabMap: Record<number, string> = {
   0: "assets",
-  1: "buy",
-  2: "move",
-  3: "history",
+  1: "beta",
 };
 
 export default function Vault() {
@@ -71,7 +61,6 @@ export default function Vault() {
 
   return (
     <div className="flex flex-col gap-8 ">
-      <HeadlineVault/>
 
 
 <div className="flex justify-between rounded-md bg-sand p-1 gap-1">
@@ -87,23 +76,14 @@ export default function Vault() {
           isActive ? "font-semibold bg-ink text-snow" : "font-medium text-ink/75 hover:text-ink"
         }`}
       >
-        {sec === "buy" ? t("text249") : sec === "assets" ? t("text30") : sec === "move" ? t("navMove") : t("text11")}
+        {sec === "beta" ? (locale === "en" ? "Beta Asset" : "Aset Beta") : t("text30")}
       </button>
     );
   })}
 </div>
       <div>
         {activeComponent === 0 && <Assets />}
-        {activeComponent === 1 && <BuyToken />}
-        {activeComponent === 2 && (
-          <div className="flex flex-col gap-4">
-            {isEvmChain(network) ? <BridgeSend chain={network} /> : network === "solana" ? <BridgeSendSolana /> : <ComingSoon network={network} app="bridge" />}
-            <Link href={`/${locale}/${network}/bridge/history`} className="text-xs sm:text-sm text-stone hover:text-ink text-right">
-              {t("navTransfers")} →
-            </Link>
-          </div>
-        )}
-        {activeComponent === 3 && <BuyHistory />}
+        {activeComponent === 1 && <PortfolioBeta />}
       </div>
     </div>
   );

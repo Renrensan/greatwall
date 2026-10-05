@@ -301,66 +301,7 @@ export function subscribeOnChainTransfer(params: {
   }
 
   // ------------------------------------------------------------------------
-  // 3. HEDERA (Poll user account first, then operator)
-  // ------------------------------------------------------------------------
-  else if (network === "hedera") {
-    const mirrorBase = isMainnet
-      ? "https://mainnet-public.mirrornode.hedera.com"
-      : "https://testnet.mirrornode.hedera.com";
-
-    const checkHedera = async () => {
-      if (isCleanedUp) return;
-      try {
-        const accountsToPoll = [userAddress, operatorAddress];
-        for (const account of accountsToPoll) {
-          if (!account) continue;
-          const res = await fetch(
-            `${mirrorBase}/api/v1/accounts/${account}/transactions?limit=10&order=desc`,
-          );
-          if (!res.ok) continue;
-          const data = await res.json();
-          const transactions = data.transactions || [];
-
-          for (const tx of transactions) {
-            if (tx.result !== "SUCCESS") continue;
-            if (minBlockTimeSec > 0 && tx.consensus_timestamp) {
-              const txSec = parseFloat(tx.consensus_timestamp);
-              if (txSec < minBlockTimeSec) continue;
-            }
-
-            const transfers = tx.transfers || [];
-            const opTransfer = transfers.find(
-              (tr: any) =>
-                tr.account === operatorAddress && Number(tr.amount) > 0,
-            );
-            if (opTransfer) {
-              const hbarAmt = Number(opTransfer.amount) / 1e8;
-              if (Math.abs(hbarAmt - expectedAmount) < 1e-4) {
-                const txHash =
-                  tx.transaction_hash || tx.transaction_id || "";
-                triggerDetected({
-                  txHash,
-                  amount: hbarAmt,
-                  from: userAddress,
-                  to: operatorAddress,
-                });
-                return;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Hedera check error:", e);
-      }
-    };
-
-    checkHedera();
-    const hederaInterval = setInterval(checkHedera, 3000);
-    cleanups.push(() => clearInterval(hederaInterval));
-  }
-
-  // ------------------------------------------------------------------------
-  // 4. ETHEREUM / POLKADOT (Generic Pollers)
+  // 3. ETHEREUM (Generic Pollers)
   // ------------------------------------------------------------------------
   else {
     const checkGeneric = async () => {};
