@@ -1,37 +1,7 @@
-import { NextResponse } from "next/server";
+import { forward } from "../../forward";
 
+// The network's RPC, through the shared forwarder (../../forward.ts): Alchemy first, the
+// public devnet endpoint when Alchemy stays busy.
 export async function POST(request: Request) {
-  const url = process.env.SOLANA_DEVNET_RPC_URL;
-  if (!url)
-    return NextResponse.json(
-      { error: "RPC URL NOT PROVIDED" },
-      { status: 500 },
-    );
-
-  try {
-    const body = await request.json();
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      return NextResponse.json(
-        { error: "Alchemy RPC Error", details: errorData },
-        { status: response.status },
-      );
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Testnet Proxy Error:", error);
-    return NextResponse.json(
-      { error: "Internal RPC Proxy Error" },
-      { status: 500 },
-    );
-  }
+  return forward(request, process.env.SOLANA_DEVNET_RPC_URL, ["https://api.devnet.solana.com"]);
 }

@@ -9,8 +9,7 @@ export interface VerifiedErc20Token {
   logo?: string;
 }
 
-export const VERIFIED_ERC20_TOKENS: Record<"mainnet" | "testnet", VerifiedErc20Token[]> = {
-  mainnet: [],
+export const VERIFIED_ERC20_TOKENS: Record<"testnet", VerifiedErc20Token[]> = {
   testnet: [
     // Greatwall's mock RWA tokens (iPoW repo, deployments/tempo-testnet-rwa.json,
     // 2026-10-05): stand-ins for real tokenized assets, with a faucet in the token itself.

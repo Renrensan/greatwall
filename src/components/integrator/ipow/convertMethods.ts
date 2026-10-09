@@ -18,7 +18,6 @@
 import { Contract, getBytes, hexlify, type Signer } from "ethers";
 import {
   ABIS,
-  Bitcoin,
   addressToScript,
   buy,
   cancelBuy,

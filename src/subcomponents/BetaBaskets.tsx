@@ -44,7 +44,7 @@ export default function BetaBaskets({ chain }: { chain: EvmChain }) {
     };
   }, [chain, d]);
 
-  const go = (key: string) => router.push(`/${locale}/${chain}/beta/transaction/${key.trim()}`);
+  const go = (key: string) => router.push(`/${locale}/${chain}/index/${key.trim()}`);
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,7 +68,7 @@ export default function BetaBaskets({ chain }: { chain: EvmChain }) {
       ) : rows.length === 0 ? (
         <div className="glass-card rounded-2xl p-6 flex flex-col gap-2 text-center text-xs sm:text-sm">
           <p className="opacity-70">{t("noneKnown")}</p>
-          <Link href={`/${locale}/${chain}/beta/create`} className={`font-bold ${accentText(chain)}`}>
+          <Link href={`/${locale}/${chain}/index/create`} className={`font-bold ${accentText(chain)}`}>
             {t("createOne")}
           </Link>
         </div>
@@ -77,7 +77,7 @@ export default function BetaBaskets({ chain }: { chain: EvmChain }) {
           {rows.map((r) => (
             <li key={r.key}>
               <Link
-                href={`/${locale}/${chain}/beta/transaction/${r.key}`}
+                href={`/${locale}/${chain}/index/${r.key}`}
                 className="glass-card rounded-2xl p-4 flex flex-col gap-1 hover:opacity-90 transition-opacity"
               >
                 <span className="font-bold text-sm sm:text-base">

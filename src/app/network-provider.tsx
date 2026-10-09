@@ -27,12 +27,6 @@ export function getPreferredChain(): SupportedChain {
   return saved && SUPPORTED_CHAINS.includes(saved as SupportedChain) ? (saved as SupportedChain) : DEFAULT_CHAIN
 }
 
-export function hasPreferredChain(): boolean {
-  if (typeof window === 'undefined') return false
-  const saved = localStorage.getItem(PREFERRED_CHAIN_KEY)
-  return Boolean(saved && SUPPORTED_CHAINS.includes(saved as SupportedChain))
-}
-
 export function savePreferredChain(chain: SupportedChain) {
   if (typeof window === 'undefined') return
   localStorage.setItem(PREFERRED_CHAIN_KEY, chain)
@@ -43,32 +37,10 @@ interface NetworkContextType {
   selectedChain: SupportedChain
   setSelectedChain: (chain: SupportedChain) => void
 
-  /** The network that opens by default when Paradapp is launched fresh (no
+  /** The network that opens by default when Greatwall is launched fresh (no
    *  network segment in the URL yet) — set via the Select Preferences UI. */
   preferredChain: SupportedChain
   setPreferredChain: (chain: SupportedChain) => void
-
-  bitcoinMainnet: boolean
-  setBitcoinMainnet: (val: boolean) => void
-  ethereumMainnet: boolean
-  setEthereumMainnet: (val: boolean) => void
-  solanaMainnet: boolean
-  setSolanaMainnet: (val: boolean) => void
-  tempoMainnet: boolean
-  setTempoMainnet: (val: boolean) => void
-  hyperliquidMainnet: boolean
-  setHyperliquidMainnet: (val: boolean) => void
-  robinhoodMainnet: boolean
-  setRobinhoodMainnet: (val: boolean) => void
-  baseMainnet: boolean
-  setBaseMainnet: (val: boolean) => void
-  arbitrumMainnet: boolean
-  setArbitrumMainnet: (val: boolean) => void
-
-  /** Generic accessor for code that looks up an arbitrary/dynamic chain (e.g. a switch
-   *  over `network`), instead of hardcoding which of the named fields above to read. */
-  isMainnet: (chain: SupportedChain) => boolean
-  setMainnet: (chain: SupportedChain, val: boolean) => void
 }
 
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined)
@@ -94,12 +66,6 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
     savePreferredChain(chain)
   }
 
-  // Greatwall runs the iPoW protocol's test networks: every network is its
-  // testnet, but Bitcoin, which is always mainnet (the light client accepts
-  // only real Bitcoin). The setters are kept for callers and change nothing.
-  const isMainnet = (chain: SupportedChain) => chain === 'bitcoin'
-  const updateNetwork = (_chain: SupportedChain, _val: boolean) => {}
-
   useEffect(() => {
     if (initialChain && initialChain !== selectedChain) {
       setSelectedChain(initialChain);
@@ -118,33 +84,6 @@ export function NetworkProvider({ children, initialChain }: { children: ReactNod
 
     preferredChain,
     setPreferredChain,
-
-    bitcoinMainnet: isMainnet('bitcoin'),
-    setBitcoinMainnet: (val: boolean) => updateNetwork('bitcoin', val),
-    
-    ethereumMainnet: isMainnet('ethereum'),
-    setEthereumMainnet: (val: boolean) => updateNetwork('ethereum', val),
-    
-    solanaMainnet: isMainnet('solana'),
-    setSolanaMainnet: (val: boolean) => updateNetwork('solana', val),
-
-    tempoMainnet: isMainnet('tempo'),
-    setTempoMainnet: (val: boolean) => updateNetwork('tempo', val),
-
-    hyperliquidMainnet: isMainnet('hyperliquid'),
-    setHyperliquidMainnet: (val: boolean) => updateNetwork('hyperliquid', val),
-
-    robinhoodMainnet: isMainnet('robinhood'),
-    setRobinhoodMainnet: (val: boolean) => updateNetwork('robinhood', val),
-
-    baseMainnet: isMainnet('base'),
-    setBaseMainnet: (val: boolean) => updateNetwork('base', val),
-
-    arbitrumMainnet: isMainnet('arbitrum'),
-    setArbitrumMainnet: (val: boolean) => updateNetwork('arbitrum', val),
-
-    isMainnet,
-    setMainnet: updateNetwork,
   }), [selectedChain, preferredChain])
 
   return (

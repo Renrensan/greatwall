@@ -13,7 +13,7 @@ import {
 import Button from "./Button";
 import ButtonContrast from "./ButtonContrast";
 
-import { SupportedChain, useNetwork } from "@/app/network-provider";
+import { SupportedChain } from "@/app/network-provider";
 import { CONVERT_NETWORK_ORDER, resolveToChain } from "@/components/integrator/ipow/convert-networks";
 import { NATIVE, fromUnits, saveTunnel, toUnits, tunnelAssets, tunnelMemoFor, tunnelQuote, type TunnelAssets } from "@/components/integrator/ipow/tunnel";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
@@ -34,12 +34,13 @@ import { SolanaConnectButton } from "./SolanaConnectButton";
 import { BaseConnectButton } from "./BaseConnectButton";
 import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
-import { IoSwapVertical } from "react-icons/io5";
+import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
 import { AnimatedModal } from "./AnimatedModal";
+import { Caution, FaucetButton, rwaOf, useNotEnoughText, useRwaFaucet } from "./ipow/Faucet";
+import { solanaTokenBalance } from "@/components/integrator/ipow/solanaTokenBalance";
 import { TxPhase, TypeFilter } from "@/components/integrator/ipow/evm/type";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 type Side = "from" | "to";
 
@@ -88,15 +89,6 @@ export default function ConvertToken() {
   const robinhoodWallet = useRobinhoodWallet();
   const baseWallet = useBaseWallet();
   const arbitrumWallet = useArbitrumWallet();
-
-  const {
-    bitcoinMainnet,
-    setBitcoinMainnet,
-    ethereumMainnet,
-    setEthereumMainnet,
-    solanaMainnet,
-    setSolanaMainnet,
-  } = useNetwork();
 
   const networkOptions = useMemo(
     () => [
@@ -366,27 +358,54 @@ export default function ConvertToken() {
   /** What the wallet holds of the token converted: the coin from the
    *  wallet's balance, an ERC-20 read from the chain; null until known. */
   const [fromBalance, setFromBalance] = useState<number | null>(null);
+  /** The balance could not be read: shown as nothing rather than loading forever. */
+  const [fromBalanceFailed, setFromBalanceFailed] = useState(false);
+  /** Bumped after a faucet claim, to read the balance again. */
+  const [faucetRound, setFaucetRound] = useState(0);
   const fromWallet: any = fromChain === "bitcoin" ? bitcoinWallet : walletOf(fromChain);
   const fromOwner: string | null = fromWallet?.connected ? (fromWallet.address ?? null) : null;
+  // Read again after a faucet claim, the shown balance stays until the new
+  // one comes; the skeleton is for a new token or wallet only.
+  const balanceFor = useRef<string | null>(null);
   useEffect(() => {
     let live = true;
-    setFromBalance(null);
+    const key = `${fromChain}:${fromToken}:${fromOwner ?? ""}`;
+    if (balanceFor.current !== key) setFromBalance(null);
+    balanceFor.current = key;
+    setFromBalanceFailed(false);
     if (!fromOwner) return;
     if (fromToken === NATIVE) {
       const b = fromWallet?.balance;
       setFromBalance(Number(b?.sendable ?? b?.confirmed ?? 0));
       return;
     }
-    if (!isEvmChain(fromChain)) return;
-    const decimals = operatorAssets.byChain[fromChain]?.find((a) => a.token === fromToken)?.decimals ?? 18;
+    const decimals = operatorAssets.byChain[fromChain]?.find((a) => a.token === fromToken)?.decimals ?? rwaOf(fromChain, fromToken)?.decimals ?? 18;
+    if (fromChain === "solana") {
+      solanaTokenBalance(fromOwner, fromToken)
+        .then((units) => live && setFromBalance(fromUnits(units, decimals)))
+        .catch(() => live && setFromBalanceFailed(true));
+      return () => {
+        live = false;
+      };
+    }
+    if (!isEvmChain(fromChain)) {
+      setFromBalanceFailed(true);
+      return;
+    }
     balanceOf(fromChain as EvmChain, fromToken, fromOwner)
       .then((units) => live && setFromBalance(fromUnits(units, decimals)))
-      .catch(() => live && setFromBalance(null));
+      .catch(() => live && setFromBalanceFailed(true));
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromChain, fromToken, fromOwner, fromWallet?.balance?.confirmed, operatorAssets]);
+  }, [fromChain, fromToken, fromOwner, fromWallet?.balance?.confirmed, operatorAssets, faucetRound]);
+  // A test RWA token held none of, or too little: its faucet, as the mint panel offers it.
+  const fromRwa = rwaOf(fromChain, fromToken);
+  const faucet = useRwaFaucet(fromChain, fromOwner, fromWallet?.faucet, () => setFaucetRound((n) => n + 1));
+  const fromLacking = fromBalance !== null && (fromBalance === 0 || Number(fromAmount) > fromBalance);
+  const canFaucet = faucet.available(fromRwa);
+  const notEnough = useNotEnoughText();
   const fmtBalance = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
   const setFraction = (f: number) => {
     if (fromBalance === null) return;
@@ -443,13 +462,6 @@ export default function ConvertToken() {
     return () => clearTimeout(timer);
   }, [fromAmount, pathname, router, searchParams]);
 
-  const getIsMainnet = (chain: SupportedChain) => {
-    if (chain === "bitcoin") return bitcoinMainnet;
-    if (chain === "ethereum") return ethereumMainnet;
-    if (chain === "solana") return solanaMainnet;
-    return false;
-  };
-
   // Into SOL waits for the user's own payment proof on Solana
   // (solanaConvertMethods.ts).
   const intoSolana = toChain === "solana";
@@ -464,20 +476,8 @@ export default function ConvertToken() {
     if (!fromConfig || fromConfig.ipowConvert === "comingsoon") return false;
     if (!toConfig || toConfig.ipowConvert === "comingsoon") return false;
 
-    const fromMatch =
-      getIsMainnet(fromChain) === (fromConfig.ipowConvert === "mainnet");
-    const pathMatch =
-      getIsMainnet(toChain) === (toConfig.ipowConvert === "mainnet");
-
-    return fromMatch && pathMatch;
-  }, [
-    fromChain,
-    toChain,
-    networkOptions,
-    bitcoinMainnet,
-    ethereumMainnet,
-    solanaMainnet,
-  ]);
+    return true;
+  }, [fromChain, toChain, networkOptions]);
 
 
   /** A token's limits at the operator's price: from Bitcoin's dust (546
@@ -490,31 +490,23 @@ export default function ConvertToken() {
     return { min: Math.ceil((600 / r) * 1e6) / 1e6, max: Math.floor((cap / r) * 1e6) / 1e6 };
   };
 
+  // Bitcoin is the real network (iPoW reads real Bitcoin): no test limits on its side.
   const currentLimit = useMemo(() => {
-    const isMainnetMode = getIsMainnet(fromChain);
-    if (isMainnetMode) return { min: 0, max: Infinity };
+    if (fromChain === "bitcoin") return { min: 0, max: Infinity };
     if (fromToken !== NATIVE) {
       const a = operatorAssets.byChain[fromChain]?.find((x) => x.token === fromToken);
       if (a) return tokenLimit(a.paySats, toChain !== "bitcoin");
     }
 
     return TESTNET_LIMITS[fromChain] || { min: 0, max: Infinity };
-  }, [
-    fromToken,
-    operatorAssets,
-    fromChain,
-    bitcoinMainnet,
-    ethereumMainnet,
-    solanaMainnet,
-  ]);
+  }, [fromToken, operatorAssets, fromChain, toChain]);
 
   const destLimit = useMemo(() => {
-    if (toToken !== NATIVE && !getIsMainnet(toChain)) {
+    if (toChain === "bitcoin") return { min: 0, max: Infinity };
+    if (toToken !== NATIVE) {
       const a = operatorAssets.byChain[toChain]?.find((x) => x.token === toToken);
       if (a) return tokenLimit(a.askSats, fromChain !== "bitcoin");
     }
-    const isMainnetMode = getIsMainnet(toChain);
-    if (isMainnetMode) return { min: 0, max: Infinity };
 
     const limits = TESTNET_LIMITS[toChain] ?? { min: 0, max: Infinity };
 
@@ -524,7 +516,7 @@ export default function ConvertToken() {
     };
   }, [
     toToken,
-    operatorAssets,toChain, bitcoinMainnet, ethereumMainnet, solanaMainnet]);
+    operatorAssets, toChain, fromChain]);
 
   const canConvert = useMemo(() => {
     if (!isSupportedRoute) return false;
@@ -566,70 +558,6 @@ export default function ConvertToken() {
   /** Why the last conversion failed, shown in the error modal. */
   const [convertError, setConvertError] = useState<string | null>(null);
 
-  const mismatches = useMemo(() => {
-    const checks = [
-      {
-        name: bitcoinWallet.networkName,
-        current: bitcoinMainnet,
-        required: bitcoinWallet.ipowConvert,
-        setter: setBitcoinMainnet,
-      },
-      {
-        name: ethereumWallet.networkName,
-        current: ethereumMainnet,
-        required: ethereumWallet.ipowConvert,
-        setter: setEthereumMainnet,
-      },
-      {
-        name: solanaWallet.networkName,
-        current: solanaMainnet,
-        required: solanaWallet.ipowConvert,
-        setter: setSolanaMainnet,
-      },
-    ];
-
-    return checks.filter((c) => {
-      if (c.required === "comingsoon") return false;
-      const isRequiredMainnet = c.required === "mainnet";
-      return c.current !== isRequiredMainnet;
-    });
-  }, [
-    bitcoinMainnet,
-    ethereumMainnet,
-    solanaMainnet,
-    bitcoinWallet,
-    ethereumWallet,
-    solanaWallet,
-    setBitcoinMainnet,
-    setEthereumMainnet,
-    setSolanaMainnet,
-  ]);
-
-  const isAllFulfilled = mismatches.length === 0;
-
-  const dynamicMismatchText = useMemo(() => {
-    if (mismatches.length === 0) return "";
-    const phrases = mismatches.map((m) => `${m.required} wallet in ${m.name}`);
-
-    if (phrases.length === 1)
-      return locale == "en"
-        ? `Please select ${phrases[0]} in the wallet settings to use Convert.`
-        : `Mohon pilih wallet ${phrases[0]} di pengaturan wallet untuk menggunakan Konversi`;
-    if (phrases.length === 2)
-      return locale == "en"
-        ? `Please select ${phrases[0]} and ${phrases[1]} in the wallet settings to use Convert.`
-        : `Mohon pilih wallet ${phrases[0]} dan ${phrases[1]} di pengaturan wallet untuk menggunakan Konversi`;
-
-    const lastPhrase = phrases.pop();
-    return locale == "en"
-      ? `Please select ${phrases.join(", ")}, and ${lastPhrase} in the wallet settings to use Convert.`
-      : `Mohon pilih wallet  ${phrases.join(", ")}, dan ${lastPhrase} di pengaturan wallet untuk  untuk menggunakan Konversi`;
-  }, [mismatches, locale]);
-
-  const handleSwitchAll = () => {
-    mismatches.forEach((m) => m.setter(m.required === "mainnet"));
-  };
-
   const isComingSoon = useMemo(() => {
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
@@ -647,9 +575,9 @@ export default function ConvertToken() {
   }, [isComingSoon, isProcessing, t]);
 
   const isDisable = useMemo(() => {
-    if (isComingSoon || isProcessing || !isAllFulfilled) return true;
+    if (isComingSoon || isProcessing) return true;
     return !canConvert;
-  }, [isComingSoon, isProcessing, isAllFulfilled, canConvert]);
+  }, [isComingSoon, isProcessing, canConvert]);
 
   const [chainModalOpen, setChainModalOpen] = useState(false);
   const [chainModalSide, setChainModalSide] = useState<Side>("from");
@@ -659,7 +587,6 @@ export default function ConvertToken() {
 
   useEffect(() => {
     let isActive = true;
-    let timerId: NodeJS.Timeout;
 
     const run = async () => {
       if (!isSupportedRoute) {
@@ -746,7 +673,7 @@ export default function ConvertToken() {
       }
     };
 
-    timerId = setTimeout(run, 500);
+    const timerId = setTimeout(run, 500);
 
     return () => {
       isActive = false;
@@ -943,7 +870,7 @@ export default function ConvertToken() {
             );
             break;
           }
-        } catch (e) {}
+        } catch {}
       }
 
       if (newIdFound) {
@@ -966,359 +893,178 @@ export default function ConvertToken() {
   const amountNumber = Number(fromAmount);
   const destAmountNumber = Number(toAmount.replace(/,/g, ""));
 
+  const optionOf = (n: string) => networkOptions.find((o) => o.key === n);
+  const nameOf = (n: string) => optionOf(n)?.name ?? n;
+  const short = (x: string) => (x.length > 16 ? `${x.slice(0, 6)}…${x.slice(-4)}` : x);
+  const connectButton = (n: string) =>
+    n === "bitcoin" ? <BitcoinConnectButton /> : n === "ethereum" ? <EthereumConnectButton /> : n === "solana" ? <SolanaConnectButton /> : n === "base" ? <BaseConnectButton /> : n === "robinhood" ? <RobinhoodConnectButton /> : n === "hyperliquid" ? <HyperliquidConnectButton /> : n === "arbitrum" ? <ArbitrumConnectButton /> : null;
+
+  /** One side's network: a card that opens the network picker, with its wallet. */
+  const networkCard = (n: string, side: Side) => (
+    <div className="flex-1 min-w-0 flex flex-wrap items-center justify-between gap-2 rounded-2xl glass-card px-4 py-3 md:px-5 md:py-4">
+      <button type="button" onClick={() => openChainPicker(side)} className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer rounded-xl -m-1 p-1 hover:bg-black/5 transition-colors">
+        {optionOf(n)?.logo && <Image src={optionOf(n)!.logo} alt={nameOf(n)} className="w-9 h-9 md:w-11 md:h-11 rounded-full object-contain shrink-0" />}
+        <span className="flex flex-col min-w-0 leading-tight">
+          <span className="text-[11px] md:text-xs opacity-60">{side === "from" ? t("convertFromLabel") : t("convertToLabel")}</span>
+          <span className="text-sm md:text-lg font-bold truncate">{nameOf(n)}</span>
+        </span>
+      </button>
+      <span className="shrink-0">{connectButton(n)}</span>
+    </div>
+  );
+
+  /** A token's pill; `small` for the one in the receive strip. */
+  const tokenPill = (a: Asset | undefined, onClick: () => void, small = false) => (
+    <button type="button" onClick={onClick} className="hover:bg-black/10 shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all">
+      {a?.icon ? (
+        <Image src={a.icon} alt={a.symbol} width={40} height={40} unoptimized={typeof a.icon === "string"} className={small ? "w-6 h-6 rounded-full object-contain" : "w-8 h-8 sm:w-10 sm:h-10 rounded-full object-contain"} />
+      ) : (
+        <div className={small ? "w-6 h-6 rounded-full bg-secondary/10" : "w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-secondary/10"} />
+      )}
+      <span className="flex items-center gap-0.5 md:gap-1">
+        <span className={small ? "text-sm font-bold" : "text-base sm:text-lg font-bold"}>{a?.symbol}</span>
+        <Icon icon="lsicon:down-filled" className="text-xs sm:text-base" />
+      </span>
+    </button>
+  );
+
+  // Outside the limits: the one line that says which, in the source's terms.
+  const limitMessage =
+    fromChain !== "bitcoin"
+      ? amountNumber > 0 && amountNumber < currentLimit.min
+        ? `Min limit: ${currentLimit.min} ${fromAsset?.symbol}`
+        : amountNumber > currentLimit.max
+          ? `Max limit: ${currentLimit.max} ${fromAsset?.symbol}`
+          : null
+      : destAmountNumber > 0 && destAmountNumber < destLimit.min
+        ? `Min limit: ${Number((destLimit.min * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`
+        : destAmountNumber > destLimit.max
+          ? `Max limit: ${Number((destLimit.max * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`
+          : null;
+
   return (
     <>
-      {!isAllFulfilled && (
-        <div className="flex flex-col gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 animate-pulse">
-          <div className="flex items-start gap-3">
-            <Icon
-              icon="solar:danger-triangle-bold"
-              className="text-red-500 text-xl shrink-0 mt-0.5"
-            />
-            <div className="flex flex-col gap-0.5">
-              <p className="text-xs font-bold text-red-500 uppercase tracking-widest">
-                {t("text26")}
-              </p>
-              <p className="text-[11px] font-bold leading-relaxed">
-                {dynamicMismatchText}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSwitchAll}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-all shadow-lg active:scale-[0.98]"
-          >
-            {mismatches.length > 1 ? t("text185") : t("text153")}
-          </button>
-        </div>
-      )}
-      <div className="relative flex p-4 flex-col gap-6 mt-4 rounded-2xl border-white/30  shadow  border  bg-white/50">
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none blur-sm" />
-        {/* ================= FROM ================= */}
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <p>Deposit</p>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center">
-              <p className="text-[8px] md:text-xs">{t("text194")}:</p>
-              <div className="w-0.5" />
-              {fromChain === "bitcoin" ? (
-                <BitcoinConnectButton />
-              ) : fromChain === "ethereum" ? (
-                <EthereumConnectButton />
-              ) : fromChain === "solana" ? (
-                <SolanaConnectButton />
-              ) : fromChain === "base" ? (
-                <BaseConnectButton />
-              ) : fromChain === "robinhood" ? (
-                <RobinhoodConnectButton />
-              ) : fromChain === "hyperliquid" ? (
-                <HyperliquidConnectButton />
-              ) : null}
-            </div>
-
-            <div className="justify-start flex items-center">
-              <p className="text-[8px] md:text-xs">
-                {locale == "en"
-                  ? `On ${networkOptions.find((a) => a.key === fromChain)?.name} Network`
-                  : `Di Jaringan ${networkOptions.find((a) => a.key === fromChain)?.name}`}
-              </p>
-              <div className="w-1" />
-              <button
-                onClick={() => openChainPicker("from")}
-                className={`p-2 cursor-pointer shadow-buttonNav hover:bg-black/10 rounded-full glass-card text-base`}
-              >
-                <Image
-                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
-                  src={networkOptions.find((a) => a.key === fromChain)?.logo!}
-                  alt={fromChain}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="h-2" />
-
-          <div className="glass-card rounded-2xl">
-            <div className="py-4 px-4 md:py-6 md:px-6 flex flex-col gap-2 md:gap-3">
-              {/* The wallet's balance of the token, as the Send card shows it. */}
-              {fromBalance !== null && (
-                <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold opacity-60">
-                  <Icon icon="solar:wallet-linear" />
-                  <span>
-                    {fmtBalance(fromBalance)} {fromAsset?.symbol}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-3 w-full">
-                <div className="flex flex-col flex-1 min-w-0">
-                  <input
-                    key={fromChain}
-                    type="text"
-                    inputMode="decimal"
-                    className={`w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate ${
-                      ""
-                    }`}
-                    placeholder="0"
-                    value={fromAmount}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (/^[0-9]*\.?[0-9]*$/.test(val) || val === "")
-                        setFromAmount(val);
-                    }}
-                  />
-
-                  <span className="text-xs sm:text-sm opacity-60">
-                    ≈ ${fromUsdValue}
-                  </span>
-
-                  {/* --- Standard static limits (when not BTC) --- */}
-                  {fromChain !== "bitcoin" &&
-                    amountNumber > 0 &&
-                    amountNumber < currentLimit.min && (
-                      <span className="text-[10px] text-red-500 mt-1 font-medium block">
-                        {locale === "en"
-                          ? `Min limit: ${currentLimit.min} ${fromAsset?.symbol}`
-                          : `Limit Min: ${currentLimit.min} ${fromAsset?.symbol}`}
-                      </span>
-                    )}
-                  {fromChain !== "bitcoin" &&
-                    amountNumber > currentLimit.max && (
-                      <span className="text-[10px] text-red-500 mt-1 font-medium block">
-                        {locale === "en"
-                          ? `Max limit: ${currentLimit.max} ${fromAsset?.symbol}`
-                          : `Limit Max: ${currentLimit.max} ${fromAsset?.symbol}`}
-                      </span>
-                    )}
-
-                  {/* --- Dynamic destination limit (when BTC is source) --- */}
-                  {fromChain === "bitcoin" &&
-                    destAmountNumber > 0 &&
-                    destAmountNumber < destLimit.min && (
-                      <span className="text-[10px] text-red-500 mt-1 font-medium block">
-                        {locale === "en"
-                          ? `Min limit: ${Number((destLimit.min * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`
-                          : `Limit Min: ${Number((destLimit.min * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`}
-                      </span>
-                    )}
-                  {fromChain === "bitcoin" &&
-                    destAmountNumber > destLimit.max && (
-                      <span className="text-[10px] text-red-500 mt-1 font-medium block">
-                        {locale === "en"
-                          ? `Max limit: ${Number((destLimit.max * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`
-                          : `Limit Max: ${Number((destLimit.max * (amountNumber / destAmountNumber)).toFixed(8))} ${fromAsset?.symbol}`}
-                      </span>
-                    )}
-                </div>
-
-                {/* Token Picker Button */}
-                <button
-                  type="button"
-                  onClick={() => openTokenPicker("from")}
-                  className={`hover:bg-black/10 shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
-                >
-                  {fromAsset?.icon ? (
-                    <Image
-                      src={fromAsset.icon}
-                      alt={fromAsset.symbol}
-                      width={40}
-                      height={40}
-                      unoptimized={typeof fromAsset.icon === "string"}
-                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-secondary/10" />
-                  )}
-                  <div className="leading-tight">
-                    <div className="flex items-center gap-0.5 md:gap-1">
-                      <p className="text-base sm:text-lg font-bold">
-                        {fromAsset!.symbol}
-                      </p>
-                      <Icon
-                        icon="lsicon:down-filled"
-                        className="text-xs sm:text-base"
-                      />
-                    </div>
-                  </div>
-                </button>
-              </div>
-              {fromBalance !== null && (
-                <div className="flex justify-end gap-2">
-                  {[0.25, 0.5, 1].map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setFraction(f)}
-                      className="text-xs font-bold px-4 py-2 rounded-full bg-black/5 hover:bg-ink hover:text-snow transition-colors"
-                    >
-                      {f === 1 ? "Max" : `${f * 100}%`}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ================= SWAP ================= */}
-        <div className="flex items-center justify-center">
+      <div className="flex flex-col gap-4 mt-4">
+        {/* ================= NETWORKS ================= */}
+        <div className="relative flex items-stretch gap-2">
+          {networkCard(fromChain, "from")}
           <button
             type="button"
             onClick={swap}
-            className="bgRound glass-card cursor-pointer md:h-[50] md:w-[50] h-[40] w-[40] px-3 py-3 flex items-center justify-center hover:bg-secondary/10"
+            aria-label={t("convertSwap")}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-lg bg-cream border-4 border-cream flex items-center justify-center"
           >
-            <IoSwapVertical />
+            <span className="w-full h-full rounded-md bg-paper glass-card flex items-center justify-center text-xs">
+              <Icon icon="solar:arrow-right-linear" />
+            </span>
           </button>
+          {networkCard(toChain, "to")}
         </div>
 
-        {/* ================= TO ================= */}
-        <div className="md:mt-[-60] mt-[-20]">
-          <div className="flex items-center justify-between gap-3">
-            <p>{t("text195")}</p>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center">
-              <p className="text-[8px] md:text-xs">{t("text194")}:</p>
-              <div className="w-0.5" />
-              {toChain === "bitcoin" ? (
-                <BitcoinConnectButton />
-              ) : toChain === "ethereum" ? (
-                <EthereumConnectButton />
-              ) : toChain === "solana" ? (
-                <SolanaConnectButton />
-              ) : toChain === "base" ? (
-                <BaseConnectButton />
-              ) : toChain === "robinhood" ? (
-                <RobinhoodConnectButton />
-              ) : toChain === "hyperliquid" ? (
-                <HyperliquidConnectButton />
-              ) : null}
-            </div>
-
-            <div className="justify-start flex items-center">
-              <p className="text-[8px] md:text-xs">
-                {locale == "en"
-                  ? `On ${networkOptions.find((a) => a.key === toChain)?.name} Network`
-                  : `Di Jaringan ${networkOptions.find((a) => a.key === toChain)?.name}`}
-              </p>
-              <div className="w-1" />
-              <button
-                onClick={() => openChainPicker("to")}
-                key={toChain}
-                className={`p-2 cursor-pointer shadow-buttonNav hover:bg-black/10 rounded-full glass-card text-base`}
-              >
-                <Image
-                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full"
-                  src={networkOptions.find((a) => a.key === toChain)?.logo!}
-                  alt={toChain}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="h-2" />
-
-          {/* <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl mb-4">
-  <p className="text-xs font-bold text-yellow-600 mb-2 uppercase">Developer Tools</p>
-  <button 
-    onClick={() => solanaWallet.initializeProtocol()}
-    className="w-full py-2 bg-yellow-500 text-black font-bold rounded-lg hover:bg-yellow-600 transition-all"
-  >
-    Initialize Solana Protocol
-  </button>
-</div> */}
-
-          {/* --- ETHEREUM CONFIGURATION BLOCK --- */}
-          {/* <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4">
-  <p className="text-xs font-bold text-blue-600 mb-2 uppercase">Network Setup</p>
-  <button 
-    onClick={() => solanaWallet.addSupportedNetwork("Ethereum", 2, 20, 20)}
-    className="w-full py-2 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition-all"
-  >
-    Configure Ethereum (ID: 2)
-  </button>
-</div> */}
-
-          <div className="glass-card rounded-2xl">
-            <div className="py-4 px-4 md:py-6 md:px-6 flex flex-col gap-2 md:gap-3">
+        {/* ================= SEND, and RECEIVE tucked under it ================= */}
+        <div className="flex flex-col">
+          <div className="relative z-10 rounded-2xl border border-ink bg-paper shadow-sm">
+            <div className="py-4 px-4 md:py-5 md:px-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3 text-xs md:text-sm">
+                <span className="opacity-60">{t("convertSendLabel")}</span>
+                {fromOwner ? (
+                  <span className="flex items-center gap-1">
+                    <span className="opacity-60">{t("convertBalance")}</span>
+                    {fromBalanceFailed ? (
+                      <span className="font-bold">—</span>
+                    ) : fromBalance === null ? (
+                      <span className="inline-block h-4 w-20 rounded bg-black/10 animate-pulse align-middle" aria-label="Loading balance" />
+                    ) : (
+                      <span className="font-bold tabular-nums">{`${fmtBalance(fromBalance)} ${fromAsset?.symbol}`}</span>
+                    )}
+                    {canFaucet && fromLacking && (
+                      <span className="ml-1">
+                        <FaucetButton busy={faucet.busy === fromRwa!.token} onClick={() => faucet.claim(fromRwa!)} />
+                      </span>
+                    )}
+                  </span>
+                ) : null}
+              </div>
               <div className="flex items-center justify-between gap-3 w-full">
-                <div className="flex flex-col flex-1 min-w-0">
-                  <input
-                    key={toChain}
-                    type="text"
-                    readOnly
-                    className={`${
-                      ""
-                    } w-full text-2xl sm:text-3xl md:text-4xl font-bold bg-transparent outline-none border-none truncate`}
-                    placeholder="0"
-                    value={toAmount}
-                  />
+                <input
+                  id="convert-amount"
+                  key={fromChain}
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={t("convertSendLabel")}
+                  className="flex-1 min-w-0 text-4xl md:text-5xl font-bold bg-transparent outline-none border-none truncate"
+                  placeholder="0"
+                  value={fromAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^[0-9]*\.?[0-9]*$/.test(val) || val === "") setFromAmount(val);
+                  }}
+                />
+                {tokenPill(fromAsset, () => openTokenPicker("from"))}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs sm:text-sm opacity-60 tabular-nums">${fromUsdValue}</span>
+                {fromBalance !== null && (
+                  <div className="flex justify-end gap-2">
+                    {[0.25, 0.75, 1].map((f) => (
+                      <button key={f} type="button" onClick={() => setFraction(f)} className="text-xs font-bold px-3 py-1.5 rounded-full bg-black/5 hover:bg-ink hover:text-snow transition-colors">
+                        {f === 1 ? "Max" : `${f * 100}%`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {limitMessage && <span className="text-[11px] text-red-500 font-medium">{limitMessage}</span>}
+              {fromLacking && fromToken !== NATIVE && <Caution text={notEnough(fromAsset.symbol)} />}
+            </div>
+          </div>
 
-                  <span className="text-xs sm:text-sm opacity-60">
-                    ≈ ${toUsdValue}
+          <div className="-mt-4 mx-1 rounded-b-2xl border border-dashed border-ink/25 border-t-0 bg-sand px-4 md:px-6 pt-7 pb-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3 text-xs md:text-sm">
+              <span className="opacity-60 shrink-0">{t("convertReceiveLabel")}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                {toChainConnected && walletOf(toChain)?.address ? (
+                  <span className="font-semibold truncate font-mono">{short(walletOf(toChain).address)}</span>
+                ) : (
+                  <span className="font-semibold opacity-70">{t("convertConnectTo", { network: nameOf(toChain) })}</span>
+                )}
+                {tokenPill(toAsset, () => openTokenPicker("to"), true)}
+              </span>
+            </div>
+            {toAmount && destAmountNumber > 0 && (
+              <>
+                <div className="flex items-center gap-3">
+                  <span className="relative shrink-0">
+                    {toAsset?.icon ? (
+                      <Image src={toAsset.icon} alt={toAsset.symbol} width={40} height={40} unoptimized={typeof toAsset.icon === "string"} className="w-9 h-9 md:w-10 md:h-10 rounded-full object-contain" />
+                    ) : (
+                      <span className="block w-9 h-9 md:w-10 md:h-10 rounded-full bg-black/5" />
+                    )}
+                    {optionOf(toChain)?.logo && <Image src={optionOf(toChain)!.logo} alt={nameOf(toChain)} className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-sand" />}
+                  </span>
+                  <span className="text-2xl md:text-3xl font-bold opacity-50 truncate tabular-nums">
+                    {toAmount} {toAsset?.symbol}
                   </span>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => openTokenPicker("to")}
-                  className={`hover:bg-black/10 shrink-0 flex glass-card pr-2 rounded-full items-center gap-2 text-left cursor-pointer hover:opacity-90 transition-all`}
-                >
-                  {toAsset?.icon ? (
-                    <Image
-                      src={toAsset.icon}
-                      alt={toAsset.symbol}
-                      width={40}
-                      height={40}
-                      unoptimized={typeof toAsset.icon === "string"}
-                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-secondary/10" />
-                  )}
-                  <div className="leading-tight">
-                    <div className="flex items-center gap-0.5 md:gap-1">
-                      <p className="text-base sm:text-lg font-bold">
-                        {toAsset!.symbol}
-                      </p>
-                      <Icon
-                        icon="lsicon:down-filled"
-                        className="text-xs sm:text-base"
-                      />
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
+                <div className="flex items-center justify-between gap-3 text-xs sm:text-sm opacity-60">
+                  <span className="tabular-nums">${toUsdValue}</span>
+                  <span>{t("convertQuoteNote")}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {!toChainConnected && (
-          <p className="text-[11px] sm:text-xs opacity-70">
-            {locale === "en"
-              ? `Connect your ${networkOptions.find((n) => n.key === toChain)?.name} wallet: the ${toAsset?.symbol ?? "coin"} goes to it, and you confirm the conversion there.`
-              : `Hubungkan dompet ${networkOptions.find((n) => n.key === toChain)?.name} Anda: ${toAsset?.symbol ?? "koin"} dikirim ke sana, dan Anda mengonfirmasi konversi di sana.`}
-          </p>
-        )}
-
-        {/* Footer convert */}
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <Button
-            disabled={isDisable}
-            chain={fromChain}
-            onClick={() => {
-              if (canConvert) handleConvert();
-            }}
-            buttonText={buttonText}
-          />
-        </div>
+        <Button
+          disabled={isDisable}
+          chain={fromChain}
+          onClick={() => {
+            if (canConvert) handleConvert();
+          }}
+          buttonText={!toChainConnected && !isComingSoon && !isProcessing ? t("convertConnectTo", { network: nameOf(toChain) }) : buttonText}
+        />
       </div>
 
-      <hr className="border-none h-[150px]" />
 
       <AnimatedModal
         isOpen={showErrorModal}

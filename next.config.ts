@@ -18,10 +18,6 @@ const nextConfig: NextConfig = {
     config.module.exprContextCritical = false;
     return config;
   },
-  serverExternalPackages: [
-    '@kamino-finance/klend-sdk',
-    '@orca-so/whirlpools-core',
-  ],
   images: {
     remotePatterns: [
       {
@@ -41,7 +37,7 @@ const nextConfig: NextConfig = {
   experimental: {
     cpus: 2,
     serverActions: {
-      allowedOrigins: ["localhost:3000", "200a-203-78-114-213.ngrok-free.app"],
+      allowedOrigins: ["localhost:3000"],
     },
   },
 };

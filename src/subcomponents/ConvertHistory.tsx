@@ -18,12 +18,14 @@ import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
-import { SupportedChain, useNetwork } from '@/app/network-provider';
+import { useArbitrumWallet } from '@/components/arbitrum/arbitrum-provider';
+import { SupportedChain } from '@/app/network-provider';
 import ButtonContrast from "@/subcomponents/ButtonContrast";
 import Button from "@/subcomponents/Button"; 
 import { color } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import { AnimatedModal } from './AnimatedModal';
+import { EmptyPanel, IconPicture, ListSkeleton } from './ipow/EmptyPanel';
 import { TxPhase, TypeFilter } from '@/components/integrator/ipow/evm/type';
 import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
 
@@ -35,7 +37,18 @@ const ITEMS_PER_PAGE = 10;
 
 
 
-export default function ConvertHistory() {
+/** The phases after which a leg moves no more. */
+const ENDED = [TxPhase.REFUNDED, TxPhase.OPERATOR_APPROVAL_EXPIRED, TxPhase.USER_ACTION_EXPIRED, TxPhase.OPERATOR_DUTY_EXPIRED];
+/** A conversion still moving: neither leg ended, and not both legs complete. */
+const inFlight = (tx: any) => {
+  const partner = tx.isNativeToBitcoin ? tx.destinationTx : tx.originTx;
+  if (ENDED.includes(tx.phase) || (partner && ENDED.includes(partner.phase))) return false;
+  return !(tx.phase === TxPhase.COMPLETED && (!partner || partner.phase === TxPhase.COMPLETED));
+};
+
+/** The conversions of the connected wallet; `inProgress` keeps only those
+ *  still moving, as a short list beside the Convert form. */
+export default function ConvertHistory({ inProgress = false }: { inProgress?: boolean } = {}) {
 
   const t = useTranslations("All");
   const router = useRouter();
@@ -50,6 +63,7 @@ export default function ConvertHistory() {
   const baseWallet = useBaseWallet();
   const robinhoodWallet = useRobinhoodWallet();
   const hyperliquidWallet = useHyperliquidWallet();
+  const arbitrumWallet = useArbitrumWallet();
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
   // here reads ipowDecimals — not each chain's own `.decimals` (wallet balance/transfer
@@ -64,7 +78,9 @@ export default function ConvertHistory() {
       { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
       { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
       { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
-    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
+      // Arbitrum once Convert runs there: until then its id is 0, Bitcoin's.
+      ...(arbitrumWallet.ipowNetworkId ? [{ id: arbitrumWallet.ipowNetworkId, key: "arbitrum", name: arbitrumWallet.networkName, logo: arbitrumWallet.networkLogo, nativeToken: { symbol: arbitrumWallet.currencyTicker, decimals: 18, logo: arbitrumWallet.networkLogo } }] : []),
+    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, arbitrumWallet]
   );
 
 
@@ -78,74 +94,6 @@ const timeAgo = (timestamp: any) => {
 };
 
 
-const {
-  bitcoinMainnet, setBitcoinMainnet,
-  ethereumMainnet, setEthereumMainnet,
-  solanaMainnet, setSolanaMainnet
-} = useNetwork();
-
-
-const mismatches = useMemo(() => {
-  const checks = [
-    {
-        name: bitcoinWallet.networkName,
-        current: bitcoinMainnet,
-        required: bitcoinWallet.ipowConvert,
-        setter: setBitcoinMainnet
-    },
-    {
-        name: ethereumWallet.networkName,
-        current: ethereumMainnet,
-        required: ethereumWallet.ipowConvert,
-        setter: setEthereumMainnet
-    },
-    {
-        name: solanaWallet.networkName,
-        current: solanaMainnet,
-        required: solanaWallet.ipowConvert,
-        setter: setSolanaMainnet
-    },
-  ];
-
-
-  return checks.filter(c => {
-    if (c.required === 'comingsoon') return false;
-    const isRequiredMainnet = c.required === 'mainnet';
-    return c.current !== isRequiredMainnet;
-  });
-}, [
-    bitcoinMainnet, ethereumMainnet, solanaMainnet,
-    bitcoinWallet, ethereumWallet, solanaWallet,
-    setBitcoinMainnet, setEthereumMainnet, setSolanaMainnet
-]);
-
-
-const isAllFulfilled = mismatches.length === 0;
-
-
-
-const dynamicMismatchText = useMemo(() => {
-  if (mismatches.length === 0) return "";
-
-
-  const phrases = mismatches.map(m => `${m.required} wallet in ${m.name}`);
-  if (phrases.length === 1) {
-    return locale == "en" ?`Please select ${phrases[0]} in the wallet settings to see Convert History.` : `Mohon pilih wallet ${phrases[0]} di pengaturan wallet untuk melihat Riwayat Konversi`;
-  }
-
-  if (phrases.length === 2) {
-    return locale == "en" ? `Please select ${phrases[0]} and ${phrases[1]} in the wallet settings to see Convert History.` : `Mohon pilih wallet ${phrases[0]} dan ${phrases[1]} di pengaturan wallet untuk melihat Riwayat Konversi`;
-  }
-
-  const lastPhrase = phrases.pop();
-  return locale == "en" ? `Please select ${phrases.join(', ')}, and ${lastPhrase} in the wallet settings to see Convert History.` :  `Mohon pilih wallet  ${phrases.join(', ')}, dan ${lastPhrase} di pengaturan wallet untuk melihat Riwayat Konversi`;
-}, [mismatches]);
-
-
-const handleSwitchAll = () => {
-  mismatches.forEach(m => m.setter(m.required === 'mainnet'));
-};
-
   const activeProvider: any = useMemo(() => {
       switch (network) {
           case 'ethereum': return ethereumWallet;
@@ -154,9 +102,10 @@ const handleSwitchAll = () => {
           case 'base': return baseWallet;
           case 'robinhood': return robinhoodWallet;
           case 'hyperliquid': return hyperliquidWallet;
+          case 'arbitrum': return arbitrumWallet;
           default: return ethereumWallet;
       }
-  }, [network, ethereumWallet, solanaWallet, bitcoinWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
+  }, [network, ethereumWallet, solanaWallet, bitcoinWallet, baseWallet, robinhoodWallet, hyperliquidWallet, arbitrumWallet]);
 
   // The fees of the user's untaken jobs, held by the protocol: withdrawn in
   // one transaction, apart from any refund.
@@ -195,7 +144,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
           if (network === 'bitcoin') {
               if (bitcoinWallet.address) {
                   let btcScript = "";
-                  try { btcScript = bitcoinWallet.addressToScriptPubKeyHex(bitcoinWallet.address); } catch(e) {}
+                  try { btcScript = bitcoinWallet.addressToScriptPubKeyHex(bitcoinWallet.address); } catch {}
                   if (btcScript) {
                       const programmableProviders: { key: string; wallet: any }[] = [
                           // The networks whose Convert runs on the new protocol.
@@ -247,6 +196,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   if (id === baseWallet.ipowNetworkId) return baseWallet;
                   if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
                   if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
+                  if (arbitrumWallet.ipowNetworkId && id === arbitrumWallet.ipowNetworkId) return arbitrumWallet;
                   return null;
               };
 
@@ -263,7 +213,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                           if (currentTx.isNativeToBitcoin) currentTx.destinationTx = otherTx;
                           else currentTx.originTx = otherTx;
                       }
-                  } catch(e) {}
+                  } catch {}
                   return currentTx;
               }
 
@@ -280,7 +230,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                               const destTx = await destProvider.getConversion(destIds[0] as any);
                               if (destTx) currentTx.destinationTx = destTx; 
                           }
-                      } catch(e) {}
+                      } catch {}
                   }
               }
 
@@ -299,7 +249,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                               const sourceTx = await srcProvider.getConversion(sourceIds[0] as any);
                               if (sourceTx) currentTx.originTx = sourceTx; 
                           }
-                      } catch(e) {}
+                      } catch {}
                   }
               }
               return currentTx;
@@ -315,6 +265,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
                   if (id === baseWallet.ipowNetworkId) return baseWallet;
                   if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
                   if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
+                  if (arbitrumWallet.ipowNetworkId && id === arbitrumWallet.ipowNetworkId) return arbitrumWallet;
                   return null;
               };
 
@@ -418,7 +369,7 @@ const fetchHistory = useCallback(async (showLoader = false) => {
 useEffect(() => {
 
   
-  if (connected && isAllFulfilled) {
+  if (connected) {
     fetchHistory(true);
     const i = setInterval(() => fetchHistory(false), 15000);
     return () => clearInterval(i);
@@ -428,11 +379,11 @@ useEffect(() => {
 }, [
   connected, 
   network, 
-  isAllFulfilled,
   fetchHistory
 ]);
 
   const filteredTransactions = useMemo(() => {
+      if (inProgress) return transactions.filter(inFlight);
       if (filterMode === 'ALL') return transactions;
       return transactions.filter(tx => {
           if (filterMode === 'FROM_NATIVE') {
@@ -445,10 +396,11 @@ useEffect(() => {
           }
           return true;
       });
-  }, [transactions, filterMode, network]);
+  }, [transactions, filterMode, network, inProgress]);
 
   const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
   const paginatedTransactions = useMemo(() => {
+      if (inProgress) return filteredTransactions;
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
       const end = start + ITEMS_PER_PAGE;
       return filteredTransactions.slice(start, end);
@@ -515,7 +467,7 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
 
     // A tunnel's swap: the shared words (convertStatus.ts), styled here.
     const sourceNetworkName = networkConfigs.find((n) => n.id === (isOutbound ? localTx.contractChainId : localTx.networkId))?.name ?? "";
-    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t, locale);
+    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t);
     if (tunnel) {
         const style = {
             wait: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-pulse"/> },
@@ -667,6 +619,9 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
 };
 
 
+  if (!connected && inProgress) {
+    return <EmptyPanel picture={<IconPicture icon="solar:wallet-linear" />} title={t("convertSideConnectTitle")} text={t("convertSideConnect")} />;
+  }
   if (!connected) {
      return (
         <div className="flex flex-col gap-3 py-4 mb-4 pb-40 lg:pb-32">
@@ -690,42 +645,20 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
 
   return (
     <>
-      <div className="flex flex-col gap-6  pb-40 lg:pb-32">
+      <div className={`flex flex-col gap-6 ${inProgress ? "" : "pb-40 lg:pb-32"}`}>
     
-     {!isAllFulfilled && (
-       <div className="flex flex-col gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 animate-pulse">
-    
-    <div className="flex items-start gap-3">
-          <Icon icon="solar:danger-triangle-bold" className="text-red-500 text-xl shrink-0 mt-0.5" />
-               <div className="flex flex-col gap-0.5">
-                 <p className="text-xs font-bold text-red-500 uppercase tracking-widest">{t("text26")}</p>
-                 <p className="text-[11px] font-bold leading-relaxed">
-                    {dynamicMismatchText}
-                 </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSwitchAll}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-all shadow-lg active:scale-[0.98]"
-        >
-          {mismatches.length > 1 ? `${t("text185")}` : `${t("text153")}`}
-        </button>
-      </div>
-    )}
-
-      {feeCredit > BigInt(0) && (
+      {!inProgress && feeCredit > BigInt(0) && (
         <div className="p-4 rounded-xl border border-black/10 bg-white flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{locale === "en" ? "Refund available" : "Pengembalian tersedia"}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{"Refund available"}</p>
             <p className="text-sm">{(Number(feeCredit) / 10 ** (activeProvider?.ipowDecimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 8 })} {activeProvider?.currencyTicker}</p>
-            <p className="text-[11px] opacity-70">{locale === "en" ? "The fees of your conversions that nobody took, in one claim." : "Biaya konversi Anda yang tidak diambil siapa pun, dalam satu klaim."}</p>
+            <p className="text-[11px] opacity-70">{"The fees of your conversions that nobody took, in one claim."}</p>
           </div>
-          <Button chain={network} buttonText={withdrawing ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")} onClick={() => withdrawFeeCredit()} disabled={withdrawing} />
+          <Button chain={network} buttonText={withdrawing ? t("text10") : ("Claim refund")} onClick={() => withdrawFeeCredit()} disabled={withdrawing} />
         </div>
       )}
 
-        <div className="flex flex-col gap-2">
+        {!inProgress && <div className="flex flex-col gap-2">
           <button
             type="button"
             className={`flex gap-1 glass-card cursor-pointer hover:bg-secondary/10 p-3 shadow-buttonNav rounded-full w-fit items-center`}
@@ -734,10 +667,14 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
             <Icon icon="basil:filter-outline" className={`text-2xl ${color}}`} />
             <span className="sm:text-sm text-[10px]">Filter</span>
           </button>
-        </div>
+        </div>}
 
       
-        {isLoading && transactions.length === 0 ? (
+        {inProgress && isLoading && transactions.length === 0 ? (
+             <ListSkeleton rows={3} />
+        ) : inProgress && filteredTransactions.length === 0 ? (
+             <EmptyPanel picture={<IconPicture icon="solar:transfer-horizontal-linear" />} title={t("convertSideNoneTitle")} text={t("convertSideNone")} />
+        ) : isLoading && transactions.length === 0 ? (
              <div className="bgBox glass-card p-6 text-center"><h2 className="text-xl font-bold animate-pulse">{t("text186")}...</h2></div>
         ) : filteredTransactions.length === 0 ? (
              <div className="bgBox glass-card p-6 text-center"><h2 className="text-xl font-bold">{t("text66")}</h2></div>
@@ -760,8 +697,8 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
         partnerTx,        
     );
 
-    let sourceTxObj = isOutbound ? tx : partnerTx;
-    let destTxObj = isOutbound ? partnerTx : tx;
+    const sourceTxObj = isOutbound ? tx : partnerTx;
+    const destTxObj = isOutbound ? partnerTx : tx;
 
     let inputRaw = isOutbound ? tx.nativeAmount : (partnerTx?.nativeAmount || tx.bitcoinAmount || "0");
     let outputRaw = "0";
@@ -889,7 +826,7 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
                          {(feeCredit > BigInt(0) && (tx.phase === TxPhase.REFUNDED || tx.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED) && tx.swap?.job?.stage === "Expired") && (
                            <div className="flex justify-end px-3">
                              <button type="button" disabled={withdrawing} onClick={() => withdrawFeeCredit()} className="text-[11px] font-bold underline disabled:opacity-50">
-                               {withdrawing ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")}
+                               {withdrawing ? t("text10") : ("Claim refund")}
                              </button>
                            </div>
                          )}
@@ -899,7 +836,7 @@ const getUnifiedStatusConfig = (localTx: any, partnerTx: any) => {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {!inProgress && totalPages > 1 && (
                     <div className="flex justify-center items-center gap-4 mt-6">
                         <button 
                             disabled={currentPage === 1}

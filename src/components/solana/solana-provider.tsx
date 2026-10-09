@@ -23,14 +23,10 @@ import {
   LAMPORTS_PER_SOL,
   SystemProgram,
   Transaction,
-  Keypair,
-  TransactionInstruction,
-  TransactionMessage,
   VersionedTransaction,
-  MessageV0,
 } from "@solana/web3.js";
 import { solananetwork } from "@/index";
-import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 
 import {
   getAssociatedTokenAddress,
@@ -39,10 +35,6 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
 
-import * as anchor from "@coral-xyz/anchor";
-import { Program, BN, AnchorProvider } from "@coral-xyz/anchor";
-import idl from "../integrator/ipow/svm/ipow.json";
-
 
 
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
@@ -50,10 +42,8 @@ import { appKit } from "../walletconnect/wallet-connect-provider";
 import { ConnectFeature, EventsFeature, SignMessageFeature, SolanaWalletContextType, SolanaWalletType } from "./config/type";
 import { CONNECT, EVENTS, safeSolanaTokenAmount, SIGN_MESSAGE } from "./config/helpers";
 import { appConfig } from "./config";
-import { IPOW_NETWORK_ID, PARADAPP_FEE_VAULT_SOLANA, SOL_DATA, SOLANA_NATIVE_MINT, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID, USDC_DATA, USDC_MINT } from "./config/constants";
+import { IPOW_NETWORK_ID, SOL_DATA, SOLANA_NATIVE_MINT, TOKEN_PROGRAM_ID, USDC_DATA } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
-import { TxPhase } from "../integrator/ipow/evm/type";
-import { Ipow } from "../integrator/ipow/svm/types/ipow";
 import type { SolanaWallet } from "@ipow/sdk";
 import { solanaConvertMethods } from "../integrator/ipow/solanaConvertMethods";
 import { NO_CONVERT } from "../integrator/ipow/convertMethods";
@@ -80,14 +70,12 @@ const SolanaWalletContext = createContext<SolanaWalletContextType>({
   ipowDecimals: 9,
   networkName: "Solana",
   networkDescription: {},
-  selfCustodyParameter: {},
   networkLogo: solananetwork,
   price: {},
   networkExplorer: {},
   ipowConvert: "comingsoon", 
   ipowNetworkId: 3,
   verifiedTokensData: [],
-  liveTokenPrices: {},
 
   checkAtaRequired: async () => false,
 
@@ -107,8 +95,6 @@ const SolanaWalletContext = createContext<SolanaWalletContextType>({
   
 
   ...NO_CONVERT,
-  initializeProtocol: async () => {},
-  addSupportedNetwork: async () => {},
 
   balance: { confirmed: 0, unconfirmed: 0, sendable: 0, stakeable: 0, swapable: 0, fetched: false, tokens: [] },
   estimatedFee: {
@@ -124,28 +110,6 @@ export function useSolanaWallet() {
   return useContext(SolanaWalletContext);
 }
 
-// `Connection.getAccountInfo` (used by checkAtaRequired/fetchSwapQuote below) has no built-in
-// timeout — a slow/unresponsive RPC node leaves the awaited promise hanging forever, which is
-// the same class of bug fixed in SolanaStake.tsx's fee-quote effect (see withTimeout there):
-// the debounced quote effects in SolanaSwap.tsx/SolanaStocks.tsx never get to their `finally`
-// block, so isFetchingQuote stays stuck true with no way for the user to recover.
-// `signal` is optional and additive to the timeout: when the caller (e.g. SolanaSwap.tsx's
-// quote effect) aborts because the user changed the input again before this settled, this
-// resolves immediately instead of waiting out the full timeout — the actual RPC calls in flight
-// can't be killed (the SDK doesn't expose an AbortSignal hook), but the caller stops waiting on
-// them right away instead of leaving isFetchingQuote stuck until the timeout elapses.
-function withTimeout<T>(promise: Promise<T>, ms: number, signal?: AbortSignal): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => {
-      const timer = setTimeout(() => resolve(null), ms);
-      signal?.addEventListener("abort", () => {
-        clearTimeout(timer);
-        resolve(null);
-      }, { once: true });
-    }),
-  ]);
-}
 
 export function SolanaProvider({ children }: { children: ReactNode }) {
 
@@ -153,55 +117,23 @@ export function SolanaProvider({ children }: { children: ReactNode }) {
   const { isConnected: akConnected, allAccounts } = useAppKitAccount();
   const { walletProvider: akProvider } = useAppKitProvider("solana");
 
-  const { solanaMainnet } = useNetwork();
-  const isMainnet = solanaMainnet;
-
-    const currentNetworkConfig = useMemo(() => {
-      return isMainnet ? appConfig.networks.mainnet : appConfig.networks.devnet;
-    }, [isMainnet]);
+  // Greatwall runs Solana's devnet only.
+  const currentNetworkConfig = appConfig.networks.devnet;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const fullRpcUrl = `${origin}${currentNetworkConfig.jsonRpcUrl}`;
 
 
-
-const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-  network: "SOLANA",
-  env: isMainnet ? "MAINNET" : "TESTNET",
-  tokens: [
-    {
-      token: "SOL",
-      isNative: true,
-      deposit: { min: 10000, maxVA: 100000000, maxQRIS: 10000000 },
-      withdraw: { min: 10000, max: 100000000 },
-    },
-    {
-      token: isMainnet ? USDC_MINT : "USDC",
-      isNative: false,
-      deposit: { min: 10000, maxVA: 100000000, maxQRIS: 10000000 },
-      withdraw: { min: 10000, max: 100000000 },
-    },
-  ],
-  fetched: false,
-});
-
-
-  const [verifiedTokensData, setVerifiedTokensData] = useState<any[]>([
+  const [verifiedTokensData] = useState<any[]>([
     SOL_DATA,
     USDC_DATA,
   ]);
-  const [liveTokenPrices, setLiveTokenPrices] = useState<Record<string, any>>({});
 
   const verifiedTokensRef = useRef<any[]>([]);
-  const liveTokenPricesRef = useRef<Record<string, any>>({});
 
 
   useEffect(() => {
     verifiedTokensRef.current = verifiedTokensData;
   }, [verifiedTokensData]);
-
-  useEffect(() => {
-    liveTokenPricesRef.current = liveTokenPrices;
-  }, [liveTokenPrices]);
 
 
   const [price, setPrice] = useState(null);
@@ -280,7 +212,6 @@ const checkAtaRequired = async (
   };
 
 
-
   const [estimatedFee, setEstimatedFee] = useState<{
     low: number;
     medium: number;
@@ -309,7 +240,7 @@ const checkAtaRequired = async (
   ) => {
     setIsConnecting(true);
     try {
-      const netKey = isMainnet ? "mainnet" : "testnet";
+      const netKey = "testnet";
 
       if (wallet === "walletconnect") {
         if (isAutoConnect) return;
@@ -363,7 +294,7 @@ const checkAtaRequired = async (
   };
 
   const disconnect = async (hardDisconnect: boolean = true) => {
-    const netKey = isMainnet ? "mainnet" : "testnet";
+    const netKey = "testnet";
 
     try {
       if (walletType === "walletconnect" && hardDisconnect) {
@@ -389,87 +320,6 @@ const checkAtaRequired = async (
 
 
  
-const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
-    try {
-      // Greatwall runs on test networks only: no live token list or prices
-      // (paradapp's mainnet Jupiter feed was removed).
-      const currentPrices = liveTokenPricesRef.current;
-      const verifiedList = verifiedTokensRef.current;
-      const SOL_MINT = SOL_DATA.mint;
-
-      const getPrice = (mint: string) => currentPrices[mint]?.usdPrice || currentPrices[mint]?.price || 0;
-      const getChange = (mint: string) => currentPrices[mint]?.priceChange24h || 0;
-
-      // Builds one token's display entry, matching an existing entry by reference when
-      // nothing about it actually changed. This lets the setBalance below detect "nothing
-      // changed" (see `changed` further down) and bail out entirely instead of publishing a
-      // new `tokens` array — the same array/token-object churn that used to retrigger the
-      // global-token-data effect (which depends on balance.tokens) every 15s instead of its
-      // intended 60s, and flash Assets.tsx's skeleton/entrance animation on every poll.
-      const buildEntry = (
-        prevByMint: Map<string, any>,
-        mint: string,
-        amount: number,
-        rawDecimals: number,
-        isNative: boolean,
-      ) => {
-        const meta = verifiedList.find((v: any) => v.id === mint);
-
-        // SOL always shows. A non-native mint with no match on Jupiter's curated "verified"
-        // list is excluded — on Solana that's the standard signature of spam/dust (huge
-        // unsolicited airdropped supply, no real price or liquidity, a phishing link for a
-        // name), not a legitimate token that merely lacks metadata. Matching against real
-        // metadata is what determines whether a token is genuine, not the other way around.
-        if (!isNative && !meta) return null;
-
-        const price = getPrice(mint).toString();
-        const change = `${getChange(mint) >= 0 ? "+" : ""}${getChange(mint).toFixed(2)}%`;
-        const decimals = meta?.decimals || rawDecimals;
-        const symbol = meta?.symbol || "SOL";
-        const name = meta?.name || "Solana";
-        const logo = meta?.icon || null;
-
-        const prevEntry = prevByMint.get(mint);
-        if (
-          prevEntry &&
-          !prevEntry.metaLoading &&
-          prevEntry.amount === amount &&
-          prevEntry.decimals === decimals &&
-          prevEntry.symbol === symbol &&
-          prevEntry.name === name &&
-          prevEntry.logo === logo &&
-          prevEntry.price === price &&
-          prevEntry.change === change
-        ) {
-          return prevEntry;
-        }
-
-        return { mint, amount, decimals, symbol, name, logo, price, change, isNative, metaLoading: false };
-      };
-
-      setBalance(prev => {
-        const prevByMint = new Map((prev.tokens || []).map((t: any) => [t.mint, t]));
-
-        const nextTokens = [
-          buildEntry(prevByMint, SOL_MINT, solAmount, 9, true),
-          ...rawTokens.map(t => buildEntry(prevByMint, t.mint, t.amount, t.decimals, false)),
-        ].filter((t): t is NonNullable<typeof t> => t !== null);
-
-        const prevTokens = prev.tokens || [];
-        const changed =
-          nextTokens.length !== prevTokens.length ||
-          nextTokens.some((t, i) => t !== prevTokens[i]);
-
-        if (!changed) return prev;
-
-        return { ...prev, tokens: nextTokens };
-      });
-
-    } catch (e) {
-      console.error("Background enrichment failed:", e);
-    }
-  };
-
   const fetchBalance = useCallback(async (signal?: AbortSignal) => {
     if (!address) return;
     
@@ -538,21 +388,18 @@ const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
               return prevEntry;
             }
             if (prevEntry && !prevEntry.metaLoading) {
-              // Already resolved by enrichTokenData before — keep its real metadata, just
-              // refresh the amount, instead of reverting it to a "Loading..." placeholder.
+              // Already resolved before — keep its metadata, just refresh the amount,
+              // instead of reverting it to a "Loading..." placeholder.
               return { ...prevEntry, amount, decimals };
             }
             // A genuinely new mint (never seen before): if the verified-token list is already
-            // loaded and this mint isn't on it, enrichTokenData would exclude it as spam/dust
-            // moments later anyway (see its buildEntry) — skip the placeholder here too, so a
+            // loaded and this mint isn't on it, it is treated as spam/dust and skipped, so a
             // held spam token doesn't flicker in and out of the list every poll.
             if (!prevEntry && verifiedTokensRef.current.length > 0 && !verifiedTokensRef.current.some((v: any) => v.id === mint)) {
               return null;
             }
-            // metaLoading only on mainnet: that's the only case enrichTokenData() runs below
-            // to replace this placeholder with real Jupiter metadata. On testnet there's no
-            // enrichment pass at all, so treating it as "still loading" would never resolve.
-            return { mint, amount, decimals, symbol: `${mint.slice(0, 4)}`, name: "Loading...", price: "0", change: "0%", isNative: false, metaLoading: isMainnet };
+            // No metadata pass follows on devnet, so this placeholder is not "still loading".
+            return { mint, amount, decimals, symbol: `${mint.slice(0, 4)}`, name: "Loading...", price: "0", change: "0%", isNative: false, metaLoading: false };
           };
 
           const prevSol = prevByMint.get(SOL_DATA.mint);
@@ -584,14 +431,6 @@ const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
           };
         });
 
-        // Always let enrichTokenData check for a live price refresh, even when the raw token
-        // amounts above didn't change — market prices move on their own. It has its own
-        // bail-outs (see buildEntry/changed and the price-merge check inside it) so this is
-        // safe to call every tick without reintroducing the churn fixed above.
-        if (isMainnet) {
-          enrichTokenData(solAmount, rawTokens);
-        }
-
         return; // Success, exit retry loop
       } catch (err: any) {
         if (signal?.aborted) return;
@@ -604,23 +443,13 @@ const enrichTokenData = async (solAmount: number, rawTokens: any[]) => {
         }
       }
     }
-  }, [address, fullRpcUrl, isMainnet]);
+  }, [address, fullRpcUrl]);
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=SOL&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("SOL");
+    if (p) setPrice(p as any);
   };
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
   const setFeeSelection = (selectedFee: "low" | "medium" | "high") => {
     setEstimatedFee((prev) => ({
@@ -730,7 +559,6 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
       return null;
     }
   };
-
 
 
 /** The single address-check entry point exposed to the frontend: whether an
@@ -863,7 +691,6 @@ const sendTokenTo = async (
     if (walletType === "walletconnect" && akProvider) {
       const signedTx = await (akProvider as any).signTransaction(tx);
       const sig = await conn.sendRawTransaction(signedTx.serialize());
-      console.log(`Transaction Signature: ${sig}`);
       scheduleBalanceRefresh();
       return sig;
     }
@@ -878,7 +705,7 @@ const sendTokenTo = async (
       account: currentAccount!,
     });
 
-    let raw: Uint8Array | undefined =
+    const raw: Uint8Array | undefined =
       signed instanceof Uint8Array
         ? signed
         : Array.isArray(signed) && signed[0]?.signedTransaction instanceof Uint8Array
@@ -895,7 +722,6 @@ const sendTokenTo = async (
     }
 
     const sig = await conn.sendRawTransaction(raw);
-    console.log(`Transaction Signature: ${sig}`);
     scheduleBalanceRefresh();
     return sig;
   } catch (err) {
@@ -955,71 +781,6 @@ const sendTokenTo = async (
 // };
 
 
-
-
-const IPOW_PROGRAM_ID = new PublicKey("EsmGbkui9ZFC6Fch9J6xoyNRZSp6TwfvcjS88beP1Vem");
-
-const getAnchorProgram = () => {
-    const conn = new Connection(fullRpcUrl, "confirmed");
-    
-    const activePublicKey = address ? new PublicKey(address) : PublicKey.default;
-
-    const wallet = {
-      publicKey: activePublicKey,
-      signTransaction: async (tx: Transaction) => tx,
-      signAllTransactions: async (txs: Transaction[]) => txs,
-    };
-
-    const provider = new AnchorProvider(conn, wallet as any, { 
-      preflightCommitment: "confirmed" ,
-       skipPreflight: false, 
-    });
-    
-    return new Program(idl as anchor.Idl, provider) as unknown as Program<Ipow>;
-  };
-
-
-  const ipowPriceCache = useRef({ solPriceUsd: 0, btcPriceUsd: 0, lastFetched: 0 });
-
-  const fetchIpowMarketPrices = async () => {
-    if (Date.now() - ipowPriceCache.current.lastFetched < 30000) {
-      return ipowPriceCache.current;
-    }
-    try {
-      const [solRes, btcRes] = await Promise.all([
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT").then(r => r.json()),
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").then(r => r.json())
-      ]);
-      ipowPriceCache.current = {
-        solPriceUsd: parseFloat(solRes.price),
-        btcPriceUsd: parseFloat(btcRes.price),
-        lastFetched: Date.now(),
-      };
-      return ipowPriceCache.current;
-    } catch (error) {
-      const cgResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana,bitcoin&vs_currencies=usd");
-      const cgData = await cgResponse.json();
-      return { solPriceUsd: cgData.solana.usd, btcPriceUsd: cgData.bitcoin.usd };
-    }
-  };
-
-  const estimateBitcoinFromNative = async (solAmount: number): Promise<string | null> => {
-    try {
-      const { solPriceUsd, btcPriceUsd } = await fetchIpowMarketPrices();
-      const btcAmount = (solAmount * solPriceUsd) / btcPriceUsd;
-      return Math.floor(btcAmount * 1e8).toString();
-    } catch (e) { return null; }
-  };
-
-  const estimateNativeFromBitcoin = async (btcSats: string): Promise<string | null> => {
-    try {
-      const { solPriceUsd, btcPriceUsd } = await fetchIpowMarketPrices();
-      const solAmount = ((Number(btcSats) / 1e8) * btcPriceUsd) / solPriceUsd;
-      return solAmount.toFixed(9); 
-    } catch (e) { return null; }
-  };
-
-
   /** Signs one transaction with the connected wallet, WalletConnect or a
    *  wallet-standard one, and gives it back signed, of the same kind. */
   const signOne = async <T extends Transaction | VersionedTransaction>(tx: T): Promise<T> => {
@@ -1041,7 +802,26 @@ const getAnchorProgram = () => {
       ? {
           publicKey: new PublicKey(address),
           signTransaction: signOne,
+          // Several at once in one prompt where the wallet can (the
+          // wallet-standard feature takes many); one by one otherwise.
           signAllTransactions: async (txs) => {
+            const feature = currentWallet?.features["solana:signTransaction"] as any;
+            if (walletType !== "walletconnect" && feature && currentAccount && txs.length > 1) {
+              try {
+                const results = await feature.signTransaction(
+                  ...txs.map((tx) => ({ transaction: tx instanceof VersionedTransaction ? tx.serialize() : tx.serialize({ requireAllSignatures: false, verifySignatures: false }), account: currentAccount }))
+                );
+                if (Array.isArray(results) && results.length === txs.length) {
+                  return results.map((r: any, i: number) => {
+                    const raw: Uint8Array = r instanceof Uint8Array ? r : r?.signedTransaction;
+                    return (txs[i] instanceof VersionedTransaction ? VersionedTransaction.deserialize(raw) : Transaction.from(raw)) as any;
+                  });
+                }
+              } catch (e) {
+                // Refused by the user: stop. Anything else: one by one.
+                if ((e as any)?.code === 4001 || /reject|denied|cancel/i.test(String((e as any)?.message ?? e))) throw e;
+              }
+            }
             const out = [];
             for (const tx of txs) out.push(await signOne(tx));
             return out;
@@ -1049,8 +829,8 @@ const getAnchorProgram = () => {
         }
       : null;
 
-  // Convert on the new protocol (solanaConvertMethods); it overrides the
-  // old protocol's methods below in the context's value.
+  // Convert on the new protocol (solanaConvertMethods), spread into the
+  // context's value.
   const anchorWalletRef = useRef(getAnchorWallet);
   anchorWalletRef.current = getAnchorWallet;
   const convert = useMemo(
@@ -1058,470 +838,13 @@ const getAnchorProgram = () => {
     [address]
   );
 
-  const signAndSendIpowTx = async (transaction: Transaction, conn: Connection): Promise<string> => {
-    if (!address) throw new Error("Wallet not connected");
-
-    const messageV0 = new TransactionMessage({
-      payerKey: new PublicKey(address),
-      recentBlockhash: transaction.recentBlockhash!,
-      instructions: transaction.instructions,
-    }).compileToV0Message();
-
-    const versionedTx = new VersionedTransaction(messageV0);
-
-    if (walletType === "walletconnect" && akProvider) {
-      const signedTx = await (akProvider as any).signTransaction(versionedTx);
-      return await conn.sendRawTransaction(signedTx.serialize(), { 
-        skipPreflight: false, 
-        preflightCommitment: "confirmed" 
-      });
-    } else {
-      const signFeature = currentWallet?.features["solana:signTransaction"] as any;
-      if (!signFeature) throw new Error("Wallet lacks signTransaction feature");
-
-      const signedResult = await signFeature.signTransaction({
-        transaction: versionedTx.serialize(), 
-        account: currentAccount!,
-      });
-
-      const signed = Array.isArray(signedResult) ? signedResult[0] : signedResult;
-      const raw = signed instanceof Uint8Array ? signed : signed?.signedTransaction;
-      
-      if (!raw) throw new Error("Failed to extract signed transaction");
-
-      return await conn.sendRawTransaction(raw, { 
-          skipPreflight: false, 
-          preflightCommitment: "confirmed" 
-      });
-    }
-  };
-
- const commitNativeToBitcoin = async (
-    userProgram: string,
-    solAmount: number,
-    bitcoinAmountSats: number,
-    destination?: { networkId: number; networkAddress: string }
-  ) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const lamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
-
-      const isCrossChain = destination && destination.networkId > 0;
-      const finalNetworkId = isCrossChain ? destination.networkId : 0;
-      const finalNetworkAddress = isCrossChain ? Array.from(Buffer.from(destination.networkAddress.replace("0x", ""), 'hex')) : [];
-      const finalUserProgram = isCrossChain ? [] : Array.from(Buffer.from(userProgram.replace("0x", ""), 'hex'));
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      const globalState = await program.account.globalState.fetch(globalStatePda);
-      const txIdBN = new BN(globalState.nextTxId.toString());
-      
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), Buffer.from(txIdBN.toArrayLike(Buffer, "le", 8))],
-        IPOW_PROGRAM_ID
-      );
-
-      const networkConfigPda = finalNetworkId > 0 
-        ? PublicKey.findProgramAddressSync(
-            [Buffer.from("network"), new BN(finalNetworkId).toArrayLike(Buffer, "le", 8)], 
-            IPOW_PROGRAM_ID
-          )[0]
-        : null;
-
-      const ix = await program.methods.commitNativeToBitcoin(
-        new BN(lamports.toString()),
-        new BN(bitcoinAmountSats.toString()),
-        new BN(finalNetworkId.toString()),
-        Buffer.from(finalNetworkAddress) as any, 
-        Buffer.from(finalUserProgram) as any
-      ).accounts({
-        globalState: globalStatePda,
-        escrowVault: escrowVaultPda,
-        conversion: conversionPda,
-        networkConfig: networkConfigPda,
-        user: new PublicKey(address),
-        systemProgram: SystemProgram.programId, 
-      } as any).instruction(); 
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      console.error("Solana commitNativeToBitcoin error:", e);
-      return null;
-    }
-  };
-
-const commitBitcoinToNative = async (
-    btcSats: string | number,
-    solAmount: number,
-    userProgram: string,
-  ) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-    
-      const lamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
-      
-      const finalUserProgram = Buffer.from(userProgram.replace("0x", ""), 'hex');
-      const emptyNetworkAddress = Buffer.from([]);
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const globalState = await program.account.globalState.fetch(globalStatePda);
-      
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      
-      const txIdBN = new BN(globalState.nextTxId.toString());
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("conversion"), 
-          txIdBN.toArrayLike(Buffer, "le", 8)
-        ],
-        IPOW_PROGRAM_ID
-      );
-
-      const ix = await program.methods.commitBitcoinToNative(
-        new BN(btcSats.toString()),         
-        new BN(lamports.toString()),       
-        new BN(0),                        
-        emptyNetworkAddress,                
-        finalUserProgram              
-      ).accounts({
-        globalState: globalStatePda,
-        escrowVault: escrowVaultPda,
-        conversion: conversionPda,
-        user: new PublicKey(address),
-        systemProgram: SystemProgram.programId,
-      } as any).instruction();
 
 
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (error) {
-      console.error("Solana commitBitcoinToNative error:", error);
-      return null;
-    }
-  };
-  const depositApprovedConversion = async (txIdNum: number | string | bigint) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const txIdBN = new BN(txIdNum.toString());
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), txIdBN.toArrayLike(Buffer, "le", 8)],
-        IPOW_PROGRAM_ID
-      );
-
-      const ix = await program.methods.depositApprovedConversion()
-        .accounts({
-          globalState: globalStatePda,
-          escrowVault: escrowVaultPda,
-          conversion: conversionPda,
-          user: new PublicKey(address),
-          systemProgram: SystemProgram.programId, 
-        } as any).instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      // console.error("Solana depositApprovedConversion error:", e);
-      return null;
-    }
-  };
-
-  const refundIfNotApproved = async (txIdNum: number | string | bigint) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const txIdBN = new BN(txIdNum.toString());
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), txIdBN.toArrayLike(Buffer, "le", 8)],
-        IPOW_PROGRAM_ID
-      );
-
-      const ix = await program.methods.refundIfNotApproved()
-        .accounts({
-          globalState: globalStatePda,
-          escrowVault: escrowVaultPda,
-          conversion: conversionPda,
-          user: new PublicKey(address),
-          systemProgram: SystemProgram.programId, 
-        } as any).instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      console.error("Solana refundIfNotApproved error:", e);
-      return null;
-    }
-  };
   
-const claimNativeAfterOperatorExpired = async (txIdNum: number | string | bigint) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const txIdBN = new BN(txIdNum.toString());
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), Buffer.from(txIdBN.toArrayLike(Buffer, "le", 8))],
-        IPOW_PROGRAM_ID
-      );
-
-      const ix = await program.methods.claimNativeAfterOperatorExpired()
-        .accounts({
-          globalState: globalStatePda,
-          escrowVault: escrowVaultPda,
-          conversion: conversionPda,
-          user: new PublicKey(address),
-          systemProgram: SystemProgram.programId, 
-        } as any).instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      console.error("Solana claimNativeAfterOperatorExpired error:", e);
-      return null;
-    }
-  };
-
-const refundAfterNoProofNativeToBitcoin = async (txIdNum: number | string | bigint) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const txIdBN = new BN(txIdNum.toString());
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), Buffer.from(txIdBN.toArrayLike(Buffer, "le", 8))],
-        IPOW_PROGRAM_ID
-      );
-
-      const globalState = await program.account.globalState.fetch(globalStatePda);
-
-      const ix = await program.methods.refundAfterNoProofNativeToBitcoin()
-        .accounts({
-          globalState: globalStatePda,
-          escrowVault: escrowVaultPda,
-          conversion: conversionPda,
-          operator: globalState.operator,
-          systemProgram: SystemProgram.programId,
-        } as any).instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      console.error("Solana refundAfterNoProofNativeToBitcoin error:", e);
-      return null;
-    }
-  };
-
-
-  const calculatePhase = (data: any, globalTipHeight: number, now: number): number => {
-    const DEPOSIT_BLOCKS_WINDOW = 10;
-    const PROOF_BLOCKS_WINDOW = 40;
-    const APPROVAL_WINDOW_SEC = 15 * 60;
-
-    const status = data.status;
-    const createdAt = data.createdAt.toNumber();
-    const dutyExpiresAt = data.operatorDutyExpiresAt.toNumber();
-    const windowStartHeight = data.windowStartHeight.toNumber();
-
-    if (!status || status.none) return TxPhase.NONE;
-    
-    if (status.committed) {
-        return now > createdAt + APPROVAL_WINDOW_SEC 
-            ? TxPhase.OPERATOR_APPROVAL_EXPIRED 
-            : TxPhase.WAITING_OPERATOR_APPROVAL;
-    } 
-    else if (status.approved) {
-        if (data.isNativeToBitcoin) {
-            const depositExpiresAtHeight = windowStartHeight + DEPOSIT_BLOCKS_WINDOW - 1;
-            return (data.windowStarted && globalTipHeight > depositExpiresAtHeight) 
-                ? TxPhase.USER_ACTION_EXPIRED 
-                : TxPhase.WAITING_USER_ACTION;
-        } else {
-            return (dutyExpiresAt > 0 && now > dutyExpiresAt) 
-                ? TxPhase.OPERATOR_DUTY_EXPIRED 
-                : TxPhase.ACTIVE_WAITING_PROOF;
-        }
-    } 
-    else if (status.deposited) {
-        const proofExpiresAtHeight = windowStartHeight + PROOF_BLOCKS_WINDOW - 1;
-        return (data.windowStarted && globalTipHeight > proofExpiresAtHeight) 
-            ? TxPhase.OPERATOR_DUTY_EXPIRED 
-            : TxPhase.ACTIVE_WAITING_PROOF;
-    } 
-    else if (status.completed) return TxPhase.COMPLETED;
-    else if (status.refunded) return TxPhase.REFUNDED;
-
-    return TxPhase.NONE;
-  };
-
-  const getMyTxIds = async (
-    phase: number = 0,
-    typeFilter: number = 0,
-    bitcoinProgramFilter: string = "",
-    isUserBitcoinProgramFilter: boolean = true
-  ): Promise<string[]> => {
-    try {
-      if (!address && !bitcoinProgramFilter) return [];
-      const program = getAnchorProgram();
-      
-     
-      const allConversions = await program.account.conversion.all();
-      let filtered = allConversions;
-
-    
-      if (bitcoinProgramFilter && bitcoinProgramFilter !== "") {
-        const expectedHex = bitcoinProgramFilter.replace(/^0x/, "").toLowerCase();
-        
-        filtered = filtered.filter(acc => {
-          const progBuf = isUserBitcoinProgramFilter 
-            ? acc.account.userProgram 
-            : acc.account.ipowReceiveProgram;
-          const progHex = Buffer.from(progBuf).toString('hex').toLowerCase();
-          return progHex === expectedHex;
-        });
-      } else {
-        filtered = filtered.filter(acc => acc.account.user.toBase58() === address);
-      }
-
-      if (typeFilter === 1) {
-        filtered = filtered.filter(acc => acc.account.isNativeToBitcoin === true);
-      } else if (typeFilter === 2) {
-        filtered = filtered.filter(acc => acc.account.isNativeToBitcoin === false);
-      }
-
-      if (phase !== 0) {
-        const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-        const globalState = await program.account.globalState.fetch(globalStatePda);
-        const globalTipHeight = globalState.globalTipHeight.toNumber();
-        const now = Math.floor(Date.now() / 1000);
-
-        filtered = filtered.filter(acc => calculatePhase(acc.account, globalTipHeight, now) === phase);
-      }
-
-      filtered.sort((a, b) => b.account.txId.toNumber() - a.account.txId.toNumber());
-
-      return filtered.map((acc) => acc.account.txId.toString());
-      
-    } catch (error) {
-      console.error("Error fetching Solana Tx IDs:", error);
-      return [];
-    }
-  };
-
-
-const getConversion = async (txId: number | string | bigint) => {
-    try {
-      const program = getAnchorProgram();
-      
-      const txIdBN = new BN(txId.toString());
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), Buffer.from(txIdBN.toArray("le", 8))],
-        IPOW_PROGRAM_ID
-      );
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("global_state")],
-        IPOW_PROGRAM_ID
-      );
-
-      const [data, globalState] = await Promise.all([
-        program.account.conversion.fetch(conversionPda),
-        program.account.globalState.fetch(globalStatePda)
-      ]);
-
-      const now = Math.floor(Date.now() / 1000);
-      const globalTipHeight = globalState.globalTipHeight.toNumber();
-      const phaseNumber = calculatePhase(data, globalTipHeight, now);
-      console.log("memek",data.user.toBase58());
-      return {
-        id: data.txId.toString(),
-        user: data.user.toBase58(),
-        
-        nativeAmount: data.nativeAmount.toString(),
-        bitcoinAmount: data.bitcoinAmount.toString(),
-        reservedNative: data.reservedNative.toString(), 
-        
-        userProgram: "0x" + Buffer.from(data.userProgram).toString("hex"),
-        ipowReceiveProgram: "0x" + Buffer.from(data.ipowReceiveProgram).toString("hex"),
-        
-        networkAddress: "0x" + Buffer.from(data.networkAddress).toString("hex"),
-        
-        networkId: data.networkId.toNumber(),
-        isNativeToBitcoin: data.isNativeToBitcoin,
-        
-        phase: phaseNumber, 
-        createdAt: data.createdAt.toString(), 
-        operatorDutyExpiresAt: data.operatorDutyExpiresAt.toString() 
-      };
-
-    } catch (error) {
-      console.warn(`Could not fetch conversion ${txId}:`, error);
-      return null;
-    }
-  };
-
-  // This effect only actually needs to know WHICH mints are held (to know what to price),
-  // not their amounts/prices/symbols — but depending on `balance.tokens` directly means it
-  // reruns on every price tick too (enrichTokenData legitimately gives that array a new
-  // reference whenever a price moves), turning its own 60s interval into an effective 15s
-  // one. Deriving a primitive signature of just the held mint set lets the effect below
-  // depend on "did my holdings change" instead of "did balance.tokens get a new reference".
-  const heldMintsSignature = useMemo(() => {
-    return (balance?.tokens || [])
-      .filter((t: any) => t.amount > 0)
-      .map((t: any) => t.mint)
-      .sort()
-      .join(",");
-  }, [balance?.tokens]);
-
 
 
   useEffect(() => {
-    const netKey = isMainnet ? "mainnet" : "testnet";
+    const netKey = "testnet";
     if (akConnected && allAccounts && akProvider) {
       const wasInjected =
         localStorage.getItem(`solana_wallet_type_${netKey}`) === "phantom";
@@ -1542,74 +865,19 @@ const getConversion = async (txId: number | string | bigint) => {
         }
       }
     }
-  }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
+  }, [akConnected, allAccounts, akProvider, address, walletType]);
 
-useEffect(() => {
-    setSelfCustodyParameter(prev => ({ ...prev, tokens: [], fetched: false }));
-
-    let cancelled = false;
-    let quickRetries = 0;
-    const MAX_QUICK_RETRIES = 4;
-    const QUICK_RETRY_DELAY_MS = 2000;
-
-    const fetchSelfCustodyConstraints = async () => {
-      try {
-        const envMode = isMainnet ? "MAINNET" : "TESTNET";
-        const response = await fetch(
-          `/api/transaction/constraints/?network=SOLANA&env=${envMode}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-
-        const data: CustodyParams = await response.json();
-        if (cancelled) return;
-
-        if (data && data.tokens) {
-          const next = { ...data, fetched: true };
-          // selfCustodyParameter is a dependency of the global-token-data effect further
-          // below; publishing a freshly-parsed (but content-identical) object here every 5
-          // minutes would retrigger that effect for no reason. Bail out when nothing about
-          // the constraints actually changed.
-          setSelfCustodyParameter(prev =>
-            JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
-          );
-          return;
-        }
-      } catch (error) {
-        // console.error("Failed to fetch SOLANA self-custody limits:", error);
-      }
-
-      // A malformed/empty response shouldn't strand the UI in "still loading" for a full 5
-      // minutes (the normal poll cadence below) — retry quickly a few times first, since
-      // that's a much more plausible transient hiccup than a genuinely empty token list.
-      if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-        quickRetries += 1;
-        setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-      }
-    };
-
-    fetchSelfCustodyConstraints();
-
-
-    const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isMainnet]);
 
   useEffect(() => {
     const wasConnected =
       localStorage.getItem(
-        `solana_connected_${isMainnet ? "mainnet" : "testnet"}`,
+        `solana_connected_testnet`,
       ) === "true";
     const savedWalletName = localStorage.getItem(
-      `solana_wallet_${isMainnet ? "mainnet" : "testnet"}`,
+      `solana_wallet_testnet`,
     );
     const savedWalletType = localStorage.getItem(
-      `solana_wallet_type_${isMainnet ? "mainnet" : "testnet"}`,
+      `solana_wallet_type_testnet`,
     );
 
     // WalletConnect restoration is intentionally NOT handled here: setting `connected` straight
@@ -1657,15 +925,14 @@ useEffect(() => {
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, rent: 0, tokens: [] });
       detectWallets();
     }
-  }, [isMainnet]);
+  }, []);
   useEffect(() => {
     fetchPrice();
     const i = setInterval(() => {
       fetchPrice();
     }, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
 useEffect(() => {
     if (!address){
@@ -1706,7 +973,6 @@ useEffect(() => {
     const triggerDebouncedFetch = () => {
       clearTimeout(fetchTimeout);
       fetchTimeout = setTimeout(() => {
-        console.log(" Network settled. Fetching fresh balances now...");
         fetchBalance();
         estimateFee();
       }, 2000);
@@ -1724,7 +990,6 @@ useEffect(() => {
       solSubId = conn.onAccountChange(
         publicKey,
         () => {
-          console.log(" Native SOL Account Changed! Debouncing fetch...");
           triggerDebouncedFetch();
         },
         { commitment: "confirmed" }
@@ -1733,7 +998,6 @@ useEffect(() => {
       splSubId = conn.onProgramAccountChange(
         TOKEN_PROGRAM_ID,
         () => {
-          console.log(" SPL Token Account Changed! Debouncing fetch...");
           triggerDebouncedFetch();
         },
         {
@@ -1748,7 +1012,6 @@ useEffect(() => {
       token2022SubId = conn.onProgramAccountChange(
         TOKEN_2022_PROGRAM_ID,
         () => {
-          console.log("Token-2022 Account Changed! Debouncing fetch...");
           triggerDebouncedFetch();
         },
         {
@@ -1778,342 +1041,6 @@ useEffect(() => {
   const STD_NETWORK_FEE = estimatedFee[estimatedFee.selectedFee];
   
 
-const initializeProtocol = async () => {
-    if (!address) return alert("Connect wallet first!");
-    
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const adminPubkey = new PublicKey(address);
-
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("global_state")], 
-        IPOW_PROGRAM_ID
-      );
-
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("escrow")], 
-        IPOW_PROGRAM_ID
-      );
-
-      console.log("Initializing PDA at:", globalStatePda.toBase58());
-
-
-      const initIx = await program.methods.initialize(
-        adminPubkey,     
-        50               
-      )
-      .accounts({
-        globalState: globalStatePda,
-        escrowVault: escrowVaultPda, 
-        admin: adminPubkey,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .instruction();
-
-      const amountInLamports = new BN(2 * LAMPORTS_PER_SOL); 
-      const addLiquidityIx = await program.methods.addLiquidity(amountInLamports)
-      .accounts({
-        globalState: globalStatePda,
-        escrowVault: escrowVaultPda,
-        operator: adminPubkey,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .instruction();
-
-      const transaction = new Transaction()
-        .add(initIx)
-        .add(addLiquidityIx);
-
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = adminPubkey;
-
-      const sig = await signAndSendIpowTx(transaction, conn);
-      console.log(" Protocol Initialized & Funded! Tx Sig:", sig);
-     
-      
-    } catch (error: any) {
-      console.error("Init Error:", error);
-      alert("Failed: " + error.message);
-    }
-};
-
-
-const addSupportedNetwork = async (
-    networkName: string,
-    networkId: number,
-    minAddrLen: number,
-    maxAddrLen: number
-  ): Promise<void> => {
-    if (!address) return; 
-    
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const adminPubkey = new PublicKey(address);
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("global_state")], 
-        IPOW_PROGRAM_ID
-      );
-
-
-      const networkIdBuffer = new BN(networkId).toArrayLike(Buffer, "le", 8);
-      const [networkConfigPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("network"), networkIdBuffer], 
-        IPOW_PROGRAM_ID
-      );
-
-      console.log(`Adding ${networkName} (ID: ${networkId}) at PDA:`, networkConfigPda.toBase58());
-
-      const ix = await program.methods.addNetwork(
-        new BN(networkId),
-        minAddrLen,
-        maxAddrLen
-      )
-      .accounts({
-        globalState: globalStatePda,
-        networkConfig: networkConfigPda,
-        admin: adminPubkey,
-        systemProgram: SystemProgram.programId,
-      } as any)
-      .instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = adminPubkey;
-
-      const sig = await signAndSendIpowTx(transaction, conn);
-      
-      console.log(` ${networkName} Configured! Tx Sig:`, sig);
-      
-
-    } catch (error: any) {
-      console.error(`Error configuring ${networkName}:`, error);
-      
-    }
-  };
-
-
-  const anchorInfo = async (txIdNum: number | string | bigint) => {
-    try {
-      const program = getAnchorProgram();
-      const txIdBN = new BN(txIdNum.toString());
-      const [conversionPda] = PublicKey.findProgramAddressSync([Buffer.from("conversion"), Buffer.from(txIdBN.toArray("le", 8))], IPOW_PROGRAM_ID);
-      const data = await program.account.conversion.fetch(conversionPda);
-      return [data.windowStartHeight, data.epochStartHeight];
-    } catch (e) { return null; }
-  };
-
-  const windowsFor = async (txIdNum: number | string | bigint) => {
-    try {
-      const program = getAnchorProgram();
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const globalState = await program.account.globalState.fetch(globalStatePda);
-      const txIdBN = new BN(txIdNum.toString());
-      const [conversionPda] = PublicKey.findProgramAddressSync([Buffer.from("conversion"), Buffer.from(txIdBN.toArray("le", 8))], IPOW_PROGRAM_ID);
-      const data = await program.account.conversion.fetch(conversionPda);
-      return [data.windowStarted, data.windowStartHeight, globalState.globalTipHeight];
-    } catch (e) { return null; }
-  };
-
-const proofInfo = async (txIdNum: number | string | bigint) => {
-    try {
-      const program = getAnchorProgram();
-      const txIdBN = new BN(txIdNum.toString());
-
-      const txIdBuffer = txIdBN.toArrayLike(Buffer, "le", 8);
-
-      const [proofCachePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("proof"), txIdBuffer], 
-        IPOW_PROGRAM_ID
-      );
-
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), txIdBuffer], 
-        IPOW_PROGRAM_ID
-      );
-
-      try {
- 
-        const pc = await program.account.proofCache.fetch(proofCachePda);
-
-
-        let blockHashHex = "0x0000000000000000000000000000000000000000000000000000000000000000";
-        try {
-            const heightBuffer = pc.proofBlockHeight.toArrayLike(Buffer, "le", 8);
-            const [headerPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("header"), heightBuffer],
-                IPOW_PROGRAM_ID
-            );
-            
-
-            const headerAcc = await program.account.globalHeader.fetch(headerPda);
-            if (headerAcc && headerAcc.hashLe) {
-                blockHashHex = "0x" + Buffer.from(headerAcc.hashLe).toString("hex");
-            }
-        } catch (e) {
-          
-        }
-
-        return [
-          pc.isSet,                       // [0] set
-          pc.isVerified,                  // [1] verified
-          pc.isInvalid,                   // [2] invalid
-          pc.attempts,                    // [3] attempts
-          "0x" + Buffer.from(pc.txidLe).toString("hex"), // [4] txidLE
-          blockHashHex,                   // [5] blockHashLE 
-          pc.proofBlockHeight.toString(), // [6] blockHeight 
-          pc.outValueSats.toString(),     // [7] outValueSats
-          "0x" + Buffer.from(pc.outProgram).toString("hex") // [8] outProgram
-        ];
-
-      } catch (cacheError) {
-        const conv = await program.account.conversion.fetch(conversionPda);
-
-        if (conv.proofVerified) {
-            let fallbackBlockHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
-            try {
-                const heightBuffer = conv.proofBlockHeight.toArrayLike(Buffer, "le", 8);
-                const [headerPda] = PublicKey.findProgramAddressSync(
-                    [Buffer.from("header"), heightBuffer],
-                    IPOW_PROGRAM_ID
-                );
-                const headerAcc = await program.account.globalHeader.fetch(headerPda);
-                if (headerAcc && headerAcc.hashLe) {
-                    fallbackBlockHash = "0x" + Buffer.from(headerAcc.hashLe).toString("hex");
-                }
-            } catch (e) {}
-
-            const expectedProgram = conv.ipowReceiveProgram.length > 0 
-                ? conv.ipowReceiveProgram 
-                : conv.userProgram;
-
-            return [
-                true,  
-                true,  
-                false,
-                1,     
-                "0x" + Buffer.from(conv.proofTxidLe).toString("hex"), 
-                fallbackBlockHash,
-                conv.proofBlockHeight.toString(), 
-                conv.bitcoinAmount.toString(),   
-                "0x" + Buffer.from(expectedProgram).toString("hex") 
-            ];
-        }
-
-        return [
-          false, false, false, 0,
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "0", "0", "0x"
-        ];
-      }
-    } catch (e) { 
-      console.error("Solana proofInfo error:", e);
-      return null; 
-    }
-  };
-
-  const globalHeightToHashLE = async (height: bigint | number) => {
-    try {
-      const program = getAnchorProgram();
-      const heightBN = new BN(height.toString());
-      const [headerPda] = PublicKey.findProgramAddressSync([Buffer.from("header"), Buffer.from(heightBN.toArray("le", 8))], IPOW_PROGRAM_ID);
-      const header = await program.account.globalHeader.fetch(headerPda);
-      return "0x" + Buffer.from(header.hashLe).toString("hex");
-    } catch (e) { 
-      return "0x0000000000000000000000000000000000000000000000000000000000000000"; 
-    }
-  };
-
-const submitBitcoinMerkleProofWithTx = async (
-    txIdNum: number | string | bigint,
-    rawTx: Uint8Array,
-    voutIndex: number,
-    blockHashLE: Uint8Array,
-    blockHeight: number,
-    branch: Uint8Array[],
-    index: number
-  ) => {
-    if (!address) return null;
-    try {
-      const program = getAnchorProgram();
-      const conn = program.provider.connection;
-      const txIdBN = new BN(txIdNum.toString());
-      const heightBN = new BN(blockHeight);
-
-      const [globalStatePda] = PublicKey.findProgramAddressSync([Buffer.from("global_state")], IPOW_PROGRAM_ID);
-      const [escrowVaultPda] = PublicKey.findProgramAddressSync([Buffer.from("escrow")], IPOW_PROGRAM_ID);
-      
-      const [conversionPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("conversion"), Buffer.from(txIdBN.toArray("le", 8))], 
-        IPOW_PROGRAM_ID
-      );
-      
-      const [proofCachePda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("proof"), Buffer.from(txIdBN.toArray("le", 8))], 
-        IPOW_PROGRAM_ID
-      );
-
-      const [heightTrackerPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("tracker"), Buffer.from(heightBN.toArray("le", 8))], 
-        IPOW_PROGRAM_ID
-      );
-
-      const [headerPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("header"), Buffer.from(heightBN.toArray("le", 8))], 
-        IPOW_PROGRAM_ID
-      );
-      
-      const headerInfo = await conn.getAccountInfo(headerPda);
-      const isHeaderPresent = headerInfo !== null;
-
-     
-      const globalState = await program.account.globalState.fetch(globalStatePda);
-      const conversion = await program.account.conversion.fetch(conversionPda);
-
-
-      const formattedBranch = branch.map(b => Array.from(b));
-
-
-      const ix = await program.methods.submitBitcoinProofCache(
-        Buffer.from(rawTx) as any,
-        new BN(voutIndex),
-        heightBN,
-        formattedBranch as any,
-        new BN(index)
-      ).accounts({
-        globalState: globalStatePda,
-        escrowVault: escrowVaultPda,          
-        conversion: conversionPda,
-        proofCache: proofCachePda,       
-        heightTracker: heightTrackerPda, 
-        header: isHeaderPresent ? headerPda : null, 
-        operator: globalState.operator,         
-        user: conversion.user,                
-        signer: new PublicKey(address),
-        systemProgram: SystemProgram.programId
-      } as any).instruction();
-
-      const transaction = new Transaction().add(ix);
-      const { blockhash } = await conn.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = new PublicKey(address);
-
-      return await signAndSendIpowTx(transaction, conn);
-    } catch (e) {
-      console.error("Solana submit proof cache error:", e);
-      return null;
-    }
-  };
-
-
-
-
   return (
    <SolanaWalletContext.Provider
       value={{
@@ -2130,9 +1057,7 @@ const submitBitcoinMerkleProofWithTx = async (
         networkLogo: solananetwork,
         networkDescription: {
           en: `Solana is a fast, scalable blockchain for modern apps. With ultra-low fees and high throughput, solana is a ideal network for you who want to use DeFi, NFTs, and real-time dApps.`,
-          id: `Solana adalah blockchain cepat dan skalabel untuk aplikasi modern. Dengan biaya sangat rendah dan throughput tinggi, Solana adalah jaringan yang ideal buat kamu yang mau menggunakan DeFi, NFT, dan dApp secara real-time.`,
         },
-        selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
         connect,
@@ -2146,7 +1071,6 @@ const submitBitcoinMerkleProofWithTx = async (
         setFeeSelection,
         fetchETA,
         verifiedTokensData,
-        liveTokenPrices,
         checkAtaRequired,
         balance: {
           ...balance,
@@ -2176,8 +1100,6 @@ const submitBitcoinMerkleProofWithTx = async (
         price,
         networkExplorer : currentNetworkConfig.networkExplorer,
 
-        initializeProtocol,
-        addSupportedNetwork,
         ...convert,
       }}
     >

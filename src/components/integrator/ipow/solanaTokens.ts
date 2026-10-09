@@ -6,6 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import { WRAPPED_SOL } from "@ipow/sdk";
 
 import { EVM_CHAINS, TICKER, solanaConnection, solanaVaultWith, type EvmChain } from "./sdk";
+import { rwaTokensOf } from "./rwaTokens";
 
 export type SolanaToken = { mint: string; symbol: string; decimals: number };
 
@@ -14,12 +15,15 @@ export function receiptMints(): { peer: EvmChain; mint: string; symbol: string }
   return EVM_CHAINS.map((peer) => ({
     peer,
     mint: solanaVaultWith(peer, null).receiptMint(0).toBase58(),
-    symbol: `v${TICKER[peer]} · ${peer.charAt(0).toUpperCase() + peer.slice(1)}`,
+    // The source coin's name, not the receipt's vETH: ETH locked on Ethereum.
+    symbol: `${TICKER[peer]} · ${peer.charAt(0).toUpperCase() + peer.slice(1)}`,
   }));
 }
 
 export function solanaSymbol(mint: string): string {
   if (mint === WRAPPED_SOL) return "SOL";
+  const rwa = rwaTokensOf("solana").find((r) => r.token === mint);
+  if (rwa) return rwa.symbol;
   const receipt = receiptMints().find((r) => r.mint === mint);
   return receipt ? receipt.symbol : `${mint.slice(0, 4)}…${mint.slice(-4)}`;
 }
@@ -39,7 +43,3 @@ export function solanaToken(mint: string): Promise<SolanaToken> {
   return info;
 }
 
-/** Whether a receipt's mint has been made yet (by its first carried lock). */
-export async function mintExists(mint: string): Promise<boolean> {
-  return (await solanaConnection().getAccountInfo(new PublicKey(mint))) !== null;
-}

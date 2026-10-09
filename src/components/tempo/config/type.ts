@@ -3,8 +3,8 @@ import { TxPhase, TypeFilter } from "@/components/integrator/ipow/evm/type";
 import { BytesLike } from "ethers";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet" 
-export type ChainId = '0x1079' | '0xa5bf' ; 
+export type NetworkName = "testnet"
+export type ChainId = '0xa5bf'; // Tempo testnet
 
 export type NetworkConfig = {
   network: NetworkName,
@@ -58,14 +58,12 @@ export interface TempoWalletContextType {
    * Polkadot's EVM-compat layers each scale `msg.value` differently, so their two
    * numbers diverge). */
   ipowDecimals: number;
-  /** The vault's fiat limits: none on Tempo, which paradapp's back end never served. */
-  selfCustodyParameter: {};
   networkName: "Tempo";
-  networkDescription: {};
+  networkDescription: object;
   networkLogo: typeof temponetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: TempoWalletType) => Promise<void>;
   fetchETA: (
@@ -75,10 +73,12 @@ export interface TempoWalletContextType {
   disconnect: (hardDisconnect: boolean) => void;
   switchWallet: (wallet: TempoWalletType) => Promise<void>;
   signMessage: (message: string) => Promise<string | null>;
+  /** A token transfer: PathUSD (Tempo's "USD"), or `token` when given. */
   sendTokenTo: (
     to: string,
-    amountEth: number,
-    customFee?: number,
+    amount: number,
+    _unused?: unknown,
+    token?: { address: string; decimals: number },
   ) => Promise<string | null>;
   /** The test RWA tokens' faucet: a claim from the token at `token`. */
   faucet?: (token: string) => Promise<string>;

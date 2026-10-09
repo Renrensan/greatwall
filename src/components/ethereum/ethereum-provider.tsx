@@ -12,21 +12,21 @@ import {
   useRef,
   useCallback,
 } from "react";
-import { BytesLike, Eip1193Provider, ethers } from "ethers";
+import { Eip1193Provider, ethers } from "ethers";
 
 import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 import { ethereumnetwork } from "@/index";
 import { appConfig, EthereumWalletContextType, EthereumWalletType } from "./config";
 import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
 import { IPOW_NETWORK_ID } from "./config/constants";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
-import { mainnet, sepolia } from "@reown/appkit/networks";
+import { sepolia } from "@reown/appkit/networks";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { appKit } from "../walletconnect/wallet-connect-provider";
 import { evmConvertMethods } from "../integrator/ipow/convertMethods";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
-import { fetchErc20Balances, fetchErc20UsdPrices, fetchVerifiedTokenLogos } from "./erc20-balances";
-
+import { fetchErc20Balances } from "./erc20-balances";
 
 
 const EthereumWalletContext = createContext<EthereumWalletContextType>({
@@ -48,7 +48,6 @@ const EthereumWalletContext = createContext<EthereumWalletContextType>({
   ipowDecimals: 18,
   networkName: "Ethereum",
   networkDescription: {},
-  selfCustodyParameter: {},
   networkLogo: ethereumnetwork,
   price: {},
   networkExplorer: {},
@@ -91,31 +90,20 @@ export function EthereumProvider({ children }: { children: ReactNode }) {
   const { isConnected: akConnected, allAccounts } = useAppKitAccount();
   const { walletProvider: akProvider } = useAppKitProvider("eip155");
 
-  const { ethereumMainnet, selectedChain } = useNetwork();
-  const isMainnet = ethereumMainnet;
-  const currentNetworkConfig = useMemo(() => {
-    return isMainnet ? appConfig.networks.mainnet : appConfig.networks.testnet;
-  }, [isMainnet]);
+  const { selectedChain } = useNetwork();
+  // Greatwall runs the network's testnet only.
+  const currentNetworkConfig = appConfig.networks.testnet;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const fullRpcUrl = `${origin}${currentNetworkConfig.jsonRpcUrl}`;
 
 
-
-const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-  network: "ETHEREUM",
-  env: isMainnet ? "MAINNET" : "TESTNET",
-  tokens: [
-
-  ],
-  fetched: false,
-});
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [walletType, setWalletType] = useState<EthereumWalletType | null>(null);
-  const [availableWallets, setAvailableWallets] = useState<
+  const [availableWallets] = useState<
     EthereumWalletType[]
   >([]);
   const [balance, setBalance] = useState<{
@@ -132,13 +120,8 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
     fetched: boolean;
   }>({ low: 0, medium: 0, high: 0, selectedFee: "medium", fetched: false });
 
-  const netKey = useMemo(() => {
-    return isMainnet ? "mainnet" : "testnet";
-  }, [isMainnet]);
-
-  const targetNetwork = useMemo(() => {
-    return isMainnet ? mainnet : sepolia;
-  }, [isMainnet]);
+  const netKey = "testnet";
+  const targetNetwork = sepolia;
 
   const switchNetwork = async (prov: ethers.BrowserProvider) => {
     const targetChainIdHex = currentNetworkConfig.chainId.toLowerCase();
@@ -241,12 +224,12 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
       if (ethAccount && (!wasInjected || walletType === "walletconnect")) {
 
         const enforceNetwork = async () => {
+          // Only on this network's own pages, as with injected wallets: two
+          // providers enforcing at once would pull the wallet back and forth.
+          if (selectedChain !== "ethereum") return;
           const currentNetwork = appKit.getCaipNetwork();
 
           if (currentNetwork?.id !== targetNetwork.id) {
-            console.log(
-              `Connection established! Forcing MetaMask to add/switch to ${targetNetwork.name}...`,
-            );
             try {
             
               const rawProvider = akProvider as any;
@@ -302,7 +285,7 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
         }
       }
     }
-  }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
+  }, [akConnected, allAccounts, akProvider, address, walletType, selectedChain]);
 
   const disconnect = async (hardDisconnect: boolean) => {
     try {
@@ -482,9 +465,6 @@ const readOnlyProvider = useMemo(() => {
 
 
         if (currentNetwork?.id !== targetNetwork.id) {
-          console.log(
-            `Wrong network detected before signing. Attempting switch to ${targetNetwork.name}...`,
-          );
 
           try {
 
@@ -519,7 +499,7 @@ const readOnlyProvider = useMemo(() => {
               });
               await appKit.switchNetwork(targetNetwork); 
               await new Promise((resolve) => setTimeout(resolve, 1000));
-            } catch (fallbackErr) {
+            } catch {
               throw new Error(
                 `Please open your wallet and switch to ${currentNetworkConfig.network} to proceed.`,
               );
@@ -581,29 +561,7 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
 
 
       if (signal?.aborted) {
-        console.log(`[Abort] Cancelled ETH balance update for ${address}`);
         return;
-      }
-
-      // Testnet tokens have no real market, and Uniswap's list is mainnet-only — both would
-      // be misleading/empty on testnet, so only fetch either on mainnet.
-      let pricedTokens = tokens;
-      if (tokens && tokens.length > 0 && isMainnet) {
-        const addresses = tokens.map((t) => t.mint);
-        const [prices, logos] = await Promise.all([
-          fetchErc20UsdPrices(addresses),
-          fetchVerifiedTokenLogos(addresses),
-        ]);
-        if (signal?.aborted) return;
-        pricedTokens = tokens.map((t) => {
-          const p = prices[t.mint.toLowerCase()];
-          return {
-            ...t,
-            price: p ? p.usd.toString() : "0",
-            priceChange24h: p ? p.usd_24h_change : 0,
-            logo: logos[t.mint.toLowerCase()] || null,
-          };
-        });
       }
 
       let unconfirmedWei = pendingWei - confirmedWei;
@@ -615,7 +573,7 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
       setBalance((prev) => {
         // `tokens` is `null` when the multicall itself failed (RPC hiccup, etc.) — keep
         // whatever token list we already had rather than dropping it to empty for one bad poll.
-        const nextTokens = pricedTokens === null ? prev.tokens : pricedTokens;
+        const nextTokens = tokens === null ? prev.tokens : tokens;
         const tokensChanged = JSON.stringify(prev.tokens) !== JSON.stringify(nextTokens);
         if (!tokensChanged && prev.fetched && prev.confirmed === confirmed && prev.unconfirmed === unconfirmed) {
           return prev;
@@ -627,7 +585,7 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
       console.error("Failed to fetch balance:", err);
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
-  }, [address, currentNetworkConfig.jsonRpcUrl, netKey, isMainnet]);
+  }, [address, currentNetworkConfig.jsonRpcUrl]);
 
 const estimateFee = useCallback(async (signal?: AbortSignal) => {
     if (!address) return;
@@ -692,20 +650,11 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
     }
   }, [address, currentNetworkConfig.jsonRpcUrl]);
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=ETH&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("ETH");
+    if (p) setPrice(p as any);
   };
 
   const fetchETA = async (
@@ -792,58 +741,14 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
         }
       }
     }
-  }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
+  }, [akConnected, allAccounts, akProvider, address, walletType]);
 
-useEffect(() => {
-    setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
-
-    let cancelled = false;
-    let quickRetries = 0;
-    const MAX_QUICK_RETRIES = 4;
-    const QUICK_RETRY_DELAY_MS = 2000;
-
-    const fetchSelfCustodyConstraints = async () => {
-      try {
-        const envMode = isMainnet ? "MAINNET" : "TESTNET";
-        const response = await fetch(
-          `/api/transaction/constraints/?network=ETHEREUM&env=${envMode}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-
-        const data: CustodyParams = await response.json();
-        if (cancelled) return;
-
-        if (data && data.tokens) {
-          setSelfCustodyParameter({ ...data, fetched: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to fetch ETHEREUM self-custody limits:", error);
-      }
-
-      // A malformed/empty response shouldn't strand the UI in "still loading" for a full 5
-      // minutes (the normal poll cadence below) — retry quickly a few times first, since
-      // that's a much more plausible transient hiccup than a genuinely empty token list.
-      if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-        quickRetries += 1;
-        setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-      }
-    };
-
-    fetchSelfCustodyConstraints();
-
-    const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isMainnet]);
 
   useEffect(() => {
-    if (selectedChain !== "ethereum" && selectedChain !== "bitcoin") return;
+    // Only on this network's own pages: on others (Bitcoin's included) every
+    // network's wallet is loaded, and two of these would pull the wallet back
+    // and forth. Signing switches to the right network anyway.
+    if (selectedChain !== "ethereum") return;
 
     const checkChain = async () => {
       if (!provider) return;
@@ -855,7 +760,7 @@ useEffect(() => {
       }
     };
     checkChain();
-  }, [isMainnet, connected, selectedChain, provider, currentNetworkConfig]);
+  }, [connected, selectedChain, provider, currentNetworkConfig]);
 
   useEffect(() => {
     fetchPrice();
@@ -863,8 +768,7 @@ useEffect(() => {
       fetchPrice();
     }, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
   useEffect(() => {
     if (!walletType || !connected) return;
@@ -895,9 +799,12 @@ useEffect(() => {
       cancelled = true;
       injection?.removeListener("accountsChanged", handleAccountsChanged);
     };
-  }, [walletType, connected, isMainnet]);
+  }, [walletType, connected]);
   useEffect(() => {
-    if (selectedChain !== "ethereum" && selectedChain !== "bitcoin") return;
+    // Only on this network's own pages: on others (Bitcoin's included) every
+    // network's wallet is loaded, and two of these would pull the wallet back
+    // and forth. Signing switches to the right network anyway.
+    if (selectedChain !== "ethereum") return;
     if (!((walletType === "metamask" || walletType === "phantom") && provider)) return;
 
     let eth: any;
@@ -920,7 +827,6 @@ useEffect(() => {
 
       const network = await provider.getNetwork();
       if (network.chainId !== targetChainId) {
-        console.log("Wrong network detected. Switching...");
         await switchNetwork(provider);
       }
 
@@ -947,13 +853,12 @@ useEffect(() => {
 
     let blockCount = 0;
 
-    const handleNewBlock = (blockNumber: number) => {
+    const handleNewBlock = () => {
 
       estimateFee(signal); 
 
       blockCount++;
       if (blockCount >= 3) {
-        console.log(`🔗 3 ETH blocks passed. Refetching balance...`);
         fetchBalance(signal);
         blockCount = 0;
       }
@@ -989,7 +894,7 @@ useEffect(() => {
       setProvider(null);
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
-  }, [isMainnet]);
+  }, []);
   return (
     <EthereumWalletContext.Provider
       value={{
@@ -1018,9 +923,7 @@ useEffect(() => {
         networkLogo: ethereumnetwork,
         networkDescription: {
           en: `Ethereum is the foundation blockchain for smart contracts and decentralized apps. Ethereum network has high liquidity for you who what to access DeFi, NFTs, DAOs, and more.`,
-          id: `Ethereum adalah blockchain pertama dari smart contract dan aplikasi terdesentralisasi. Jaringan Ethereum ini memiliki likuiditas tinggi untuk kamu yang mau akses DeFi, NFT, DAO, dan lainnya.`,
         },
-        selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
         connect,

@@ -8,10 +8,4 @@ export const networkConfig: NetworkConfigs = {
     networkExplorer: "https://explore-testnet.tempo.xyz",
     chainId: "0xa5bf",
   },
-  mainnet: {
-    network: "mainnet",
-    jsonRpcUrl: "/api/rpc/tempo/mainnet",
-    networkExplorer: "https://explore.tempo.xyz",
-    chainId: "0x1079",
-  },
 };

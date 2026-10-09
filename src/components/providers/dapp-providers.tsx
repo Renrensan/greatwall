@@ -6,7 +6,6 @@ import { useParams, useSearchParams } from "next/navigation";
 
 import { NetworkProvider, SupportedChain } from "@/app/network-provider";
 import { WalletConnectProvider } from "@/components/walletconnect/wallet-connect-provider";
-import { OnboardingProvider } from "@/components/providers/onboarding-provider";
 import { resolveToChain } from "@/components/integrator/ipow/convert-networks";
 
 const EthereumProvider = dynamic(() => import("@/components/ethereum/ethereum-provider").then(m => m.EthereumProvider), { ssr: false });
@@ -34,7 +33,9 @@ const CHAIN_PROVIDERS: Record<SupportedChain, ChainProvider> = {
 
 /**
  * Mounts only the wallet provider(s) the current route actually needs:
- *  - vault, bridge, beta (single-network routes): just `network`'s provider.
+ *  - vault, beta (single-network routes): just `network`'s provider.
+ *  - bridge (Lock, Unlock, History): every chain — the page picks the
+ *    other network, and connects its wallet there.
  *  - convert/history: every chain — a past conversion's partner can be any of
  *    them, and the list shows all of them at once.
  *  - convert (the form, a conversion's page): Bitcoin (always: every swap is
@@ -50,6 +51,10 @@ export function ScopedDappProviders({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
 
   const activeChains = useMemo<SupportedChain[]>(() => {
+    // Lock and Unlock pick both networks on the page (an asset here, used or
+    // held there), and the Portfolio's side panel reads every network: every
+    // network's wallet must be able to connect.
+    if (app === "bridge" || app === "vault") return Object.keys(CHAIN_PROVIDERS) as SupportedChain[];
     if (app !== "convert") return [network];
     if (section === "history") return Object.keys(CHAIN_PROVIDERS) as SupportedChain[];
     const toChain = resolveToChain(network, searchParams.get("to") ?? searchParams.get("linked"));
@@ -64,31 +69,6 @@ export function ScopedDappProviders({ children }: { children: ReactNode }) {
   return (
     <NetworkProvider initialChain={network}>
       <WalletConnectProvider>{content}</WalletConnectProvider>
-    </NetworkProvider>
-  );
-}
-
-/** All multi-network wallet stack, for pages outside [network] (e.g. onboarding/verify). */
-export function AllDappProviders({ children }: { children: ReactNode }) {
-  return (
-    <NetworkProvider initialChain="solana">
-      <WalletConnectProvider>
-        <BitcoinProvider>
-          <EthereumProvider>
-            <SolanaProvider>
-              <TempoProvider>
-                <HyperliquidProvider>
-                  <RobinhoodProvider>
-                    <BaseProvider>
-                      <OnboardingProvider>{children}</OnboardingProvider>
-                    </BaseProvider>
-                  </RobinhoodProvider>
-                </HyperliquidProvider>
-              </TempoProvider>
-            </SolanaProvider>
-          </EthereumProvider>
-        </BitcoinProvider>
-      </WalletConnectProvider>
     </NetworkProvider>
   );
 }

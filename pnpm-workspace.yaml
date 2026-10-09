@@ -3,7 +3,6 @@ overrides:
   '@types/react-dom': 19.2.3
   elliptic: ^6.6.1
   bn.js: ^5.2.1
-  '@kamino-finance/farms-sdk': 3.2.26
 
 allowBuilds:
   '@parcel/watcher': true

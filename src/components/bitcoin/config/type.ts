@@ -58,12 +58,12 @@ export interface BitcoinWalletContextType {
   currencyTicker: "BTC";
   decimals: number;
   networkName: "Bitcoin";
-  networkDescription: {};
+  networkDescription: object;
   networkLogo: typeof bitcoinnetwork;
-  selfCustodyParameter: {};
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  /** Bitcoin is the real network: iPoW reads real Bitcoin. */
+  ipowConvert: "mainnet";
   ipowNetworkId: number;
   setFeeSelection: (fee: "low" | "high" | "medium") => void;
   setSelectedAccount: (acc: BtcAccount) => void;

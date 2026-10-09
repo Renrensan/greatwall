@@ -6,17 +6,22 @@
 // arrives as wrapped SOL, unwrapped here in one step.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import toast from "react-hot-toast";
 import { parseUnits } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 import { SOLANA, WRAPPED_SOL, type SolanaBasket, type SolanaMintQuote } from "@ipow/sdk";
 
-import Button from "@/subcomponents/Button";
 import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
-import { Field, Notice, Row, coin, errorText, shortHash } from "@/subcomponents/ipow/common";
-import { solanaBeta, solanaConnection, solanaExplorer } from "@/components/integrator/ipow/sdk";
+import { Notice, coin, errorText } from "@/subcomponents/ipow/common";
+import { IndexDetail, IndexDetailSkeleton, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
+import { ActivityCharts } from "@/subcomponents/ipow/ActivityCharts";
+import { solanaActivity, type Activity } from "@/components/integrator/ipow/indexActivity";
+import { useUsdValue } from "@/subcomponents/ipow/useUsdValue";
+import { localAsset, lockLink, readMetadata, within, type IndexMetadata } from "@/components/integrator/ipow/indexMetadata";
+import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
+import { EVM_CHAINS, solanaBeta, solanaConnection, solanaExplorer } from "@/components/integrator/ipow/sdk";
 import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
 import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { isSolanaBasket, rememberBasket } from "@/components/integrator/ipow/basketList";
@@ -25,11 +30,22 @@ import { useSolanaWallet } from "@/components/solana/solana-provider";
 const ZERO = BigInt(0);
 const ONE = BigInt(1_000_000_000);
 const BPS = BigInt(10_000);
+/** What minting `amount` (smallest units of the index token) takes of a
+ *  part one whole token holds `perToken` of: rounded up, then the creator's
+ *  fee on top, rounded up (BetaBaskets and beta-basket price a mint so). */
+const mintTakes = (amount: bigint, perToken: bigint, feeBps: number) => {
+  const up = (x: bigint, d: bigint) => (x === BigInt(0) ? BigInt(0) : (x - BigInt(1)) / d + BigInt(1));
+  const base = up(amount * perToken, ONE);
+  return base + up(base * BigInt(feeBps), BPS);
+};
 /** SOL kept back for transaction fees and new accounts' rent when SOL is
  *  wrapped for a mint. */
 const SOL_RESERVE = BigInt(10_000_000);
 
 type Mine = { beta: bigint; parts: bigint[]; sol: bigint; wrapped: bigint; owed: bigint[]; fees: bigint[] };
+
+/** A part as shown: its own symbol, name and logo, and the network it lives on. */
+type View = { symbol: string; name: string; logo: string | null; network: string; cross: CrossChoice | null; known: boolean };
 
 const ceilFee = (x: bigint, bps: number) => (x === ZERO || bps === 0 ? ZERO : (x * BigInt(bps) - BigInt(1)) / BPS + BigInt(1));
 
@@ -41,8 +57,12 @@ export default function SolanaBasketPage() {
 
   const [basket, setBasket] = useState<SolanaBasket | null>(null);
   const [infos, setInfos] = useState<SolanaToken[]>([]);
-  const [pending, setPending] = useState<CrossChoice[]>([]);
   const [mine, setMine] = useState<Mine | null>(null);
+  const [views, setViews] = useState<View[]>([]);
+  const [meta, setMeta] = useState<IndexMetadata | null>(null);
+  const [history, setHistory] = useState<{ status: "loading" | "ready" | "unsupported" | "error"; events: Activity[] }>({ status: "loading", events: [] });
+  const prices = useUsdValue();
+  const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [side, setSide] = useState<"mint" | "burn">("mint");
   const [amount, setAmount] = useState("");
@@ -60,17 +80,37 @@ export default function SolanaBasketPage() {
       const b = await reader.getBasket(address);
       setBasket(b);
       // A receipt part not made yet (E5) is named from the vaults' assets.
-      const cross = b.parts.some((p) => !p.made) ? await crossChoicesOn("solana").catch(() => [] as CrossChoice[]) : [];
-      setPending(cross);
+      // Another network's asset is named by its source: ETH · Ethereum,
+      // GLDx · Base, not the receipt's vETH or its mint.
+      const cross = await within(crossChoicesOn("solana"), 20_000, [] as CrossChoice[]);
+      const label = (c: CrossChoice) => `${c.symbol} · ${c.from.charAt(0).toUpperCase() + c.from.slice(1)}`;
       setInfos(
         await Promise.all(
-          b.parts.map((p) => {
-            if (p.made) return solanaToken(p.mint);
+          b.parts.map(async (p) => {
             const c = cross.find((x) => x.token === p.mint);
-            return Promise.resolve({ mint: p.mint, symbol: c?.symbol ?? "v?", decimals: c?.decimals ?? 9 });
+            if (p.made) {
+              const info = await solanaToken(p.mint);
+              return c ? { ...info, symbol: label(c) } : info;
+            }
+            return { mint: p.mint, symbol: c ? label(c) : "?", decimals: c?.decimals ?? 9 };
           })
         )
       );
+      // Each part as the index shows it: another network's by its source.
+      setViews(
+        await Promise.all(
+          b.parts.map(async (p): Promise<View> => {
+            const c = cross.find((x) => x.token === p.mint) ?? null;
+            if (c) return { symbol: c.symbol, name: c.name, logo: c.logo, network: c.from, cross: c, known: true };
+            const info = await solanaToken(p.mint).catch(() => null);
+            return { ...localAsset("solana", p.mint, info?.symbol ?? "?"), network: "solana", cross: null };
+          })
+        )
+      );
+      readMetadata(b.uri).then(setMeta);
+      solanaActivity(address, b.beta)
+        .then((r) => setHistory(r === "unsupported" ? { status: "unsupported", events: [] } : { status: "ready", events: r.events }))
+        .catch(() => setHistory({ status: "error", events: [] }));
       setLoadError(null);
       rememberBasket(SOLANA.programs.betaBasket, address);
       if (sol.address) {
@@ -121,9 +161,12 @@ export default function SolanaBasketPage() {
   }, [side, amountUnits, reader, address, valid, basket?.supply]);
 
   if (!valid) return <Notice text={t("notFound")} />;
-  if (loadError && !basket) return <Notice text={loadError} error />;
-  if (!basket || infos.length !== basket.parts.length) return <Notice text={t("loading")} />;
+  if (loadError && (!basket || views.length !== basket.parts.length)) return <Notice text={loadError} error />;
+  if (!basket || infos.length !== basket.parts.length || views.length !== basket.parts.length) return <IndexDetailSkeleton />;
 
+  // The token's own symbol in every text (an index of the program's first
+  // build, with no name of its own, is BETA on chain).
+  const sym = basket.name && basket.name !== "BETA" ? basket.symbol : "BETA";
   const supply = basket.supply;
   const firstMint = supply === ZERO;
   const perBeta = basket.parts.map((p) => (firstMint ? p.amount : (p.held * ONE) / supply));
@@ -141,7 +184,7 @@ export default function SolanaBasketPage() {
 
   const unmade = basket.parts.some((p) => !p.made);
   const problem = !amountUnits
-    ? t("enterBeta")
+    ? t("enterBeta", { symbol: sym })
     : side === "mint"
       ? unmade
         ? t("partNotMadeYet")
@@ -157,9 +200,9 @@ export default function SolanaBasketPage() {
       : firstMint
         ? t("nothingMinted")
         : mine && amountUnits > mine.beta
-          ? t("notEnoughBeta")
+          ? t("notEnoughBeta", { symbol: sym })
           : burnOut && burnOut.some((o, i) => o === ZERO && basket.parts[i].held > ZERO)
-            ? t("burnTooSmall")
+            ? t("burnTooSmall", { symbol: sym })
             : null;
 
   async function act(name: string, run: (beta: ReturnType<typeof solanaBeta>) => Promise<{ signature: string }>) {
@@ -187,155 +230,145 @@ export default function SolanaBasketPage() {
       ])
     : [];
 
-  return (
-    <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto">
-      <Link href={`/${locale}/solana/beta/baskets`} className="text-xs sm:text-sm opacity-70 hover:opacity-100">
-        ← {t("backToBaskets")}
-      </Link>
+  // What each part is worth, at the prices Greatwall knows.
+  const whole = (units: bigint, decimals: number) => Number(units) / 10 ** decimals;
+  const worth = basket.parts.map((_, i) => {
+    const price = views[i].known ? prices.priceOf(views[i].symbol) : null;
+    return price === null ? null : whole(perBeta[i], infos[i].decimals) * price;
+  });
+  const valuePerToken = worth.every((w) => w !== null) ? worth.reduce((a, w) => a + (w ?? 0), 0) : null;
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-      <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
-        <p className="font-bold text-base sm:text-lg">
-          {basket.name && basket.name !== "BETA" ? `${basket.name} (${basket.symbol})` : t("basketName", { id: String(basket.id) })} · {shortHash(address)}
-        </p>
-        <div className="flex flex-col gap-2 text-xs sm:text-sm">
-          <p className="font-bold">{firstMint ? t("mixAtFirst") : t("oneBetaHolds")}</p>
-          {basket.parts.map((p, i) => (
-            <Row key={p.mint} label={infos[i].symbol} value={coin(perBeta[i], infos[i].decimals)} />
-          ))}
-        </div>
-        {unmade && (
-          <div className="flex flex-col gap-1 text-[11px] sm:text-xs opacity-70 border-t border-black/10 pt-3">
-            {basket.parts.map((p, i) => {
-              if (p.made) return null;
-              const c = pending.find((x) => x.token === p.mint);
-              const from = c?.from ?? "ethereum";
-              return (
-                <p key={p.mint}>
-                  {infos[i].symbol} · {t("waitingBridge", { network: from.charAt(0).toUpperCase() + from.slice(1) })}{" "}
-                  <Link href={`/${locale}/${from}/bridge/send${c?.home ? `?token=${c.home}` : ""}`} className="underline">
-                    {t("bridgeIt")}
-                  </Link>
-                </p>
-              );
-            })}
-          </div>
-        )}
-        <div className="flex flex-col gap-2 text-xs sm:text-sm border-t border-black/10 pt-3">
-          <Row label={t("supplyLabel")} value={`${coin(supply, 9)} BETA`} />
-          {mine && <Row label={t("yourBeta")} value={`${coin(mine.beta, 9)} BETA`} bold />}
-          <Row label={t("fees")} value={t("feesValue", { mint: basket.mintFeeBps / 100, burn: basket.burnFeeBps / 100 })} />
-          <Row label={t("creator")} value={shortHash(basket.creator)} />
-          <Row
-            label={t("token")}
-            value={
-              <a href={solanaExplorer("address", basket.beta)} target="_blank" rel="noreferrer" className="underline">
-                {shortHash(basket.beta)}
-              </a>
-            }
-          />
-          <Row label={t("address")} value={<span className="break-all">{address}</span>} />
-        </div>
-      </div>
+  const parts: DetailPart[] = basket.parts.map((p, i) => {
+    const v = views[i];
+    // What the amount typed takes of it, as the chain prices a mint: its
+    // share of one token, rounded up, the creator's fee on top, rounded up
+    // too. The chain's own quote when there is one (it refuses while a part
+    // is not usable here yet, so the page works it out the same way).
+    const need = quote ? quote.need[i] + quote.fee[i] : amountUnits ? mintTakes(amountUnits, perBeta[i], basket.mintFeeBps) : null;
+    const have = canGive(i);
+    const enough = need !== null && have !== null ? need <= have : null;
+    let warning: DetailPart["warning"] = null;
+    if (side === "mint" && sol.connected) {
+      const from = v.cross?.from ?? null;
+      const lockHref = lockLink(locale, "solana", from, v.cross?.home ?? null, EVM_CHAINS);
+      const lock = lockHref ? { kind: "lock" as const, label: t("lockNow"), href: lockHref } : undefined;
+      // A test token of Solana: its faucet, one click.
+      const testToken = !v.cross && p.mint !== WRAPPED_SOL && rwaTokensOf("solana").some((r) => r.token === p.mint);
+      const faucet = testToken ? { kind: "faucet" as const, label: t("faucetClaim"), busyLabel: t("faucetBusy"), busy: faucetBusy === p.mint, onClick: () => claim(p.mint, v.symbol) } : undefined;
+      const held = have ?? ZERO;
+      // Short: less than the amount asks, or none at all before one is asked.
+      const short = !p.made || enough === false || (need === null && held === ZERO);
+      if (short) {
+        if (v.cross) warning = { text: !p.made ? t("partNotLockedYet", { symbol: v.symbol, network: cap(from ?? "solana") }) : t("notEnoughLocked", { symbol: v.symbol, network: cap(from ?? "solana") }), action: lock };
+        else if (faucet) warning = { text: t("notEnoughToken", { symbol: v.symbol }), action: faucet };
+        else warning = { text: t("notEnoughToken", { symbol: v.symbol }), action: { kind: "lock" as const, label: t("getSome"), href: `/${locale}/solana/convert/create` } };
+      }
+    }
+    return {
+      key: p.mint,
+      symbol: v.symbol,
+      name: v.cross ? `${v.name} · ${cap(v.network)}` : v.name,
+      logo: v.logo,
+      network: v.network,
+      perToken: coin(perBeta[i], infos[i].decimals),
+      valueUsd: worth[i],
+      need: need !== null ? coin(need, infos[i].decimals) : null,
+      have: have !== null ? coin(have, infos[i].decimals) : null,
+      enough: !p.made ? false : enough,
+      // Nothing minted yet: nothing to give back.
+      out: burnOut ? coin(burnOut[i], infos[i].decimals) : side === "burn" && amountUnits ? "0" : null,
+      warning,
+    };
+  });
 
-      <div className="flex glass-card bgRound border-black/5">
-        {(["mint", "burn"] as const).map((s) => (
+  /** The Solana faucet of Greatwall's server (it holds the mint authority). */
+  async function claim(mint: string, symbol: string) {
+    if (!sol.address) return;
+    setFaucetBusy(mint);
+    try {
+      const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: sol.address, mint }) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
+      toast.success(t("faucetSent", { symbol }));
+      await load();
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setFaucetBusy(null);
+    }
+  }
+
+  const black = "w-full rounded-lg bg-ink text-snow py-3 text-sm font-medium hover:bg-pitch disabled:opacity-40 transition-colors";
+  const named = basket.name && basket.name !== "BETA";
+  const extras =
+    collectable.length > 0 || (mine && mine.wrapped > ZERO) ? (
+      <div className="glass-card rounded-2xl p-5 flex flex-col gap-3">
+        <p className="font-semibold text-sm">{t("toCollect")}</p>
+        {collectable.map((c) => (
           <button
-            key={s}
+            key={`${c.kind}-${c.i}`}
             type="button"
-            onClick={() => setSide(s)}
-            className={`w-full p-3 rounded-full text-xs sm:text-sm transition-all ${side === s ? "font-bold bg-black/5" : "font-medium opacity-70"}`}
+            className={black}
+            disabled={!!busy}
+            onClick={() => act(`${c.kind}-${c.i}`, (b) => (c.kind === "owed" ? b.collectOwed(address, c.i) : b.collectFees(address, c.i)))}
           >
-            {s === "mint" ? t("mintTab") : t("burnTab")}
+            {busy === `${c.kind}-${c.i}` ? t("confirming") : t(c.kind === "owed" ? "collectOwed" : "collectFees", { amount: coin(c.amount, infos[c.i].decimals), symbol: views[c.i].symbol })}
           </button>
         ))}
-      </div>
-
-      <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
-        <div className="flex justify-end">
-          <SolanaConnectButton />
-        </div>
-        <Field label={side === "mint" ? t("youMint") : t("youBurn")} suffix="BETA" hint={firstMint && side === "mint" ? t("firstMintHint") : undefined}>
-          <input
-            id="beta-sol-amount"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(",", "."))}
-            className="w-full text-2xl sm:text-3xl font-bold bg-transparent outline-none"
-          />
-        </Field>
-
-        {side === "mint" && quote && (
-          <div className="flex flex-col gap-2 text-xs sm:text-sm">
-            <p className="font-bold">{t("mintTakes")}</p>
-            {quote.need.map((n, i) => {
-              const have = canGive(i);
-              return (
-                <Row
-                  key={i}
-                  label={infos[i].symbol}
-                  value={`${coin(n + quote.fee[i], infos[i].decimals)}${have !== null ? ` / ${coin(have, infos[i].decimals)}` : ""}`}
-                />
-              );
-            })}
-            {basket.parts.some((p) => p.mint === WRAPPED_SOL) && <p className="opacity-70">{t("solWrapped")}</p>}
-            {basket.mintFeeBps > 0 && <p className="opacity-70">{t("includesFee", { pct: basket.mintFeeBps / 100 })}</p>}
-          </div>
-        )}
-        {burnOut && (
-          <div className="flex flex-col gap-2 text-xs sm:text-sm">
-            <p className="font-bold">{t("burnPays")}</p>
-            {burnOut.map((o, i) => (
-              <Row key={i} label={infos[i].symbol} value={coin(o, infos[i].decimals)} />
-            ))}
-          </div>
-        )}
-
-        {error && <p className="text-xs sm:text-sm text-red-500 break-words">{error}</p>}
-        {done && (
-          <a href={solanaExplorer("tx", done)} target="_blank" rel="noreferrer" className="text-xs sm:text-sm underline opacity-80">
-            {t("doneTx")}
-          </a>
-        )}
-        {!sol.connected ? (
-          <Button buttonText={t("connectFirst")} disabled chain="solana" />
-        ) : (
-          <Button
-            buttonText={busy === side ? t("confirming") : (problem ?? (side === "mint" ? t("mintButton") : t("burnButton")))}
-            disabled={!!busy || !!problem}
-            onClick={() => act(side, (b) => (side === "mint" ? b.mint(address, amountUnits!) : b.burn(address, amountUnits!)))}
-            chain="solana"
-          />
+        {mine && mine.wrapped > ZERO && (
+          <button type="button" className={black} disabled={!!busy} onClick={() => act("unwrap", (b) => b.unwrapSol())}>
+            {busy === "unwrap" ? t("confirming") : t("unwrap", { amount: coin(mine.wrapped, 9) })}
+          </button>
         )}
       </div>
+    ) : null;
 
-      {(collectable.length > 0 || (mine && mine.wrapped > ZERO)) && (
-        <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-3">
-          <p className="font-bold text-xs sm:text-sm">{t("toCollect")}</p>
-          {collectable.map((c) => (
-            <Button
-              key={`${c.kind}-${c.i}`}
-              buttonText={
-                busy === `${c.kind}-${c.i}`
-                  ? t("confirming")
-                  : t(c.kind === "owed" ? "collectOwed" : "collectFees", { amount: coin(c.amount, infos[c.i].decimals), symbol: infos[c.i].symbol })
-              }
-              disabled={!!busy}
-              onClick={() => act(`${c.kind}-${c.i}`, (b) => (c.kind === "owed" ? b.collectOwed(address, c.i) : b.collectFees(address, c.i)))}
-              chain="solana"
-            />
-          ))}
-          {mine && mine.wrapped > ZERO && (
-            <Button
-              buttonText={busy === "unwrap" ? t("confirming") : t("unwrap", { amount: coin(mine.wrapped, 9) })}
-              disabled={!!busy}
-              onClick={() => act("unwrap", (b) => b.unwrapSol())}
-              chain="solana"
-            />
-          )}
-        </div>
-      )}
-    </div>
+  return (
+    <IndexDetail
+      name={named ? basket.name : t("basketName", { id: String(basket.id) })}
+      symbol={named ? basket.symbol : "BETA"}
+      image={meta?.image ?? null}
+      description={meta?.description ?? ""}
+      links={{ website: meta?.website ?? null, twitter: meta?.twitter ?? null, telegram: meta?.telegram ?? null }}
+      creator={basket.creator}
+      creatorHref={solanaExplorer("address", basket.creator)}
+      details={[
+        { label: t("tokenLabel"), value: basket.beta, href: solanaExplorer("address", basket.beta) },
+        { label: t("indexAddress"), value: address, href: solanaExplorer("address", address) },
+        { label: t("creator"), value: basket.creator, href: solanaExplorer("address", basket.creator) },
+        { label: t("network"), value: "Solana", href: null },
+      ]}
+      network="solana"
+      networkName="Solana"
+      networkLogo="/assets/networks/solana.png"
+      parts={parts}
+      valuePerToken={valuePerToken}
+      marketCap={valuePerToken === null ? null : valuePerToken * whole(supply, 9)}
+      supply={coin(supply, 9)}
+      feePct={Math.max(basket.mintFeeBps, basket.burnFeeBps) / 100}
+      yourBalance={mine ? coin(mine.beta, 9) : null}
+      side={side}
+      setSide={setSide}
+      amount={amount}
+      setAmount={setAmount}
+      amountUsd={valuePerToken !== null && amountUnits ? valuePerToken * whole(amountUnits, 9) : null}
+      firstMintHint={firstMint && side === "mint" ? t("firstMintHint", { symbol: sym }) : null}
+      includesFee={basket.mintFeeBps > 0 && quote ? t("includesFee", { pct: basket.mintFeeBps / 100 }) : null}
+      problem={problem}
+      busy={busy === side}
+      anyBusy={!!busy}
+      compositionNote={firstMint ? t("compositionWillHold", { symbol: named ? basket.symbol : "BETA" }) : t("compositionHoldsOf", { symbol: named ? basket.symbol : "BETA" })}
+      backHref={`/${locale}/solana/index`}
+      history={<ActivityCharts events={history.events} supply={supply} symbol={named ? basket.symbol : "BETA"} status={history.status} />}
+      error={error}
+      doneHref={done ? solanaExplorer("tx", done) : null}
+      connected={sol.connected}
+      connectButton={<SolanaConnectButton />}
+      onSubmit={() => act(side, (b) => (side === "mint" ? b.mint(address, amountUnits!) : b.burn(address, amountUnits!)))}
+      // SOL for the fees and the new accounts a mint opens.
+      feeWarning={side === "mint" && mine && mine.sol < SOL_RESERVE ? { text: t("lowCoinForFees", { symbol: "SOL" }), action: { label: t("faucetNow"), href: `/${locale}/solana/vault/assets` } } : null}
+      extras={extras}
+    />
   );
 }

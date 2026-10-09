@@ -1,22 +1,6 @@
-import { NextResponse } from "next/server";
+import { forward } from "../../forward";
 
+// The network's RPC, through the shared forwarder (../../forward.ts).
 export async function POST(request: Request) {
-  const url = process.env.HYPERLIQUID_TESTNET_RPC_URL;
-  if (!url)
-    return NextResponse.json(
-      { error: "RPC URL NOT PROVIDED" },
-      { status: 500 },
-    );
-
-  try {
-    const body = await request.json();
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    return NextResponse.json(await res.json());
-  } catch (error) {
-    return NextResponse.json({ error: "Testnet Proxy Error" }, { status: 500 });
-  }
+  return forward(request, process.env.HYPERLIQUID_TESTNET_RPC_URL);
 }

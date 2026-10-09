@@ -9,23 +9,52 @@ import NextTopLoader from "nextjs-toploader";
 import localFont from "next/font/local";
 import "../globals.css";
 
-// The TASA fonts are bundled (src/assets/fonts, SIL Open Font License), so a
-// build never depends on reaching Google Fonts. Both are variable: 400 to 800.
+// The fonts are bundled (src/assets/fonts, SIL Open Font License), so a
+// build never depends on reaching Google Fonts. Greatwall's brand: Instrument
+// Serif for headlines and hierarchy, BDO Grotesk for body and UI copy.
 
-// Headlines and the wordmark.
-const explorer = localFont({
-  src: "../../assets/fonts/TASAExplorer-Variable.ttf",
-  weight: "400 800",
-  variable: "--font-tasa-explorer",
+// Headlines: Instrument Serif (Google Fonts' files, regular and italic).
+const serif = localFont({
+  src: [
+    { path: "../../assets/fonts/InstrumentSerif-Regular.ttf", weight: "400", style: "normal" },
+    { path: "../../assets/fonts/InstrumentSerif-Italic.ttf", weight: "400", style: "italic" },
+  ],
+  variable: "--font-instrument-serif",
+  display: "swap",
+  fallback: ["Georgia", "Times New Roman", "serif"],
+});
+
+// The wordmark's text ("Greatwall" beside the mark): Instrument Sans, semibold.
+const wordmark = localFont({
+  src: "../../assets/fonts/InstrumentSans-Variable.ttf",
+  weight: "400 700",
+  variable: "--font-instrument-sans",
   display: "swap",
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
-// Everything read.
-const orbiter = localFont({
+// Body and UI: BDO Grotesk once its files are in src/assets/fonts/bdo-grotesk
+// (Light 300, Regular 400, Medium 500, DemiBold 600, Bold 700, ExtraBold
+// 800, Black 900 as .woff2). Until then TASA Orbiter stands in. To switch:
+// replace the block below with
+//   const sans = localFont({
+//     src: [
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Light.woff2", weight: "300", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2", weight: "400", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Medium.woff2", weight: "500", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-DemiBold.woff2", weight: "600", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Bold.woff2", weight: "700", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-ExtraBold.woff2", weight: "800", style: "normal" },
+//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Black.woff2", weight: "900", style: "normal" },
+//     ],
+//     variable: "--font-sans-body",
+//     display: "swap",
+//     fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+//   });
+const sans = localFont({
   src: "../../assets/fonts/TASAOrbiter-Variable.ttf",
   weight: "400 800",
-  variable: "--font-tasa-orbiter",
+  variable: "--font-sans-body",
   display: "swap",
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
@@ -57,8 +86,8 @@ export default async function LocaleLayout({
   }
 
   return (
-    <html lang={locale} className={`${explorer.variable} ${orbiter.variable}`} suppressHydrationWarning>
-      <body className="font-orbiter antialiased bg-paper text-ink">
+    <html lang={locale} className={`${serif.variable} ${sans.variable} ${wordmark.variable}`} suppressHydrationWarning>
+      <body className="font-sans antialiased bg-cream text-ink">
         <NextTopLoader
           showSpinner={false}
           crawl={true}

@@ -8,10 +8,4 @@ export const networkConfig: NetworkConfigs = {
     networkExplorer: "https://sepolia.etherscan.io",
     chainId: "0xaa36a7",
   },
-  mainnet: {
-    network: "mainnet",
-    jsonRpcUrl: "/api/rpc/eth/mainnet",
-    networkExplorer: "https://etherscan.io",
-    chainId: "0x1",
-  },
 };

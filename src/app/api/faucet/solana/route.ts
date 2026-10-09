@@ -52,6 +52,11 @@ export async function POST(req: Request) {
 
   const url = process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com";
   const connection = new Connection(url, "confirmed");
+  // The faucet pays the fee and the new token account's rent: say so when
+  // it has nothing to pay with, rather than a simulation error.
+  if ((await connection.getBalance(key.publicKey).catch(() => 1)) < 3_000_000) {
+    return NextResponse.json({ error: `The faucet is out of SOL for fees: fund ${key.publicKey.toBase58()} on devnet` }, { status: 503 });
+  }
   const mintKey = new PublicKey(mint);
   const ata = getAssociatedTokenAddressSync(mintKey, owner);
   const amount = BigInt(token.faucet) * BigInt(10) ** BigInt(token.decimals);

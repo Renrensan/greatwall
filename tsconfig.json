@@ -6,7 +6,6 @@
       "esnext"
     ],
     "types": [
-      "jest",
       "node"
     ],
     "allowJs": true,

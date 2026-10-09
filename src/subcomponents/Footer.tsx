@@ -4,23 +4,25 @@
 // reading links on the right; stacked on phones.
 
 import Link from "next/link";
-import { FaLinkedin, FaXTwitter, FaYoutube } from "react-icons/fa6";
+import { useParams } from "next/navigation";
+import { FaTelegram, FaXTwitter, FaYoutube } from "react-icons/fa6";
 
-// The pages these open are not published yet: set their addresses here.
 const SOCIAL = [
-  { label: "X", href: "#", icon: FaXTwitter },
-  { label: "LinkedIn", href: "#", icon: FaLinkedin },
-  { label: "YouTube", href: "#", icon: FaYoutube },
+  { label: "X", href: "https://x.com/greatwallfi", icon: FaXTwitter },
+  { label: "Telegram", href: "https://t.me/greatwallfinance", icon: FaTelegram },
+  { label: "YouTube", href: "https://www.youtube.com/@greatwallfinance", icon: FaYoutube },
 ];
 
-const LINKS = [
-  { label: "Knowledge Base", href: "#" },
+// The pages not published yet keep "#": set their addresses here.
+const LINKS = (base: string) => [
   { label: "Documentation", href: "#" },
-  { label: "Term of Use", href: "#" },
-  { label: "Privacy Policy", href: "#" },
+  { label: "Terms of Use", href: `${base}/terms` },
+  { label: "Privacy Policy", href: `${base}/privacy` },
+  { label: "Cookies Policy", href: `${base}/cookies` },
 ];
 
 export default function Footer() {
+  const { locale = "en", network = "solana" } = useParams<{ locale?: string; network?: string }>();
   return (
     <footer className="w-full bg-ink text-snow">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 md:flex-row md:items-center md:justify-between md:px-16 md:py-5">
@@ -36,7 +38,7 @@ export default function Footer() {
         </div>
 
         <nav aria-label="Footer" className="flex flex-wrap gap-x-7 gap-y-3">
-          {LINKS.map(({ label, href }) => (
+          {LINKS(`/${locale}/${network}`).map(({ label, href }) => (
             <Link key={label} href={href} className="text-[15px] text-snow transition-opacity hover:opacity-70">
               {label}
             </Link>

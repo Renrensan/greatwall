@@ -101,7 +101,7 @@ export const AnimatedModal = ({
                   : { y: "100%" }
               }
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`w-full max-w-full ${resolvedMaxWidthClass} bg-paper rounded-t-[24px] lg:rounded-md z-50 flex flex-col ${resolvedMaxHeightClass} ${overflowVisible ? "overflow-visible" : "overflow-y-auto overflow-x-hidden"} text-ink pointer-events-auto shadow-2xl ${isCorner ? "lg:shadow-xl" : ""} border border-sand relative`}
+              className={`w-full max-w-full ${resolvedMaxWidthClass} bg-paper rounded-t-[24px] lg:rounded-md z-50 flex flex-col ${resolvedMaxHeightClass} ${overflowVisible ? "overflow-visible" : "overflow-y-auto overflow-x-hidden"} text-ink pointer-events-auto shadow-2xl ${isCorner ? "lg:shadow-xl" : ""} border border-ink/10 relative`}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >

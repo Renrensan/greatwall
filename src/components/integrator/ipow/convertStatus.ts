@@ -24,12 +24,10 @@ export function tunnelStatus(
   local: any,
   partner: any | null,
   names: { source: string; destination: string },
-  t: T,
-  locale: string
+  t: T
 ): Status | null {
   const link = local?.tunnel;
   if (!link) return null;
-  const en = locale === "en";
   const buy = link.leg === "buy" ? local : partner;
   const sell = link.leg === "buy" ? partner : local;
 
@@ -37,51 +35,51 @@ export function tunnelStatus(
   // for the operator.
   if (buy?.phase === TxPhase.COMPLETED) return { kind: "ok", label: t("text172"), desc: t("text173") };
 
-  const refundable = en ? `Your deposit can be refunded on ${names.source}.` : `Deposit Anda dapat dikembalikan di ${names.source}.`;
+  const refundable = `Your deposit can be refunded on ${names.source}.`;
   const depositMade = !!sell || !!link.tunnel.sellId;
 
   if (link.leg === "sell") {
     // The sale, seen from the source network. The buy's end decides.
-    if (local.phase === TxPhase.REFUNDED) return { kind: "closed", label: t("text180"), desc: en ? "Your deposit was returned." : "Deposit Anda telah dikembalikan." };
+    if (local.phase === TxPhase.REFUNDED) return { kind: "closed", label: t("text180"), desc: "Your deposit was returned." };
     if (buy?.phase === TxPhase.OPERATOR_DUTY_EXPIRED && buy.provable)
-      return { kind: "action", label: t("text174"), desc: en ? `${t("text175")} Claim on ${names.destination}.` : `${t("text175")} Klaim di ${names.destination}.` };
+      return { kind: "action", label: t("text174"), desc: `${t("text175")} Claim on ${names.destination}.` };
     if (buy && [TxPhase.USER_ACTION_EXPIRED, TxPhase.OPERATOR_DUTY_EXPIRED, TxPhase.OPERATOR_APPROVAL_EXPIRED, TxPhase.REFUNDED].includes(buy.phase))
-      return { kind: "fail", label: t("text167"), desc: en ? `The tunnel closed before the conversion completed. ${refundable}` : `Terowongan ditutup sebelum konversi selesai. ${refundable}` };
+      return { kind: "fail", label: t("text167"), desc: `The tunnel closed before the conversion completed. ${refundable}` };
     if (local.phase === TxPhase.OPERATOR_DUTY_EXPIRED || local.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED)
       return { kind: "fail", label: t("text167"), desc: t("text171") };
-    return { kind: "progress", label: t("text169"), desc: en ? `Converting to ${names.destination}...` : `Mengonversi ke ${names.destination}...` };
+    return { kind: "progress", label: t("text169"), desc: `Converting to ${names.destination}...` };
   }
 
   // The buy, seen from the destination network. A deposit that failed on
   // the source ends it too.
   if (sell && (sell.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED || sell.phase === TxPhase.OPERATOR_DUTY_EXPIRED))
-    return { kind: "fail", label: t("text167"), desc: en ? `The deposit was not completed. ${refundable}` : `Deposit tidak selesai. ${refundable}` };
+    return { kind: "fail", label: t("text167"), desc: `The deposit was not completed. ${refundable}` };
   if (sell?.phase === TxPhase.REFUNDED && local.phase !== TxPhase.COMPLETED)
-    return { kind: "closed", label: t("text180"), desc: en ? "Your deposit was returned." : "Deposit Anda telah dikembalikan." };
+    return { kind: "closed", label: t("text180"), desc: "Your deposit was returned." };
   switch (local.phase) {
     case TxPhase.REFUNDED:
-      return { kind: "closed", label: t("text180"), desc: en ? "Cancelled before an operator took it. The fee is returned." : "Dibatalkan sebelum operator mengambilnya. Biayanya dikembalikan." };
+      return { kind: "closed", label: t("text180"), desc: "Cancelled before an operator took it. The fee is returned." };
     case TxPhase.OPERATOR_APPROVAL_EXPIRED:
       return { kind: "fail", label: t("text157"), desc: t("text158") };
     case TxPhase.WAITING_OPERATOR_APPROVAL:
       return { kind: "wait", label: t("text159"), desc: `${t("text160")} ${names.destination}...` };
     case TxPhase.WAITING_USER_ACTION:
-      if (depositMade) return { kind: "progress", label: t("text169"), desc: en ? "Deposit signed. Waiting for Bitcoin..." : "Deposit ditandatangani. Menunggu Bitcoin..." };
+      if (depositMade) return { kind: "progress", label: t("text169"), desc: "Deposit signed. Waiting for Bitcoin..." };
       return {
         kind: "action",
         label: t("text161"),
-        desc: en ? `Tunnel ready. Sign the deposit on ${names.source}.` : `Terowongan siap. Tandatangani deposit di ${names.source}.`,
+        desc: `Tunnel ready. Sign the deposit on ${names.source}.`,
       };
     case TxPhase.ACTIVE_WAITING_PROOF:
       if (local.completable) return { kind: "action", label: t("text176"), desc: t("text179") };
-      return { kind: "progress", label: t("text169"), desc: en ? "Deposit received. Confirming on Bitcoin..." : "Deposit diterima. Mengonfirmasi di Bitcoin..." };
+      return { kind: "progress", label: t("text169"), desc: "Deposit received. Confirming on Bitcoin..." };
     case TxPhase.USER_ACTION_EXPIRED:
       return { kind: "fail", label: t("text165"), desc: depositMade ? `${t("text166")} ${refundable}` : t("text166") };
     case TxPhase.OPERATOR_DUTY_EXPIRED:
       // The coin is claimable by the user's own proof (D10) only while the
       // buy still holds it; otherwise the deposit comes back on the source.
       if (local.provable) return { kind: "action", label: t("text174"), desc: t("text175") };
-      return { kind: "fail", label: t("text167"), desc: depositMade ? (en ? `The conversion did not complete. ${refundable}` : `Konversi tidak selesai. ${refundable}`) : t("text171") };
+      return { kind: "fail", label: t("text167"), desc: depositMade ? (`The conversion did not complete. ${refundable}`) : t("text171") };
     default:
       return { kind: "wait", label: t("text182"), desc: t("text183") };
   }

@@ -2,16 +2,16 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 const VALID_SECTIONS_BY_APP: Record<string, readonly string[]> = {
-  vault: ["assets", "buy", "move", "history"],
+  vault: ["assets", "beta"],
   convert: ["create", "history"],
-  bridge: ["send", "history"],
+  bridge: ["lock", "unlock", "send", "history"],
   beta: ["baskets", "create", "explore"],
 };
 
 const DEFAULT_SECTION_BY_APP: Record<string, string> = {
   vault: "assets",
   convert: "create",
-  bridge: "send",
+  bridge: "lock",
   beta: "baskets",
 };
 

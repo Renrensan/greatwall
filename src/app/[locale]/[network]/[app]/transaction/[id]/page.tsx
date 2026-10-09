@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import ConvertTransactionPage from "./ConvertTransactionPage";
-import VaultTransactionPage from "./VaultTransactionPage";
 import BridgeTransactionPage from "./BridgeTransactionPage";
 import BasketPage from "./BasketPage";
 
@@ -32,8 +31,10 @@ export default async function TransactionPage({
     return <BasketPage />;
   }
 
+  // The vault's transactions were fiat ones, which this app does not have;
+  // there is no page for them.
   if (app === "vault") {
-    return <VaultTransactionPage />;
+    notFound();
   }
 
   redirect(`/${locale}/${network}`);

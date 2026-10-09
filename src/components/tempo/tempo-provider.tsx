@@ -9,10 +9,9 @@ import {
   useState,
   ReactNode,
   useMemo,
-  useRef,
   useCallback,
 } from "react";
-import { BytesLike, Eip1193Provider, ethers } from "ethers";
+import { Eip1193Provider, ethers } from "ethers";
 
 import { useNetwork } from "@/app/network-provider";
 import { temponetwork } from "@/index";
@@ -20,14 +19,19 @@ import { appConfig, TempoWalletContextType, TempoWalletType } from "./config";
 import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
 import { fetchErc20Balances } from "@/components/ethereum/erc20-balances";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
-import { IPOW_CONTRACT_ADDRESS_TESTNET, IPOW_GAS_LIMIT, IPOW_NETWORK_ID } from "./config/constants";
+
+// Tempo has no native coin: eth_getBalance answers with a placeholder
+// (about 4.2e57). The wallet's "USD" is PathUSD, Tempo's fee token, a
+// TIP-20 token with 6 decimals, read like any token.
+const PATHUSD = "0x20C0000000000000000000000000000000000000";
+const PATHUSD_DECIMALS = 6;
+const BALANCE_OF = ["function balanceOf(address) view returns (uint256)"];
+import { IPOW_NETWORK_ID } from "./config/constants";
+import { NO_CONVERT } from "../integrator/ipow/convertMethods";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
-import IPOW_ABI_JSON from "../integrator/ipow/evm/abi.json";
-import { tempo, tempoTestnet } from "@reown/appkit/networks";
+import { tempoTestnet } from "@reown/appkit/networks";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { appKit } from "../walletconnect/wallet-connect-provider";
-import { TxPhase, TypeFilter } from "../integrator/ipow/evm/type";
-
 
 
 const TempoWalletContext = createContext<TempoWalletContextType>({
@@ -47,7 +51,6 @@ const TempoWalletContext = createContext<TempoWalletContextType>({
   currencyTicker: "USD",
   decimals: 18,
   ipowDecimals: 18,
-  selfCustodyParameter: {},
   networkName: "Tempo",
   networkDescription: {},
   networkLogo: temponetwork,
@@ -90,11 +93,9 @@ export function TempoProvider({ children }: { children: ReactNode }) {
   const { isConnected: akConnected, allAccounts } = useAppKitAccount();
   const { walletProvider: akProvider } = useAppKitProvider("eip155");
 
-  const { tempoMainnet, selectedChain } = useNetwork();
-  const isMainnet = tempoMainnet;
-  const currentNetworkConfig = useMemo(() => {
-    return isMainnet ? appConfig.networks.mainnet : appConfig.networks.testnet;
-  }, [isMainnet]);
+  const { selectedChain } = useNetwork();
+  // Greatwall runs the network's testnet only.
+  const currentNetworkConfig = appConfig.networks.testnet;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const fullRpcUrl = `${origin}${currentNetworkConfig.jsonRpcUrl}`;
   const [price, setPrice] = useState(null);
@@ -103,7 +104,7 @@ export function TempoProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [walletType, setWalletType] = useState<TempoWalletType | null>(null);
-  const [availableWallets, setAvailableWallets] = useState<
+  const [availableWallets] = useState<
     TempoWalletType[]
   >([]);
   const [balance, setBalance] = useState<{
@@ -120,13 +121,8 @@ export function TempoProvider({ children }: { children: ReactNode }) {
     fetched: boolean;
   }>({ low: 0, medium: 0, high: 0, selectedFee: "medium", fetched: false });
 
-  const netKey = useMemo(() => {
-    return isMainnet ? "mainnet" : "testnet";
-  }, [isMainnet]);
-
-  const targetNetwork = useMemo(() => {
-    return isMainnet ? tempo : tempoTestnet;
-  }, [isMainnet]);
+  const netKey = "testnet";
+  const targetNetwork = tempoTestnet;
 
   const switchNetwork = async (prov: ethers.BrowserProvider) => {
     const targetChainIdHex = currentNetworkConfig.chainId.toLowerCase();
@@ -229,12 +225,12 @@ export function TempoProvider({ children }: { children: ReactNode }) {
       if (ethAccount && (!wasInjected || walletType === "walletconnect")) {
 
         const enforceNetwork = async () => {
+          // Only on this network's own pages, as with injected wallets: two
+          // providers enforcing at once would pull the wallet back and forth.
+          if (selectedChain !== "tempo") return;
           const currentNetwork = appKit.getCaipNetwork();
 
           if (currentNetwork?.id !== targetNetwork.id) {
-            console.log(
-              `Connection established! Forcing MetaMask to add/switch to ${targetNetwork.name}...`,
-            );
             try {
             
               const rawProvider = akProvider as any;
@@ -290,7 +286,7 @@ export function TempoProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
+  }, [akConnected, allAccounts, akProvider, address, walletType, selectedChain]);
 
   const disconnect = async (hardDisconnect: boolean) => {
     try {
@@ -343,29 +339,25 @@ export function TempoProvider({ children }: { children: ReactNode }) {
 
   const isValidAddress = useCallback((address: string): boolean => checkAddress(address).valid, [checkAddress]);
 
+  // Tempo has no native coin to send: "USD" is PathUSD, and every send is a
+  // token transfer. Without `token`, PathUSD; with it, that token (Assets
+  // passes the RWA tokens' address and decimals). The wallet prices the fee.
   const sendTokenTo = async (
     to: string,
     amount: number,
+    _unused?: unknown,
+    token?: { address: string; decimals: number },
   ): Promise<string | null> => {
-    if (!address || !estimatedFee.fetched) return null;
+    if (!address) return null;
 
     try {
       const signer = await getActiveSigner();
-      const selectedFeeEth = estimatedFee[estimatedFee.selectedFee];
-
-      const gasLimit = BigInt(21_000);
-      const valueWei = ethers.parseEther(amount.toString());
-      const totalFeeWei = ethers.parseEther(selectedFeeEth.toString());
-      const maxFeePerGas = totalFeeWei / gasLimit;
-
-      const tx = await signer.sendTransaction({
-        to,
-        value: valueWei,
-        gasLimit,
-        maxFeePerGas,
-        maxPriorityFeePerGas: maxFeePerGas / BigInt(2),
-      });
-
+      const { address: tokenAddress, decimals } = token ?? { address: PATHUSD, decimals: PATHUSD_DECIMALS };
+      const erc20 = new ethers.Contract(tokenAddress, ["function transfer(address to, uint256 amount) returns (bool)"], signer);
+      // Amounts come rounded to 18 places (and 1e-7 style for tiny ones):
+      // cut down to the token's own decimals, never up, before parsing.
+      const cut = (Math.floor(amount * 10 ** decimals) / 10 ** decimals).toFixed(decimals);
+      const tx = await erc20.transfer(to, ethers.parseUnits(cut, decimals));
       await tx.wait();
       return tx.hash;
     } catch (err) {
@@ -374,25 +366,10 @@ export function TempoProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const getReadOnlyConvertContract = () => {
-    return new ethers.Contract(
-      IPOW_CONTRACT_ADDRESS_TESTNET,
-      IPOW_ABI_JSON,
-      new ethers.JsonRpcProvider(fullRpcUrl),
-    );
-  };
-
 const readOnlyProvider = useMemo(() => {
     return new ethers.JsonRpcProvider(fullRpcUrl);
   }, [fullRpcUrl]);
   
-  const getSignerConvertContract = async () =>
-    new ethers.Contract(
-      IPOW_CONTRACT_ADDRESS_TESTNET,
-      IPOW_ABI_JSON,
-      await getActiveSigner(),
-    );
-
   const getActiveSigner = async () => {
 
     if (walletType === "metamask" || walletType === "phantom") {
@@ -412,9 +389,6 @@ const readOnlyProvider = useMemo(() => {
 
 
         if (currentNetwork?.id !== targetNetwork.id) {
-          console.log(
-            `Wrong network detected before signing. Attempting switch to ${targetNetwork.name}...`,
-          );
 
           try {
 
@@ -449,7 +423,7 @@ const readOnlyProvider = useMemo(() => {
               });
               await appKit.switchNetwork(targetNetwork); 
               await new Promise((resolve) => setTimeout(resolve, 1000));
-            } catch (fallbackErr) {
+            } catch {
               throw new Error(
                 `Please open your wallet and switch to ${currentNetworkConfig.network} to proceed.`,
               );
@@ -487,376 +461,13 @@ const readOnlyProvider = useMemo(() => {
     throw new Error("No active wallet session found. Please reconnect.");
   };
 
-  const priceCache = useRef({ ethPriceUsd: 0, btcPriceUsd: 0, lastFetched: 0 });
-
-  const fetchMarketPrices = async () => {
-
-    if (Date.now() - priceCache.current.lastFetched < 30000) {
-      return priceCache.current;
-    }
-
-    try {
-      const [ethRes, btcRes] = await Promise.all([
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT").then(r => r.json()),
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").then(r => r.json())
-      ]);
-
-      priceCache.current = {
-        ethPriceUsd: parseFloat(ethRes.price),
-        btcPriceUsd: parseFloat(btcRes.price),
-        lastFetched: Date.now(),
-      };
-
-      return priceCache.current;
-    } catch (error) {
-      console.error("Failed to fetch market prices:", error);
-      
-      try {
-         const cgResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum,bitcoin&vs_currencies=usd");
-         const cgData = await cgResponse.json();
-         return {
-            ethPriceUsd: cgData.ethereum.usd,
-            btcPriceUsd: cgData.bitcoin.usd,
-         };
-      } catch (fallbackError) {
-         throw new Error("All pricing oracles failed");
-      }
-    }
-  };
-
-  const estimateBitcoinFromNative = async (
-    ethAmount: number,
-  ): Promise<string | null> => {
-    try {
-      const { ethPriceUsd, btcPriceUsd } = await fetchMarketPrices();
-      
-      const btcAmount = (ethAmount * ethPriceUsd) / btcPriceUsd * 0.99;
-      
-      const sats = Math.floor(btcAmount * 1e8);
-      
-      return sats.toString();
-    } catch (e) {
-      console.error("estimateBitcoinFromNative error:", e);
-      return null;
-    }
-  };
-
-  const estimateNativeFromBitcoin = async (
-    btcSats: string,
-  ): Promise<string | null> => {
-    try {
-      const { ethPriceUsd, btcPriceUsd } = await fetchMarketPrices();
-      
-      const btcAmount = Number(btcSats) / 1e8;
-      
-      const ethAmount = (btcAmount * btcPriceUsd) / ethPriceUsd * 0.99;
-      
-      return ethAmount.toFixed(18);
-    } catch (e) {
-      console.error("estimateNativeFromBitcoin error:", e);
-      return null;
-    }
-  };
-
-
-const commitNativeToBitcoin = async (
-    userProgram: string,
-    ethAmount: number,
-    bitcoinAmountSats: number,
-    destination?: { networkId: number; networkAddress: string },
-  ) => {
-    try {
-      const c = await getSignerConvertContract();
-      const weiAmount = ethers.parseEther(ethAmount.toString());
-      
-
-      const fee = (weiAmount * BigInt(50)) / BigInt(10000);
-
-      const isCrossChain = destination && destination.networkId > 0;
-      let finalNetworkId = 0;
-      let finalNetworkAddress = "0x";
-      let finalUserProgram = "0x";
-
-      if (isCrossChain) {
-        finalNetworkId = destination!.networkId;
-        finalNetworkAddress = destination!.networkAddress.startsWith("0x")
-          ? destination!.networkAddress
-          : ethers.hexlify(ethers.toUtf8Bytes(destination!.networkAddress));
-        finalUserProgram = "0x";
-      } else {
-        if (!userProgram) throw new Error("Bitcoin Program required for direct swap");
-        finalNetworkId = 0;
-        finalNetworkAddress = "0x";
-        finalUserProgram = userProgram.startsWith("0x") ? userProgram : `0x${userProgram}`;
-      }
-
-      const tx = await c.commitNativeToBitcoin(
-        weiAmount,
-        bitcoinAmountSats.toString(),
-        finalNetworkId.toString(),
-        finalNetworkAddress,
-        finalUserProgram,
-        {
-          value: fee,
-          gasLimit: IPOW_GAS_LIMIT,
-        },
-      );
-
-      return tx.hash;
-    } catch (e) {
-      console.error("commitNativeToBitcoin error:", e);
-      return null;
-    }
-  };
-
-  const commitBitcoinToNative = async (
-    btcSats: string | number,
-    ethAmount: number,
-    userProgram: string,
-  ) => {
-    try {
-      if (!userProgram) throw new Error("Bitcoin Program required for direct swap");
-      const finalUserProgram = userProgram.startsWith("0x") ? userProgram : `0x${userProgram}`;
-
-      const c = await getSignerConvertContract();
-      const weiAmount = ethers.parseEther(ethAmount.toString());
-      
-
-      const fee = (weiAmount * BigInt(50)) / BigInt(10000);
-
-      const tx = await c.commitBitcoinToNative(
-        btcSats.toString(),     // 1. bitcoinAmount
-        weiAmount.toString(),   // 2. nativeAmount
-        0,                      // 3. networkId
-        finalUserProgram,       // 4. userProgram
-        ethers.ZeroAddress,     // 5. destAddress
-        "0x",                   // 6. networkAddress
-        0,                      // 7. dutyWindowSeconds
-        "0x",                   // 8. ipowReceiveProgram
-        0,                      // 9. lockedAnchorHeight
-        { 
-          value: fee,
-          gasLimit: IPOW_GAS_LIMIT 
-        },
-      );
-      
-      return tx.hash;
-    } catch (error) {
-      console.error("commitBitcoinToNative error:", error);
-      return null;
-    }
-  };
-
-  const depositApprovedConversion = async (txId: bigint) => {
-    const c = await getSignerConvertContract();
-    const conversionData = await c.conversions(txId);
-    const amountToDeposit = conversionData.nativeAmount;
-
-    const tx = await c.depositApprovedConversion(txId, {
-      value: amountToDeposit,
-      gasLimit: IPOW_GAS_LIMIT,
-    });
-
-    return tx.hash;
-  };
-
-  const submitBitcoinMerkleProofWithTx = async (
-    txId: bigint,
-    txRaw: BytesLike,
-    voutIndex: bigint,
-    blockHashLE: BytesLike,
-    blockHeight: bigint,
-    branch: BytesLike[],
-    index: bigint,
-  ) =>
-    (
-      await (
-        await getSignerConvertContract()
-      ).submitBitcoinMerkleProofWithTx(
-        txId,
-        txRaw,
-        voutIndex,
-        blockHashLE,
-        blockHeight,
-        branch,
-        index,
-      )
-    ).hash;
-
-  const getMyTxIds = async (
-    phase: TxPhase = 0,
-    typeFilter: TypeFilter = 0,
-    bitcoinProgramFilter: string = "",
-    isUserBitcoinProgramFilter: boolean = true,
-  ) => {
-    try {
-      if (!address && !bitcoinProgramFilter) return [];
-      const c = getReadOnlyConvertContract();
-
-      let evmUserFilter = address;
-      if (bitcoinProgramFilter && bitcoinProgramFilter !== "") {
-        evmUserFilter = ethers.ZeroAddress;
-      }
-
-      let programBytes = "0x";
-      if (bitcoinProgramFilter) {
-        programBytes = bitcoinProgramFilter.startsWith("0x")
-          ? bitcoinProgramFilter
-          : `0x${bitcoinProgramFilter}`;
-      }
-
-      const next: bigint = await c.nextTxId();
-
-      return next <= BigInt(1)
-        ? []
-        : c.getTxIdsByFilter(
-            typeFilter,
-            phase ?? 0,
-            evmUserFilter,
-            programBytes,
-            isUserBitcoinProgramFilter,
-            0,
-            false,
-            BigInt(1),
-            next - BigInt(1),
-            200,
-          );
-    } catch (e) {
-      console.error("Eth getMyTxIds error:", e);
-      return [];
-    }
-  };
-
-  const getConversion = async (txId: bigint): Promise<any> => {
-    try {
-      const c = getReadOnlyConvertContract();
-      const result = await c.getConversionWithPhase(txId);
-
-      const raw = result[0];
-      const phase = Number(result[1]);
-
-      if (!raw || raw.user === "0x0000000000000000000000000000000000000000")
-        return null;
-
-      return {
-        id: txId.toString(),
-        phase: phase,
-        user: raw.user,
-        isNativeToBitcoin: raw.isNativeToBitcoin,
-        slippage: Number(raw.slippage),
-        networkId: Number(raw.networkId),
-        userProgram: raw.userProgram,
-        ipowReceiveProgram: raw.ipowReceiveProgram,
-        networkAddress: raw.networkAddress,
-        nativeAmount: raw.nativeAmount?.toString() || "0",
-        bitcoinAmount: raw.bitcoinAmount?.toString() || "0",
-        commitFee: raw.commitFee?.toString() || "0",
-        reservedNative: raw.reservedNative?.toString() || "0",
-        createdAt: Number(raw.createdAt),
-        approvedAt: Number(raw.approvedAt),
-        depositedAt: Number(raw.depositedAt),
-        operatorDutyExpiresAt: Number(raw.operatorDutyExpiresAt),
-        approved: raw.approved,
-        deposited: raw.deposited,
-        completed: raw.completed,
-        refunded: raw.refunded,
-      };
-    } catch (e) {
-      console.error("getConversion error:", e);
-      return null;
-    }
-  };
-
-  const anchorInfo = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().anchorInfo(txId);
-    } catch (e) {
-      console.error("anchorInfo error:", e);
-      return null;
-    }
-  };
-
-  const proofInfo = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().proofInfo(txId);
-    } catch (e) {
-      console.error("proofInfo error:", e);
-      return null;
-    }
-  };
-
-  const windowsFor = async (txId: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().windowsFor(txId);
-    } catch (e) {
-      console.error("windowsFor error:", e);
-      return null;
-    }
-  };
-
-  const globalHeightToHashLE = async (h: bigint): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().globalHeightToHashLE(h);
-    } catch (e) {
-      console.error("globalHeightToHashLE error:", e);
-      return null;
-    }
-  };
-
-  const globalHeaders = async (hashLE: any): Promise<any | null> => {
-    try {
-      return await getReadOnlyConvertContract().globalHeaders(hashLE);
-    } catch (e) {
-      console.error("globalHeaders error:", e);
-      return null;
-    }
-  };
-
-  const refundIfNotApproved = async (txId: bigint): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.refundIfNotApproved(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("refundIfNotApproved error:", e);
-      return null;
-    }
-  };
-
-  const claimNativeAfterOperatorExpired = async (
-    txId: bigint,
-  ): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.claimNative_AfterOperatorExpired(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("claimNativeAfterOperatorExpired error:", e);
-      return null;
-    }
-  };
-
-  const refundAfterNoProofNativeToBitcoin = async (
-    txId: bigint,
-  ): Promise<string | null> => {
-    try {
-      const c = await getSignerConvertContract();
-      const tx = await c.refundAfterNoProof_NativeToBitcoin(txId);
-      return tx.hash;
-    } catch (e) {
-      console.error("refundAfterNoProofNativeToBitcoin error:", e);
-      return null;
-    }
-  };
-
 const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => {
     if (!address) return;
     try {
+      const pathUsd = new ethers.Contract(PATHUSD, BALANCE_OF, readOnlyProvider);
       const [confirmedWei, pendingWei, tokens] = await Promise.all([
-        readOnlyProvider.getBalance(address, "latest"),
-        readOnlyProvider
-          .getBalance(address, "pending")
-          .catch(() => readOnlyProvider.getBalance(address, "latest")),
+        pathUsd.balanceOf(address, { blockTag: "latest" }) as Promise<bigint>,
+        (pathUsd.balanceOf(address, { blockTag: "pending" }) as Promise<bigint>).catch(() => pathUsd.balanceOf(address) as Promise<bigint>),
         // The allowlisted ERC-20s the wallet holds (Multicall3 is on Tempo's testnet).
         fetchErc20Balances(readOnlyProvider, address, VERIFIED_ERC20_TOKENS[netKey]).catch((err) => {
           console.error("Failed to fetch Tempo ERC-20 balances:", err);
@@ -866,15 +477,14 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
 
     
       if (signal?.aborted) {
-        console.log(`[Abort] Cancelled ETH balance update for ${address}`);
         return;
       }
 
       let unconfirmedWei = pendingWei - confirmedWei;
       if (unconfirmedWei < BigInt(0)) unconfirmedWei = BigInt(0);
 
-      const confirmed = Number(ethers.formatEther(confirmedWei)) || 0;
-      const unconfirmed = Number(ethers.formatEther(unconfirmedWei)) || 0;
+      const confirmed = Number(ethers.formatUnits(confirmedWei, PATHUSD_DECIMALS)) || 0;
+      const unconfirmed = Number(ethers.formatUnits(unconfirmedWei, PATHUSD_DECIMALS)) || 0;
 
       setBalance({ confirmed, unconfirmed, fetched: true, tokens });
     } catch (err) {
@@ -882,7 +492,7 @@ const fetchBalance = useCallback(async (signal?: AbortSignal): Promise<void> => 
       console.error("Failed to fetch balance:", err);
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
-  }, [address, currentNetworkConfig.jsonRpcUrl, netKey]);
+  }, [address, currentNetworkConfig.jsonRpcUrl]);
 
   /** The test RWA tokens' faucet (MockRWA.faucet): a few tokens to the
    *  wallet, once every few hours; sent as an ordinary transaction, like
@@ -967,20 +577,10 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
     }
   }, [address, currentNetworkConfig.jsonRpcUrl]);
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // PathUSD, Tempo's fee token, is a dollar stablecoin: a dollar each.
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=ETH&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    setPrice({ usd: 1 } as any);
   };
 
   const fetchETA = async (
@@ -1067,13 +667,16 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
         }
       }
     }
-  }, [akConnected, allAccounts, akProvider, isMainnet, address, walletType]);
+  }, [akConnected, allAccounts, akProvider, address, walletType]);
 
 useEffect(() => {
-  }, [isMainnet]);
+  }, []);
 
   useEffect(() => {
-    if (selectedChain !== "tempo" && selectedChain !== "bitcoin") return;
+    // Only on this network's own pages: on others (Bitcoin's included) every
+    // network's wallet is loaded, and two of these would pull the wallet back
+    // and forth. Signing switches to the right network anyway.
+    if (selectedChain !== "tempo") return;
 
     const checkChain = async () => {
       if (!provider) return;
@@ -1085,7 +688,7 @@ useEffect(() => {
       }
     };
     checkChain();
-  }, [isMainnet, connected, selectedChain, provider, currentNetworkConfig]);
+  }, [connected, selectedChain, provider, currentNetworkConfig]);
 
   useEffect(() => {
     fetchPrice();
@@ -1093,8 +696,7 @@ useEffect(() => {
       fetchPrice();
     }, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
   useEffect(() => {
     if (!walletType || !connected) return;
@@ -1125,9 +727,12 @@ useEffect(() => {
       cancelled = true;
       injection?.removeListener("accountsChanged", handleAccountsChanged);
     };
-  }, [walletType, connected, isMainnet]);
+  }, [walletType, connected]);
   useEffect(() => {
-    if (selectedChain !== "tempo" && selectedChain !== "bitcoin") return;
+    // Only on this network's own pages: on others (Bitcoin's included) every
+    // network's wallet is loaded, and two of these would pull the wallet back
+    // and forth. Signing switches to the right network anyway.
+    if (selectedChain !== "tempo") return;
     if (!((walletType === "metamask" || walletType === "phantom") && provider)) return;
 
     let eth: any;
@@ -1150,7 +755,6 @@ useEffect(() => {
 
       const network = await provider.getNetwork();
       if (network.chainId !== targetChainId) {
-        console.log("Wrong network detected. Switching...");
         await switchNetwork(provider);
       }
 
@@ -1177,13 +781,12 @@ useEffect(() => {
 
     let blockCount = 0;
 
-    const handleNewBlock = (blockNumber: number) => {
+    const handleNewBlock = () => {
 
       estimateFee(signal); 
 
       blockCount++;
       if (blockCount >= 3) {
-        console.log(`🔗 3 ETH blocks passed. Refetching balance...`);
         fetchBalance(signal);
         blockCount = 0;
       }
@@ -1219,7 +822,7 @@ useEffect(() => {
       setProvider(null);
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
-  }, [isMainnet]);
+  }, []);
   return (
     <TempoWalletContext.Provider
       value={{
@@ -1244,15 +847,15 @@ useEffect(() => {
         currencyTicker: "USD",
         decimals: 18,
         ipowDecimals: 18,
-        selfCustodyParameter: {},
         networkName: "Tempo",
         networkLogo: temponetwork,
         networkDescription: {
           en: `Tempo Network.`, // Stubbed for Tempo
-          id: `Jaringan Tempo.`, // Stubbed for Tempo
         },
         ipowConvert: "comingsoon",
         ipowNetworkId: IPOW_NETWORK_ID,
+        // The old iPoW contract is gone; Convert is "comingsoon" here.
+        ...NO_CONVERT,
         connect,
         setFeeSelection,
         disconnect,
@@ -1263,22 +866,6 @@ useEffect(() => {
         checkAddress,
         isValidAddress,
         fetchETA,
-        estimateBitcoinFromNative,
-        estimateNativeFromBitcoin,
-        commitNativeToBitcoin,
-        submitBitcoinMerkleProofWithTx,
-        commitBitcoinToNative,
-        depositApprovedConversion,
-        getMyTxIds,
-        getConversion,
-        refundIfNotApproved,
-        claimNativeAfterOperatorExpired,
-        refundAfterNoProofNativeToBitcoin,
-        anchorInfo,
-        proofInfo,
-        windowsFor,
-        globalHeightToHashLE,
-        globalHeaders,
       }}
     >
       {children}

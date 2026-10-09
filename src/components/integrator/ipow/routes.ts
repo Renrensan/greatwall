@@ -9,4 +9,5 @@ export const UI_NETWORK_IDS: Partial<Record<SupportedChain, number>> = {
   robinhood: 6,
   hyperliquid: 7,
   tempo: 9,
+  arbitrum: 4,
 };

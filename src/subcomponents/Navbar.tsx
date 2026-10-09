@@ -25,6 +25,7 @@ import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { useTranslations } from "next-intl";
 import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
+import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 interface NavbarProps {
   forceShow?: boolean;
@@ -46,11 +47,9 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   const [globalPreferencesOpen, setGlobalPreferencesOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [networkOpen, setNetworkOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const [defaultNetworkOpen, setDefaultNetworkOpen] = useState(false);
   const [networkSearchQuery, setNetworkSearchQuery] = useState("");
 
-  const langRef = useRef<HTMLDivElement>(null);
   const globalPreferenceRef = useRef<HTMLDivElement>(null);
   const walletRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<HTMLDivElement>(null);
@@ -92,18 +91,10 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
     }
   }, [pathname, setSelectedChain, app]);
 
-  function handleLocaleChange(newLocale: string) {
-    const segments = pathname.split("/");
-    segments[1] = newLocale;
-    const newPath = segments.join("/") + (params ? `?${params}` : "");
-    router.push(newPath, { scroll: false });
-  }
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       if (
-        (!langRef.current || !langRef.current.contains(target)) &&
         (!walletRef.current || !walletRef.current.contains(target)) &&
         (!globalPreferenceRef.current ||
           !globalPreferenceRef.current.contains(target)) &&
@@ -112,7 +103,6 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         setWalletOpen(false);
         setGlobalPreferencesOpen(false);
         setNetworkOpen(false);
-        setLanguageOpen(false);
         setDefaultNetworkOpen(false);
       }
     }
@@ -149,13 +139,15 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
 
   // Greatwall's sections, by the app and section each opens.
   const chain = selectedChain || "ethereum";
-  const navItems: { key: string; label: string; href: string; active: boolean }[] = [
+  const navItems: { key: string; label: string; href: string; active: boolean; icon: string }[] = [
     // Minting lives under Explore: a basket is picked there, previewed, and
     // minted on its own page.
-    { key: "explore", label: t("navExplore"), href: `/${locale}/${chain}/beta/explore`, active: app === "beta" && section !== "create" },
-    { key: "create", label: t("navCreate"), href: `/${locale}/${chain}/beta/create`, active: app === "beta" && section === "create" },
-    { key: "portfolio", label: t("navPortfolio"), href: `/${locale}/${chain}/vault/assets`, active: app === "vault" || app === "bridge" },
-    { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert" },
+    { key: "explore", label: t("navExplore"), href: `/${locale}/${chain}/index`, active: app === "beta" && section !== "create", icon: "solar:layers-minimalistic-bold" },
+    { key: "create", label: t("navCreate"), href: `/${locale}/${chain}/index/create`, active: app === "beta" && section === "create", icon: "solar:add-circle-bold" },
+    { key: "portfolio", label: t("navPortfolio"), href: `/${locale}/${chain}/vault/assets`, active: app === "vault" || (app === "bridge" && !["lock", "unlock", "send"].includes(section ?? "")), icon: "solar:wallet-bold" },
+    { key: "lock", label: t("navLock"), href: lockPath(locale, chain), active: app === "bridge" && ["lock", "unlock", "send"].includes(section ?? ""), icon: "solar:lock-keyhole-bold" },
+    { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert", icon: "solar:transfer-horizontal-bold" },
+    { key: "protocol", label: t("navProtocol"), href: `/${locale}/${chain}/protocol`, active: pathname?.endsWith("/protocol") ?? false, icon: "solar:shield-network-bold" },
   ];
 
   const navLink = (item: (typeof navItems)[number]) => (
@@ -174,12 +166,12 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   return (
     <>
       {!app && !forceShow ? null : (
-        <header className="gw-nav fixed top-0 left-0 z-20 w-full bg-sand border-b border-black/5">
+        <header className="gw-nav fixed top-0 left-0 z-20 w-full bg-cream border-b border-ink/10">
           <div className="mx-auto flex h-[58px] w-full max-w-[1440px] items-center justify-between gap-4 px-4 md:px-16">
             <div className="flex items-center gap-8 lg:gap-10 min-w-0">
               <Link href={`/${locale}/${chain}/vault/assets`} className="flex items-center gap-2 shrink-0" aria-label="Greatwall">
                 <Image src={greatwallLogo} alt="" className="h-[22px] w-auto" priority />
-                <span className="hidden md:inline font-display text-[22px] font-bold leading-none tracking-tight text-ink">Greatwall</span>
+                <span className="hidden md:inline font-wordmark text-[22px] font-semibold leading-none tracking-tight text-ink">Greatwall</span>
               </Link>
               <nav className="hidden md:flex items-center gap-7" aria-label="Main">
                 {navItems.map(navLink)}
@@ -325,34 +317,8 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         <p className="text-[12px] opacity-70">{t("text243")}</p>
       </div>
 
-      {/* On phones the sections live here, above the preferences. */}
-      <nav className="md:hidden flex flex-col gap-3 pb-5" aria-label="Main">
-        {navItems.map((item) => (
-          <Link
-            key={item.key}
-            href={item.href}
-            onClick={() => setGlobalPreferencesOpen(false)}
-            aria-current={item.active ? "page" : undefined}
-            className="gw-row justify-between"
-          >
-            <span>{item.label}</span>
-            {item.active && <FaCheckCircle className="text-[18px] text-snow shrink-0" />}
-          </Link>
-        ))}
-      </nav>
 
       <div className="flex flex-col gap-3 py-2">
-        <button
-          onClick={() => {
-            setGlobalPreferencesOpen(false);
-            setLanguageOpen(true);
-          }}
-          className="gw-row"
-        >
-          <p>{t("text244")}</p>
-        </button>
-
-
         <button
           onClick={() => {
             setGlobalPreferencesOpen(false);
@@ -378,50 +344,6 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
     {/* Mobile-Only Footer */}
     <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
       <ButtonContrast buttonText={t("text22")} onClick={() => setGlobalPreferencesOpen(false)} />
-    </div>
-  </AnimatedModalNavbar>
-
-  {/* --- LANGUAGE SELECTION MODAL --- */}
-  <AnimatedModalNavbar
-    isOpen={languageOpen}
-    onClose={() => setLanguageOpen(false)}
-    maxWidthClass="lg:w-[280px]"
-  >
-    <div className="flex flex-col p-6 overflow-y-auto flex-1">
-      <div className="flex flex-col gap-1 pb-5">
-        <h2 className="text-xl font-bold">{t("text244")}</h2>
-        <p className="text-[12px] opacity-70">{t("text246")}</p>
-      </div>
-
-      <div className="flex flex-col gap-3 py-2">
-        {[
-          { id: "id", label: "Bahasa", icon: "emojione:flag-for-indonesia" },
-          { id: "en", label: "English", icon: "emojione:flag-for-us-outlying-islands" },
-        ].map((lang) => {
-          const isActive = locale === lang.id;
-          return (
-            <button
-              key={lang.id}
-              type="button"
-              onClick={() => {
-                handleLocaleChange(lang.id);
-                setLanguageOpen(false);
-              }}
-              className="gw-row justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <Icon icon={lang.icon} className="text-2xl shrink-0" />
-                <span>{lang.label}</span>
-              </div>
-              {isActive && <FaCheckCircle className="text-[18px] text-snow shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-
-    <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
-      <ButtonContrast buttonText={t("text22")} onClick={() => setLanguageOpen(false)} />
     </div>
   </AnimatedModalNavbar>
 
@@ -479,6 +401,30 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
             </div>
           </div>
         </header>
+      )}
+      {(app || forceShow) && (
+        // On phones the sections are a floating bar at the bottom, as the
+        // desktop's menu; the preferences stay under the header's dots.
+        <nav
+          className="md:hidden fixed inset-x-0 bottom-0 z-30 px-4"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+          aria-label="Main"
+        >
+          <div className="gw-glass mx-auto max-w-md flex items-center justify-between gap-1 rounded-2xl p-1.5">
+            {navItems.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                aria-current={item.active ? "page" : undefined}
+                aria-label={item.label}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl transition-colors ${item.active ? "bg-ink text-snow" : "text-ink/80 hover:bg-black/5"}`}
+              >
+                <Icon icon={item.icon} className="text-[22px]" />
+                <span className="text-[10px] font-medium leading-none">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
       )}
     </>
   );

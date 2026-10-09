@@ -1,7 +1,6 @@
 "use client";
 
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
-import { useNetwork } from "@/app/network-provider";
 import { phantom, metamask, walletconnect } from "..";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -14,7 +13,6 @@ import { ETHEREUM_WALLET_ICONS } from "./wallet-connect/wallet-icons";
 import { ConnectingButton } from "./wallet-connect/ConnectingButton";
 import { ConnectedWalletPill } from "./wallet-connect/ConnectedWalletPill";
 import { WalletListItem } from "./wallet-connect/WalletListItem";
-import { MainnetToggleRow } from "./wallet-connect/MainnetToggleRow";
 import { NetworkStatusCard, SettingsRow } from "./wallet-connect/WalletSettingsRows";
 import { detectEvmWallets } from "./wallet-connect/evm-wallet-detection";
 import { METAMASK_INSTALL_LINKS, PHANTOM_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
@@ -28,7 +26,6 @@ interface EthereumConnectButtonProps {
 
 export function EthereumConnectButton({ isOpen, setIsOpen }: EthereumConnectButtonProps) {
   const t = useTranslations("All");
-  const { ethereumMainnet, setEthereumMainnet } = useNetwork();
 
   const {
     connected,
@@ -103,7 +100,6 @@ export function EthereumConnectButton({ isOpen, setIsOpen }: EthereumConnectButt
           icon={walletType ? ETHEREUM_WALLET_ICONS[walletType] : walletconnect}
           alt={walletType ?? "wallet"}
           label={ellipsifyAddress(address!)}
-          isMainnet={ethereumMainnet}
           className="gw-wallet-pill"
           onClick={toggleSettings}
         />
@@ -112,7 +108,6 @@ export function EthereumConnectButton({ isOpen, setIsOpen }: EthereumConnectButt
       <EthereumSettingsSheet
         isOpen={settingsOpen && connected}
         address={address!}
-        isMainnet={ethereumMainnet}
         onCopy={handleCopy}
         onDisconnect={handleDisconnect}
         canSwitch={true}
@@ -125,8 +120,6 @@ export function EthereumConnectButton({ isOpen, setIsOpen }: EthereumConnectButt
         title={t("text35")}
         subtitle={connected ? t("text220") : t("text36")}
         detected={detected}
-        isMainnet={ethereumMainnet}
-        setIsMainnet={setEthereumMainnet}
         onSelect={connected ? handleSwitchWallet : handleConnect}
         onClose={() => setWalletSheetOpen(false)}
       />
@@ -134,7 +127,7 @@ export function EthereumConnectButton({ isOpen, setIsOpen }: EthereumConnectButt
   );
 }
 
-function EthereumWalletSheet({ isOpen, title, subtitle, detected, isMainnet, setIsMainnet, onSelect, onClose }: any) {
+function EthereumWalletSheet({ isOpen, title, subtitle, detected, onSelect, onClose }: any) {
   const t = useTranslations("All");
   return (
     <AnimatedModalNavbar isOpen={isOpen} onClose={onClose} maxWidthClass="lg:w-[320px]">
@@ -143,13 +136,6 @@ function EthereumWalletSheet({ isOpen, title, subtitle, detected, isMainnet, set
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-[12px] opacity-70">{subtitle}</p>
         </div>
-        <MainnetToggleRow
-          heading={t("text221")}
-          isMainnet={isMainnet}
-          onChange={setIsMainnet}
-          testnetLabel="Sepolia"
-        />
-        <hr className="border-black/5 mb-6" />
         <div className="flex flex-col gap-3">
           {detected.metamask && (
             <WalletListItem
@@ -191,7 +177,7 @@ function EthereumWalletSheet({ isOpen, title, subtitle, detected, isMainnet, set
   );
 }
 
-function EthereumSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitch, onChangeWallet, onClose }: any) {
+function EthereumSettingsSheet({ isOpen, onCopy, onDisconnect, canSwitch, onChangeWallet, onClose }: any) {
   const t = useTranslations("All");
   return (
     <AnimatedModalNavbar isOpen={isOpen} onClose={onClose} maxWidthClass="lg:w-[300px]">
@@ -202,9 +188,8 @@ function EthereumSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwi
         </div>
         <div className="flex flex-col gap-3 py-2">
           <NetworkStatusCard
-            label={`${t("text293")} ${isMainnet ? "Mainnet" : "Sepolia"}`}
-            isMainnet={isMainnet}
-            borderClassName="border-black/20"
+            label={`${t("text293")} Sepolia`}
+           
           />
           <hr className="border-black/5 my-2" />
           <SettingsRow icon={<IoCopyOutline className="text-[16px]" />} label={t("text5")} onClick={onCopy} />

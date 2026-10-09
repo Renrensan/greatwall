@@ -8,7 +8,7 @@
 // (D10) on Solana: the owner decided a buy opens to testers only with it
 // (docs/drafts/ipow-conversion-tunnel.md, Q3 in the iPoW repo).
 
-import { Bitcoin, SolanaConversion, addressToScript, scriptToAddress, solanaPaidOutsideWindow, type SolanaSwapView, type SolanaWallet } from "@ipow/sdk";
+import { SolanaConversion, addressToScript, scriptToAddress, solanaPaidOutsideWindow, type SolanaSwapView, type SolanaWallet } from "@ipow/sdk";
 
 import { TxPhase, TypeFilter } from "./evm/type";
 import { NO_CONVERT, decimalString, type ConvertMethods } from "./convertMethods";

@@ -1,6 +1,6 @@
 // The mock RWA tokens of each test network, as deployed from the iPoW repo
-// (programmable-network/ethereum/deployments/<network>-testnet-rwa.json and
-// programmable-network/solana/testnet-rwa.json, 2026-10-05): stand-ins for
+// (evm/deployments/<network>-testnet-rwa.json and
+// solana/testnet-rwa.json, 2026-10-05): stand-ins for
 // real tokenized assets (rwa.xyz), named "<asset> (<test network> Greatwall)"
 // or, on Solana, "(GW Devnet)" (Solana's Token Metadata allows 32 bytes), with no backing, for converting and for locking
 // into BETA. Each has a faucet: on EVM the token's own (`faucet()`, every
@@ -40,6 +40,9 @@ export const RWA_TOKENS: Partial<Record<SupportedChain, RwaToken[]>> = {
     { chain: "ethereum", symbol: "AMDon", name: "AMD (Ondo) (Sepolia Greatwall)", token: "0x04b4Cfe08b2C79fFeBc083E5e7091CfAC142c201", decimals: 18, faucet: 5, logo: "/assets/rwa/AMDon.png", about: "https://app.rwa.xyz/assets/AMDon", description: "Ondo's tokenized AMD stock." },
     { chain: "ethereum", symbol: "SOFIon", name: "SoFi Technologies (Ondo) (Sepolia Greatwall)", token: "0xA83EE721F0f398A920f4c35Eb04aa244d2c5d1fC", decimals: 18, faucet: 5, logo: "/assets/rwa/SOFIon.png", about: "https://app.rwa.xyz/assets/SOFIon", description: "Ondo's tokenized SoFi Technologies stock." },
     { chain: "ethereum", symbol: "HIMSon", name: "Hims & Hers Health (Ondo) (Sepolia Greatwall)", token: "0x2c8b859ff059554ff363dED4a484062E247E03BC", decimals: 18, faucet: 5, logo: "/assets/rwa/HIMSon.png", about: "https://app.rwa.xyz/assets/HIMSon", description: "Ondo's tokenized Hims & Hers Health stock." },
+    // 2026-10-06, for Greatwall's index; the address is filled by scripts/sync-rwa.mjs once deployed.
+    { chain: "ethereum", symbol: "VTIon", name: "Vanguard Total Stock Market ETF (Ondo) (Sepolia Greatwall)", token: "0x0082296c24D2c994DC6DC5DEa74e77ddFC0A0895", decimals: 18, faucet: 5, logo: "/assets/rwa/VTIon.png", about: "https://app.rwa.xyz/assets/VTIon", description: "Ondo's tokenized Vanguard Total Stock Market ETF: the whole US stock market." },
+    { chain: "ethereum", symbol: "IEMGon", name: "iShares Core MSCI Emerging Markets ETF (Ondo) (Sepolia Greatwall)", token: "0xb934E173e34e8F3e9e6E6B2F7A901B75c9D8C7F8", decimals: 18, faucet: 5, logo: "/assets/rwa/IEMGon.png", about: "https://app.rwa.xyz/assets/IEMGon", description: "Ondo's tokenized iShares Core MSCI Emerging Markets ETF: large and mid-size companies of emerging markets." },
   ],
   base: [
     { chain: "base", symbol: "GLDY", name: "Streamex GLDY (Base Sepolia Greatwall)", token: "0xbc653e8dB02870f0562231BA55E6f4F182cAaF4c", decimals: 18, faucet: 5, logo: "/assets/rwa/base/GLDY.png", about: "https://app.rwa.xyz/assets/GLDY", description: "Streamex's gold-backed yield token." },
@@ -52,6 +55,7 @@ export const RWA_TOKENS: Partial<Record<SupportedChain, RwaToken[]>> = {
     { chain: "base", symbol: "wtNKE", name: "Wrapped NIKE, Inc. ST0x (Base Sepolia Greatwall)", token: "0xbf869aa1EAb77acdAF5419CD18C3c2d0A60A019a", decimals: 18, faucet: 5, logo: "/assets/rwa/base/wtNKE.png", about: "https://app.rwa.xyz/assets/wtNKE", description: "ST0x's wrapped tokenized Nike stock." },
     { chain: "base", symbol: "AMZN.d", name: "Amazon.com, Inc. Common Stock (Base Sepolia Greatwall)", token: "0x763d74652203aab8341914D99C0C102640FcBb9E", decimals: 18, faucet: 5, logo: "/assets/rwa/base/AMZN.d.png", about: "https://app.rwa.xyz/assets/AMZN.d", description: "Dinari's tokenized Amazon stock." },
     { chain: "base", symbol: "wtMCD", name: "Wrapped McDonald's Corporation ST0x (Base Sepolia Greatwall)", token: "0x36BA462fF711C7261C4894Af40E5f0c49C98b280", decimals: 18, faucet: 5, logo: "/assets/rwa/base/wtMCD.png", about: "https://app.rwa.xyz/assets/wtMCD", description: "ST0x's wrapped tokenized McDonald's stock." },
+    { chain: "base", symbol: "GLDx", name: "Gold xStock (Base Sepolia Greatwall)", token: "0x5a7Af423913dbB082BaCEBF3c0Daac52789b1F4A", decimals: 18, faucet: 5, logo: "/assets/rwa/base/GLDx.png", about: "https://app.rwa.xyz/assets/GLDx", description: "Backed Finance's xStock of the SPDR Gold Shares ETF: physical gold." },
   ],
   robinhood: [
     { chain: "robinhood", symbol: "USDG", name: "Global Dollar (Robinhood Testnet Greatwall)", token: "0x01BE560A22e91201C9414b634f0a61085F84dD08", decimals: 18, faucet: 100, logo: "/assets/rwa/robinhood/USDG.png", about: "https://app.rwa.xyz/assets/USDG", description: "Global Dollar: Paxos's US dollar stablecoin." },
@@ -75,6 +79,22 @@ export const RWA_TOKENS: Partial<Record<SupportedChain, RwaToken[]>> = {
     { chain: "hyperliquid", symbol: "NBISx", name: "Nebius xStock (HyperEVM Testnet Greatwall)", token: "0xFcbF76B91dDebbee0c21d808B26a9Fb8fcC0ca94", decimals: 18, faucet: 5, logo: "/assets/rwa/hyperliquid/NBISx.png", about: "https://app.rwa.xyz/assets/NBISx", description: "Backed Finance's xStock of Nebius Group stock." },
     { chain: "hyperliquid", symbol: "IWMx", name: "Russell 2000 xStock (HyperEVM Testnet Greatwall)", token: "0x1E5da6001764bB4e76321FD90Dfaf626cA1f3A83", decimals: 18, faucet: 5, logo: "/assets/rwa/hyperliquid/IWMx.png", about: "https://app.rwa.xyz/assets/IWMx", description: "Backed Finance's xStock of the iShares Russell 2000 ETF: US small caps." },
     { chain: "hyperliquid", symbol: "CRWVx", name: "CoreWeave xStock (HyperEVM Testnet Greatwall)", token: "0xda238E5F844d01554b1A9F2342F733A8205d0586", decimals: 18, faucet: 5, logo: "/assets/rwa/hyperliquid/CRWVx.png", about: "https://app.rwa.xyz/assets/CRWVx", description: "Backed Finance's xStock of CoreWeave stock." },
+    { chain: "hyperliquid", symbol: "SPYx", name: "SP500 xStock (HyperEVM Testnet Greatwall)", token: "0x48aA89dcB9355016c2010426f99d4c44D65281e9", decimals: 18, faucet: 5, logo: "/assets/rwa/hyperliquid/SPYx.png", about: "https://app.rwa.xyz/assets/SPYx", description: "Backed Finance's xStock of the SPDR S&P 500 ETF: the 500 largest US companies." },
+  ],
+  // Arbitrum (network 9, D141), 2026-10-06: addresses filled by
+  // scripts/sync-rwa.mjs once deployed.
+  arbitrum: [
+    { chain: "arbitrum", symbol: "rINTC", name: "Intel Reality (Arbitrum Sepolia Greatwall)", token: "0x4265A27605cDd45b69d36f17635Bad03351387e6", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rINTC.png", about: "https://app.rwa.xyz/assets/rINTC", description: "Reality's token of Intel stock." },
+    { chain: "arbitrum", symbol: "rMSTR", name: "MicroStrategy Reality (Arbitrum Sepolia Greatwall)", token: "0x75A1ADc3a4194f580eeCCa5473197Ff32414d2C1", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rMSTR.png", about: "https://app.rwa.xyz/assets/rMSTR", description: "Reality's token of Strategy (MicroStrategy) stock." },
+    { chain: "arbitrum", symbol: "rMU", name: "Micron Technology Reality (Arbitrum Sepolia Greatwall)", token: "0x525D70BBc90149345a171F5E308C923A4B8b109A", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rMU.png", about: "https://app.rwa.xyz/assets/rMU", description: "Reality's token of Micron Technology stock." },
+    { chain: "arbitrum", symbol: "rMRNA", name: "Moderna Reality (Arbitrum Sepolia Greatwall)", token: "0xE101001bD62451c6f3337f44EF2cC4F166dd891D", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rMRNA.png", about: "https://app.rwa.xyz/assets/rMRNA", description: "Reality's token of Moderna stock." },
+    { chain: "arbitrum", symbol: "rOKLO", name: "Oklo Inc Reality (Arbitrum Sepolia Greatwall)", token: "0xbf869aa1EAb77acdAF5419CD18C3c2d0A60A019a", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rOKLO.png", about: "https://app.rwa.xyz/assets/rOKLO", description: "Reality's token of Oklo stock." },
+    { chain: "arbitrum", symbol: "PGOLD", name: "Pleasing Gold (Arbitrum Sepolia Greatwall)", token: "0x51d0bc4CE62Fa394242415d0DAa167A5AF6Bb45B", decimals: 18, faucet: 1, logo: "/assets/rwa/arbitrum/PGOLD.png", about: "https://app.rwa.xyz/assets/PGOLD", description: "Pleasing's gold token, backed by physical gold." },
+    { chain: "arbitrum", symbol: "rDRAM", name: "Roundhill Memory ETF Reality (Arbitrum Sepolia Greatwall)", token: "0xB6C7e5Db33F34D86102C8Df0AcACAd7052699162", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rDRAM.png", about: "https://app.rwa.xyz/assets/rDRAM", description: "Reality's token of the Roundhill Memory ETF." },
+    { chain: "arbitrum", symbol: "rSPY", name: "SPDR S&P 500 ETF Reality (Arbitrum Sepolia Greatwall)", token: "0xE610e70B799b3d169BeA946a9029655226985805", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rSPY.png", about: "https://app.rwa.xyz/assets/rSPY", description: "Reality's token of the SPDR S&P 500 ETF: the 500 largest US companies." },
+    { chain: "arbitrum", symbol: "rSNDK", name: "SanDisk Reality (Arbitrum Sepolia Greatwall)", token: "0x966Afd06E991A771F5f64DFf032465E42C02769D", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rSNDK.png", about: "https://app.rwa.xyz/assets/rSNDK", description: "Reality's token of SanDisk stock." },
+    { chain: "arbitrum", symbol: "rTSM", name: "Taiwan Semiconductor Reality (Arbitrum Sepolia Greatwall)", token: "0xEB4CF40eFFbec1758b0Fa6a6CC4b4E5a2091b1cF", decimals: 18, faucet: 5, logo: "/assets/rwa/arbitrum/rTSM.png", about: "https://app.rwa.xyz/assets/rTSM", description: "Reality's token of Taiwan Semiconductor (TSMC) stock." },
+    { chain: "arbitrum", symbol: "cbBTC", name: "Coinbase Wrapped BTC (Arbitrum Sepolia Greatwall)", token: "0x5cE276280542817547D075a51E6A0B563FF5D9c8", decimals: 18, faucet: 0.01, logo: "/assets/rwa/arbitrum/cbBTC.png", about: "https://app.rwa.xyz/assets/cbBTC", description: "Coinbase's wrapped bitcoin: each one backed by one bitcoin Coinbase holds." },
   ],
   tempo: [
     { chain: "tempo", symbol: "EURC", name: "EURC (Tempo Testnet Greatwall)", token: "0x15390C4901e11D3732489825c2FBa33A2E3e5b37", decimals: 18, faucet: 100, logo: "/assets/rwa/tempo/EURC.png", about: "https://app.rwa.xyz/assets/EURC", description: "Circle's euro stablecoin." },
@@ -95,4 +115,6 @@ export const RWA_TOKENS: Partial<Record<SupportedChain, RwaToken[]>> = {
   ],
 };
 
-export const rwaTokensOf = (chain: SupportedChain): RwaToken[] => RWA_TOKENS[chain] ?? [];
+/** A network's tokens that are deployed: one listed ahead of its deployment
+ *  has no address yet and is left out. */
+export const rwaTokensOf = (chain: SupportedChain): RwaToken[] => (RWA_TOKENS[chain] ?? []).filter((t) => t.token !== "");

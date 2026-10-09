@@ -12,6 +12,7 @@ export const CONVERT_NETWORK_ORDER: readonly SupportedChain[] = [
   "hyperliquid",
   "robinhood",
   "base",
+  "arbitrum",
 ];
 
 /**

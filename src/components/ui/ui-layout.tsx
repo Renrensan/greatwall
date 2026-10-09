@@ -1,11 +1,10 @@
 'use client'
 
 import { ReactNode, Suspense} from 'react'
-import toast, { Toaster } from 'react-hot-toast'
+import { Toaster } from 'react-hot-toast'
 import Navbar from '@/subcomponents/Navbar'
 import Footer from '@/subcomponents/Footer'
 
-import { OnboardingProvider } from '@/components/providers/onboarding-provider'
 import { BrandPulseLoader } from '@/components/ui/BrandPulseLoader'
 
 export function UiLayout({ children }: { children: ReactNode }) {
@@ -21,9 +20,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
             <BrandPulseLoader />
           }
         >  
-        <OnboardingProvider>
           {children}
-        </OnboardingProvider>
         </Suspense>
         <Toaster position="bottom-right" />
       </div>

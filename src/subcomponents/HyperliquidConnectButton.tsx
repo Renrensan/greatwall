@@ -8,7 +8,7 @@ import { WalletInstallItem } from "./wallet-connect/WalletInstallItem";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { VscDebugDisconnect } from "react-icons/vsc";
-import { IoCopyOutline, IoWalletOutline } from "react-icons/io5";
+import { IoCopyOutline } from "react-icons/io5";
 import ButtonContrast from "./ButtonContrast";
 import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
 import { ellipsifyAddress } from "./wallet-connect/ellipsify";
@@ -16,10 +16,8 @@ import { ConnectingButton } from "./wallet-connect/ConnectingButton";
 import { ConnectedWalletPill } from "./wallet-connect/ConnectedWalletPill";
 import { WalletListItem } from "./wallet-connect/WalletListItem";
 import { NetworkStatusCard, SettingsRow } from "./wallet-connect/WalletSettingsRows";
-import { MainnetToggleRow } from "./wallet-connect/MainnetToggleRow";
 import { HYPERLIQUID_WALLET_ICONS } from "./wallet-connect/wallet-icons";
 import { detectEvmWallets } from "./wallet-connect/evm-wallet-detection";
-import { useNetwork } from "@/app/network-provider";
 
 interface HyperliquidConnectButtonProps {
   isOpen?: boolean;
@@ -28,7 +26,6 @@ interface HyperliquidConnectButtonProps {
 
 export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConnectButtonProps) {
   const t = useTranslations("All");
-  const { hyperliquidMainnet, setHyperliquidMainnet } = useNetwork();
 
   const { connected, isConnecting, address, connect, disconnect, walletType } = useHyperliquidWallet();
 
@@ -92,7 +89,6 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
           icon={walletType ? HYPERLIQUID_WALLET_ICONS[walletType] : hyperliquid}
           alt="icon"
           label={ellipsifyAddress(address!)}
-          isMainnet={hyperliquidMainnet}
           className="gw-wallet-pill"
           onClick={toggleSettings}
         />
@@ -100,7 +96,6 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
 
       <HyperliquidSettingsSheet
         isOpen={settingsOpen && connected}
-        isMainnet={hyperliquidMainnet}
         address={address!}
         onCopy={handleCopy}
         onDisconnect={handleDisconnect}
@@ -112,8 +107,6 @@ export function HyperliquidConnectButton({ isOpen, setIsOpen }: HyperliquidConne
         title={t("text35")}
         subtitle={t("text36")}
         detected={detected}
-        isMainnet={hyperliquidMainnet}
-        setIsMainnet={setHyperliquidMainnet}
         onSelect={handleConnect}
         onClose={() => setWalletSheetOpen(false)}
       />
@@ -126,8 +119,6 @@ function HyperliquidWalletSheet({
   title,
   subtitle,
   detected,
-  isMainnet,
-  setIsMainnet,
   onSelect,
   onClose,
 }: any) {
@@ -140,15 +131,6 @@ function HyperliquidWalletSheet({
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-[12px] opacity-70">{subtitle}</p>
         </div>
-
-        <MainnetToggleRow
-          heading={t("text37")}
-          isMainnet={isMainnet}
-          onChange={setIsMainnet}
-          testnetLabel="Testnet"
-        />
-
-        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected ? (
@@ -166,7 +148,7 @@ function HyperliquidWalletSheet({
   );
 }
 
-function HyperliquidSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onClose }: any) {
+function HyperliquidSettingsSheet({ isOpen, onCopy, onDisconnect, onClose }: any) {
   const t = useTranslations("All");
 
   return (
@@ -178,7 +160,7 @@ function HyperliquidSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, onC
         </div>
 
         <div className="flex flex-col gap-3 py-2">
-          <NetworkStatusCard label={t("text151")} isMainnet={isMainnet} borderClassName="border-black/20" />
+          <NetworkStatusCard label={`${t("text293")} Testnet`} />
 
           <hr className="border-black/5 my-2" />
 

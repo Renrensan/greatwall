@@ -8,7 +8,6 @@ import { IoCopyOutline, IoWalletOutline } from "react-icons/io5";
 import { VscDebugDisconnect } from "react-icons/vsc";
 import type { Wallet } from "@wallet-standard/core";
 import ButtonContrast from "./ButtonContrast";
-import { useNetwork } from "@/app/network-provider";
 import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
 import { ellipsifyAddress } from "./wallet-connect/ellipsify";
 import { getSolanaWalletIcon } from "./wallet-connect/wallet-icons";
@@ -18,7 +17,6 @@ import { WalletInstallItem } from "./wallet-connect/WalletInstallItem";
 import { ConnectingButton } from "./wallet-connect/ConnectingButton";
 import { ConnectedWalletPill } from "./wallet-connect/ConnectedWalletPill";
 import { WalletListItem } from "./wallet-connect/WalletListItem";
-import { MainnetToggleRow } from "./wallet-connect/MainnetToggleRow";
 import { NetworkStatusCard, SettingsRow } from "./wallet-connect/WalletSettingsRows";
 
 interface SolanaConnectButtonProps {
@@ -31,7 +29,6 @@ export function SolanaConnectButton({
   setIsOpen,
 }: SolanaConnectButtonProps) {
   const t = useTranslations("All");
-  const { solanaMainnet, setSolanaMainnet } = useNetwork();
 
   const {
     connected,
@@ -68,13 +65,11 @@ export function SolanaConnectButton({
   const handleConnect = async (wallet: Wallet | "walletconnect") => {
     setWalletSheetOpen(false);
     await connect(wallet);
-    localStorage.setItem("solanaLastNetwork", solanaMainnet ? "mainnet" : "testnet");
   };
 
   const handleSwitchWallet = async (wallet: Wallet | "walletconnect") => {
     setWalletSheetOpen(false);
     await switchWallet(wallet);
-    localStorage.setItem("solanaLastNetwork", solanaMainnet ? "mainnet" : "testnet");
     if (settingsOpen) toggleSettings();
   };
 
@@ -85,7 +80,6 @@ export function SolanaConnectButton({
 
   const handleDisconnect = () => {
     disconnect();
-    localStorage.removeItem("solanaLastNetwork");
     if (settingsOpen) toggleSettings();
   };
 
@@ -114,7 +108,6 @@ export function SolanaConnectButton({
           icon={currentWalletIcon}
           alt={walletName ?? "Solana Wallet"}
           label={ellipsifyAddress(address!)}
-          isMainnet={solanaMainnet}
           className="gw-wallet-pill"
           onClick={toggleSettings}
         />
@@ -123,7 +116,6 @@ export function SolanaConnectButton({
       <SolanaSettingsSheet
         isOpen={settingsOpen && connected}
         address={address!}
-        isMainnet={solanaMainnet}
         onCopy={handleCopy}
         onDisconnect={handleDisconnect}
         canSwitch={true}
@@ -140,8 +132,6 @@ export function SolanaConnectButton({
         subtitle={connected ? t("text220") : t("text36")}
         detected={detected}
         availableWallets={availableWallets}
-        isMainnet={solanaMainnet}
-        setIsMainnet={setSolanaMainnet}
         onSelect={connected ? handleSwitchWallet : handleConnect}
         onClose={() => setWalletSheetOpen(false)}
       />
@@ -149,7 +139,7 @@ export function SolanaConnectButton({
   );
 }
 
-function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets, isMainnet, setIsMainnet, onSelect, onClose }: any) {
+function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets, onSelect, onClose }: any) {
   const t = useTranslations("All");
   const hasWallets = availableWallets && availableWallets.length > 0;
 
@@ -160,15 +150,6 @@ function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-[12px] opacity-70">{subtitle}</p>
         </div>
-
-        <MainnetToggleRow
-          heading={t("text221")}
-          isMainnet={isMainnet}
-          onChange={setIsMainnet}
-          testnetLabel="Devnet"
-        />
-
-        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3">
           {hasWallets &&
@@ -211,7 +192,7 @@ function SolanaWalletSheet({ isOpen, title, subtitle, detected, availableWallets
   );
 }
 
-function SolanaSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitch, onChangeWallet, onClose }: any) {
+function SolanaSettingsSheet({ isOpen, onCopy, onDisconnect, canSwitch, onChangeWallet, onClose }: any) {
   const t = useTranslations("All");
 
   return (
@@ -224,9 +205,8 @@ function SolanaSettingsSheet({ isOpen, isMainnet, onCopy, onDisconnect, canSwitc
 
         <div className="flex flex-col gap-3 py-2">
           <NetworkStatusCard
-            label={`${t("text293")} ${isMainnet ? "Mainnet" : "Devnet"}`}
-            isMainnet={isMainnet}
-            borderClassName="border-black/20"
+            label={`${t("text293")} Devnet`}
+           
           />
 
           <hr className="border-black/5 my-2" />

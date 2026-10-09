@@ -4,7 +4,7 @@
 // is an SPL token: SOL (wrapped as it is minted), a vault receipt of an EVM
 // network's coin (vETH…), or any token by its mint.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -13,17 +13,18 @@ import { SOLANA, SOLANA_BASKET_NAMING, WRAPPED_SOL, type SolanaBasket } from "@i
 
 import Button from "./Button";
 import { SolanaConnectButton } from "./SolanaConnectButton";
-import { Field, Notice, coin, errorText, shortHash } from "./ipow/common";
+import { Notice, coin, errorText, shortHash } from "./ipow/common";
 import { solanaBeta } from "@/components/integrator/ipow/sdk";
 import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { crossChoicesOn, pairedWith, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
-import { PartButton, PartPicker, type PickGroup, type PickItem } from "./ipow/PartPicker";
+import { PartPicker, pendingKey, type PickGroup, type PickItem } from "./ipow/PartPicker";
+import { CreateIndex, FEE_MAX_BPS, limitsFor, storeMetadata, type IndexMeta, type Ingredient } from "./ipow/CreateIndex";
+import { useUsdValue } from "./ipow/useUsdValue";
 import { isSolanaBasket, knownBaskets, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 
 const MAX_PARTS = 8;
-const MAX_FEE_BPS = 100;
 const PROGRAM = SOLANA.programs.betaBasket;
 
 type Row = { address: string; basket: SolanaBasket | null; parts: SolanaToken[]; error?: string };
@@ -71,7 +72,7 @@ export function SolanaBaskets() {
         <Button
           buttonText={valid ? t("openButton") : t("openHintSolana")}
           disabled={!valid}
-          onClick={() => router.push(`/${locale}/solana/beta/transaction/${open.trim()}`)}
+          onClick={() => router.push(`/${locale}/solana/index/${open.trim()}`)}
           chain="solana"
         />
       </div>
@@ -81,7 +82,7 @@ export function SolanaBaskets() {
       ) : rows.length === 0 ? (
         <div className="glass-card rounded-2xl p-6 flex flex-col gap-2 text-center text-xs sm:text-sm">
           <p className="opacity-70">{t("noneKnown")}</p>
-          <Link href={`/${locale}/solana/beta/create`} className="font-bold underline">
+          <Link href={`/${locale}/solana/index/create`} className="font-bold underline">
             {t("createOne")}
           </Link>
         </div>
@@ -90,7 +91,7 @@ export function SolanaBaskets() {
           {rows.map((r) => (
             <li key={r.address}>
               <Link
-                href={`/${locale}/solana/beta/transaction/${r.address}`}
+                href={`/${locale}/solana/index/${r.address}`}
                 className="glass-card rounded-2xl p-4 flex flex-col gap-1 hover:opacity-90 transition-opacity"
               >
                 <span className="font-bold text-sm sm:text-base">
@@ -120,30 +121,44 @@ export function SolanaBetaCreate() {
   const router = useRouter();
   const { locale } = useParams<{ locale: string }>();
   const sol = useSolanaWallet();
+  const prices = useUsdValue();
+  const limits = limitsFor(SOLANA_BASKET_NAMING);
   const [parts, setParts] = useState<Part[]>([{ mint: WRAPPED_SOL, amount: "", info: null, error: null }]);
   const [cross, setCross] = useState<CrossChoice[]>([]);
-  const [picking, setPicking] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [symbol, setSymbol] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState("");
-  const [mintFee, setMintFee] = useState("0");
-  const [burnFee, setBurnFee] = useState("0");
+  const [crossLoading, setCrossLoading] = useState(true);
+  /** The row being chosen for; "new" for one made once a token is picked. */
+  const [picking, setPicking] = useState<number | "new" | null>(null);
+  const [meta, setMetaState] = useState<IndexMeta>({
+    name: "",
+    symbol: "",
+    description: "",
+    website: "",
+    twitter: "",
+    telegram: "",
+    image: null,
+    imagePreview: null,
+  });
+  const setMeta = (change: Partial<IndexMeta>) => setMetaState((m) => ({ ...m, ...change }));
+  /** The creator's fee in basis points, on mint and burn alike. */
+  const [feeBps, setFeeBps] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // The EVM networks' assets as their receipts here (vETH…), by the
-  // original asset's name; those not bridged yet cannot be parts.
+  // original asset's name; those not bridged yet are parts that mint once
+  // bridged (E5).
   useEffect(() => {
     let live = true;
     crossChoicesOn("solana")
       .then((list) => live && setCross(list))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => live && setCrossLoading(false));
     return () => {
       live = false;
     };
   }, []);
 
+  const isPending = (mint: string) => cross.some((c) => !c.exists && c.token === mint);
   const mintsKey = parts.map((p) => p.mint).join(",");
   useEffect(() => {
     parts.forEach((p, i) => {
@@ -164,32 +179,28 @@ export function SolanaBetaCreate() {
       return null;
     }
   });
-  const fee = (x: string) => (/^\d+$/.test(x.trim()) && Number(x) <= MAX_FEE_BPS ? Number(x) : null);
-  // The token's metadata (E4) as a data URI: Token Metadata keeps 200 bytes
-  // of URI, so the description must be short.
-  const metadataUri = useMemo(() => {
-    const meta: Record<string, string> = { name: name.trim(), symbol: symbol.trim() };
-    if (description.trim()) meta.description = description.trim();
-    if (image.trim()) meta.image = image.trim();
-    return `data:application/json;base64,${btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(meta))))}`;
-  }, [name, symbol, description, image]);
+  const feeOk = (bps: number) => Number.isInteger(bps) && bps >= 0 && bps <= FEE_MAX_BPS;
   const bytes = (v: string) => new TextEncoder().encode(v).length;
-  const nameOk = bytes(name.trim()) >= 1 && bytes(name.trim()) <= SOLANA_BASKET_NAMING.name;
-  const symbolOk = bytes(symbol.trim()) >= 1 && bytes(symbol.trim()) <= SOLANA_BASKET_NAMING.symbol;
-  const uriOk = bytes(metadataUri) <= SOLANA_BASKET_NAMING.uri;
-  const problem = !nameOk || !symbolOk
-    ? t("enterName")
-    : !uriOk
-      ? t("descriptionTooLong")
-      : parts.some((p) => !p.info)
-    ? t("pickTokens")
-    : new Set(parts.map((p) => p.mint)).size !== parts.length
-      ? t("duplicateToken")
-      : amounts.some((a) => a === null)
-        ? t("enterAmounts")
-        : fee(mintFee) === null || fee(burnFee) === null
-          ? t("badFees")
-          : null;
+  const linkOk = (v: string) => v === "" || /^https:\/\/\S+$/.test(v);
+  const nameOk = bytes(meta.name.trim()) >= 1 && bytes(meta.name.trim()) <= limits.name;
+  const symbolOk = bytes(meta.symbol.trim()) >= 1 && bytes(meta.symbol.trim()) <= limits.symbol;
+  const linksOk = [meta.website, meta.twitter, meta.telegram].every(linkOk);
+  const problem =
+    !nameOk || !symbolOk
+      ? t("enterName")
+      : !linksOk
+        ? t("linkHttps")
+        : parts.length === 0
+          ? t("noIngredients")
+          : parts.some((p) => !p.info)
+            ? t("pickTokens")
+            : new Set(parts.map((p) => p.mint)).size !== parts.length
+              ? t("duplicateToken")
+              : amounts.some((a) => a === null)
+                ? t("enterAmounts")
+                : !feeOk(feeBps)
+                  ? t("badFees")
+                  : null;
 
   async function submit() {
     const wallet = sol.getAnchorWallet();
@@ -197,18 +208,27 @@ export function SolanaBetaCreate() {
     setBusy(true);
     setError(null);
     try {
+      // The metadata and image, hosted here; Token Metadata keeps the URL
+      // (E4; 200 bytes at most, which the site's URLs are well within).
+      const { uri } = await storeMetadata(meta).catch((e) => {
+        throw new Error(`${t("uploadFailed")}: ${errorText(e)}`);
+      });
       // An id of the creator's own; the time keeps it new for each basket.
       const { basket } = await solanaBeta(wallet).createBasket({
         id: BigInt(Date.now()),
-        name: name.trim(),
-        symbol: symbol.trim(),
-        uri: metadataUri,
-        parts: parts.map((p, i) => ({ mint: p.mint, amount: amounts[i]!, pending: isPending(p.mint) })),
-        mintFeeBps: fee(mintFee)!,
-        burnFeeBps: fee(burnFee)!,
+        name: meta.name.trim(),
+        symbol: meta.symbol.trim(),
+        uri,
+        parts: parts.map((p, i) => ({
+          mint: p.mint,
+          amount: amounts[i]!,
+          pending: isPending(p.mint),
+        })),
+        mintFeeBps: feeBps,
+        burnFeeBps: feeBps,
       });
       rememberBasket(PROGRAM, basket);
-      router.push(`/${locale}/solana/beta/transaction/${basket}`);
+      router.push(`/${locale}/solana/index/${basket}`);
     } catch (e) {
       setError(errorText(e));
       setBusy(false);
@@ -217,144 +237,145 @@ export function SolanaBetaCreate() {
 
   const nameOfChain = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
   const here: PickItem[] = [
-    { token: WRAPPED_SOL, symbol: "SOL", name: "Solana", logo: "/assets/networks/solana.png" },
-    ...rwaTokensOf("solana").map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, logo: r.logo ?? null })),
+    {
+      token: WRAPPED_SOL,
+      symbol: "SOL",
+      name: "Solana",
+      logo: "/assets/networks/solana.png",
+    },
+    ...rwaTokensOf("solana").map((r) => ({
+      token: r.token,
+      symbol: r.symbol,
+      name: r.name,
+      logo: r.logo ?? null,
+      about: r.about,
+      description: r.description,
+    })),
   ];
   const groups: PickGroup[] = [
-    { key: "solana", label: "Solana", logo: "/assets/networks/solana.png", items: here },
+    {
+      key: "solana",
+      label: "Solana",
+      logo: "/assets/networks/solana.png",
+      items: here,
+    },
     ...pairedWith("solana").map((from) => ({
       key: from,
       label: nameOfChain(from),
       logo: `/assets/networks/${from}.png`,
-      items: cross.filter((c) => c.from === from).map((c) => ({ token: c.token, symbol: c.symbol, name: c.name, logo: c.logo, exists: c.exists })),
+      loading: crossLoading,
+      items: cross
+        .filter((c) => c.from === from)
+        .map((c) => ({
+          token: c.token,
+          symbol: c.symbol,
+          name: c.name,
+          logo: c.logo,
+          exists: c.exists,
+          from: c.from,
+          asset: c.asset,
+        })),
     })),
   ];
   const itemOf = (mint: string): PickItem | null => groups.flatMap((g) => g.items).find((it) => it.token === mint) ?? null;
-  const pick = (i: number, mint: string) => {
+  const pick = (i: number | "new", mint: string) => {
     // A receipt not made yet (E5): its mint is the vault's address for it,
     // its symbol and decimals known from the vault; the program records it
     // pending and reads it at the first mint.
-    const pending = mint.startsWith("pending:") ? cross.find((c) => !c.exists && `pending:${c.symbol}` === mint) ?? null : null;
-    if (pending) {
-      update(i, { mint: pending.token, info: { mint: pending.token, symbol: pending.symbol, decimals: pending.decimals }, error: null });
-    } else {
-      update(i, { mint, info: null, error: null });
-    }
+    const pending = mint.startsWith("pending:") ? (cross.find((c) => !c.exists && pendingKey(c.from, c.asset) === mint) ?? null) : null;
+    const change = pending
+      ? { mint: pending.token, info: { mint: pending.token, symbol: pending.symbol, decimals: pending.decimals }, error: null }
+      : { mint, info: null, error: null };
+    if (i === "new") setParts((all) => (all.length < MAX_PARTS ? [...all, { amount: "", ...change }] : all));
+    else update(i, change);
     setPicking(null);
   };
-  const isPending = (mint: string) => cross.some((c) => !c.exists && c.token === mint);
+  const remove = (i: number) => {
+    setParts((all) => all.filter((_, j) => j !== i));
+    setPicking((p) => (p === null || p === "new" ? p : p === i ? null : p > i ? p - 1 : p));
+  };
+  /** Opens the picker; the row appears once a token is picked. */
+  const add = () => parts.length < MAX_PARTS && setPicking("new");
+
+  const ingredients: Ingredient[] = parts.map((p, i) => {
+    const known = itemOf(p.mint);
+    const pendingItem = isPending(p.mint) ? (cross.find((c) => c.token === p.mint) ?? null) : null;
+    const item: PickItem | null = known
+      ? known
+      : pendingItem
+        ? {
+            token: p.mint,
+            symbol: pendingItem.symbol,
+            name: pendingItem.name,
+            logo: pendingItem.logo,
+            exists: false,
+          }
+        : p.info
+          ? { token: p.mint, symbol: p.info.symbol, name: p.mint, logo: null }
+          : null;
+    const from = cross.find((c) => c.token === p.mint)?.from ?? null;
+    return {
+      key: String(i),
+      item,
+      network: from ? `/assets/networks/${from}.png` : "/assets/networks/solana.png",
+      amount: p.amount,
+      decimals: p.info?.decimals,
+      maxWhole: p.info ? Math.max(1, 19 - p.info.decimals) : 10,
+      onAmount: (v) => update(i, { amount: v }),
+      onRemove: () => remove(i),
+      onPick: () => setPicking(i),
+      // Priced by the asset's own symbol: ETH from Ethereum as ETH.
+      // An asset Greatwall lists is priced by its symbol; one by mint is not.
+      valueUsd: (known || pendingItem) && p.info && p.amount.trim() ? prices.valueOf(item?.symbol, p.amount) : null,
+      priceUsd: (known || pendingItem) && p.info ? prices.priceOf(item?.symbol) : null,
+      customPrice: !(known || pendingItem),
+      note: (
+        <div className="flex flex-col gap-1">
+          {p.error && <span className="text-red-500">{p.error}</span>}
+        </div>
+      ),
+    };
+  });
+  const picker = picking === "new" || (picking !== null && parts[picking]) ? picking : null;
+  const pickingPart = typeof picker === "number" ? parts[picker] : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs sm:text-sm opacity-70">{t("wallet")}</span>
-        <SolanaConnectButton />
-      </div>
-
-      {/* The token's name and what it is (E4). */}
-      <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4">
-        <p className="text-xs sm:text-sm opacity-70">{t("namingExplainer")}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_minmax(0,160px)] gap-4">
-          <Field label={t("tokenName")} hint={`${bytes(name)}/${SOLANA_BASKET_NAMING.name}`}>
-            <input id="beta-sol-name" type="text" maxLength={SOLANA_BASKET_NAMING.name} placeholder={t("tokenNamePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} className="w-full text-base font-bold bg-transparent outline-none" />
-          </Field>
-          <Field label={t("tokenSymbol")} hint={`${bytes(symbol)}/${SOLANA_BASKET_NAMING.symbol}`}>
-            <input id="beta-sol-symbol" type="text" maxLength={SOLANA_BASKET_NAMING.symbol} placeholder="GTB" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/\s+/g, ""))} className="w-full text-base font-bold bg-transparent outline-none uppercase" />
-          </Field>
-        </div>
-        <Field label={t("tokenDescription")} hint={`${bytes(metadataUri)}/${SOLANA_BASKET_NAMING.uri} · ${t("tokenDescriptionHintSolana")}`}>
-          <textarea id="beta-sol-description" rows={2} placeholder={t("tokenDescriptionPlaceholderSolana")} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full text-sm bg-transparent outline-none resize-y" />
-        </Field>
-        <Field label={t("tokenImage")} hint={t("tokenImageHint")}>
-          <input id="beta-sol-image" type="url" placeholder="https://…/logo.png" value={image} onChange={(e) => setImage(e.target.value.trim())} className="w-full text-sm bg-transparent outline-none font-mono" />
-        </Field>
-      </div>
-
-      <div className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col gap-5">
-        <p className="text-xs sm:text-sm opacity-70">{t("partsExplainerSolana")}</p>
-        {parts.map((p, i) => {
-          const known = itemOf(p.mint);
-          const custom = !known && p.mint !== "";
-          return (
-            <div key={i} className="flex flex-col gap-3 border-b border-black/10 pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs sm:text-sm font-bold">{t("partN", { n: i + 1 })}</span>
-                {parts.length > 1 && (
-                  <button type="button" onClick={() => setParts((all) => all.filter((_, j) => j !== i))} className="text-xs opacity-70 hover:opacity-100">
-                    {t("remove")}
-                  </button>
-                )}
-              </div>
-              <PartButton
-                item={known ?? (isPending(p.mint) ? { token: p.mint, symbol: p.info?.symbol ?? "", name: `${cross.find((c) => c.token === p.mint)?.name ?? ""} · ${t("notBridgedYet")}`, logo: cross.find((c) => c.token === p.mint)?.logo ?? null } : p.info ? { token: p.mint, symbol: p.info.symbol, name: p.mint, logo: null } : null)}
-                placeholder={t("pickToken")}
-                subtitle={p.mint || t("byAddress")}
-                open={picking === i}
-                onClick={() => setPicking(picking === i ? null : i)}
-                chooseLabel={t("chooseLabel")}
-              />
-              {picking === i && (
-                <PartPicker
-                  groups={groups}
-                  selected={p.mint}
-                  taken={parts.filter((_, j) => j !== i).map((q) => q.mint)}
-                  onPick={(mint) => pick(i, mint)}
-                  onByAddress={() => pick(i, "")}
-                  labels={{ byAddress: t("byAddress"), notBridgedYet: t("notBridgedYet"), none: t("noneBridged") }}
-                />
-              )}
-              {custom && (
-                <input
-                  id={`beta-sol-part-${i}-mint`}
-                  type="text"
-                  placeholder={t("tokenMint")}
-                  value={p.mint}
-                  onChange={(e) => update(i, { mint: e.target.value.trim(), info: null, error: null })}
-                  className="w-full text-xs sm:text-sm font-bold bg-transparent outline-none"
-                />
-              )}
-              {p.error && <span className="text-[11px] text-red-500">{p.error}</span>}
-              <Field label={t("perWholeBeta")} suffix={p.info?.symbol ?? ""}>
-                <input
-                  id={`beta-sol-part-${i}-amount`}
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.0"
-                  value={p.amount}
-                  onChange={(e) => update(i, { amount: e.target.value.replace(",", ".") })}
-                  className="w-full text-xl font-bold bg-transparent outline-none"
-                />
-              </Field>
-            </div>
-          );
-        })}
-        {parts.length < MAX_PARTS && (
-          <button
-            type="button"
-            onClick={() => setParts((all) => [...all, { mint: "", amount: "", info: null, error: null }])}
-            className="text-xs sm:text-sm font-bold opacity-80 hover:opacity-100 text-left"
-          >
-            + {t("addPart")}
-          </button>
-        )}
-      </div>
-
-      <div className="glass-card rounded-2xl p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Field label={t("mintFee")} suffix="bps" hint={t("feeHint")}>
-          <input id="beta-sol-mint-fee" type="text" inputMode="numeric" value={mintFee} onChange={(e) => setMintFee(e.target.value)} className="w-full text-base font-bold bg-transparent outline-none" />
-        </Field>
-        <Field label={t("burnFee")} suffix="bps" hint={t("feeHint")}>
-          <input id="beta-sol-burn-fee" type="text" inputMode="numeric" value={burnFee} onChange={(e) => setBurnFee(e.target.value)} className="w-full text-base font-bold bg-transparent outline-none" />
-        </Field>
-      </div>
-
-      {error && <p className="text-xs sm:text-sm text-red-500 break-words">{error}</p>}
-      {!sol.connected ? (
-        <Button buttonText={t("connectFirst")} disabled chain="solana" />
-      ) : (
-        <Button buttonText={busy ? t("confirming") : (problem ?? t("createButton"))} disabled={busy || !!problem} onClick={submit} chain="solana" />
-      )}
-    </div>
+    <>
+      <PartPicker
+        open={picker !== null}
+        onClose={() => setPicking(null)}
+        groups={groups}
+        selected={pickingPart?.mint ?? ""}
+        taken={parts.filter((_, j) => j !== picker).map((q) => q.mint)}
+        onPick={(mint) => picker !== null && pick(picker, mint)}
+        onByAddress={(address) => picker !== null && pick(picker, address)}
+        labels={{
+          title: t("pickToken"),
+          subtitle: t("pickTokenText"),
+          search: t("searchToken"),
+          noneFound: t("noTokensFound"),
+          byAddress: t("byAddress"),
+          addressPlaceholder: t("tokenMint"),
+          add: t("addIngredient"),
+          none: t("noneBridged"),
+          about: t("aboutRwa"),
+          close: t("closePicker"),
+        }}
+      />
+      <CreateIndex
+        meta={meta}
+        setMeta={setMeta}
+        ingredients={ingredients}
+        onAdd={add}
+        canAdd={parts.length < MAX_PARTS}
+        fees={{ bps: feeBps, setBps: setFeeBps }}
+        problem={problem}
+        busy={busy}
+        error={error}
+        connected={sol.connected}
+        connectButton={<SolanaConnectButton />}
+        onSubmit={submit}
+      />
+    </>
   );
 }
-

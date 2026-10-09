@@ -10,13 +10,16 @@ import { SolanaBeta, SolanaVault, encodeRecipient, network, type Deployment, typ
 import type { SupportedChain } from "@/app/network-provider";
 
 /**
- * The networks Greatwall's iPoW apps (Convert, Bridge, BETA) run on now: EVM
- * networks whose wallet gives an ethers signer. Tempo sends its own
- * transactions; Solana signs with its own wallet, not wired yet. They show
- * "coming soon".
+ * The EVM networks Greatwall's iPoW apps (Convert, Bridge, BETA) know: their
+ * wallet gives an ethers signer. Tempo sends its own transactions. Arbitrum
+ * (network 9, D141) is known before it is deployed.
  */
-export const EVM_CHAINS = ["ethereum", "base", "robinhood", "hyperliquid"] as const;
-export type EvmChain = (typeof EVM_CHAINS)[number];
+export const KNOWN_EVM_CHAINS = ["ethereum", "base", "robinhood", "hyperliquid", "arbitrum"] as const;
+export type EvmChain = (typeof KNOWN_EVM_CHAINS)[number];
+
+/** Those the apps run on now: the ones with a deployment in the SDK. The
+ *  others show "coming soon" until the SDK carries theirs. */
+export const EVM_CHAINS: readonly EvmChain[] = KNOWN_EVM_CHAINS.filter((c) => deploymentOf(c) !== null);
 
 export function isEvmChain(chain: string): chain is EvmChain {
   return (EVM_CHAINS as readonly string[]).includes(chain);
@@ -28,6 +31,7 @@ export const TICKER: Record<EvmChain, string> = {
   base: "ETH",
   robinhood: "ETH",
   hyperliquid: "HYPE",
+  arbitrum: "ETH",
 };
 
 /** The iPoW deployment of a network, or null where there is none. */
@@ -47,6 +51,7 @@ const RPC: Record<EvmChain, string> = {
   base: "/api/rpc/base/testnet",
   robinhood: "/api/rpc/robinhood/testnet",
   hyperliquid: "/api/rpc/hyperliquid/testnet",
+  arbitrum: "/api/rpc/arbitrum/testnet",
 };
 
 const readers = new Map<EvmChain, JsonRpcProvider>();
@@ -62,16 +67,6 @@ export function readProvider(chain: EvmChain): JsonRpcProvider {
     readers.set(chain, p);
   }
   return p;
-}
-
-/** A mempool.space link for a Bitcoin transaction. */
-export const bitcoinTxLink = (txid: string) => `https://mempool.space/tx/${txid}`;
-
-/** The decimals of a network's native coin, as its contracts count it. The
- *  convert networks all trade their native coin. */
-export function coinDecimals(d: Deployment): number {
-  if (d.coin.kind !== "native") throw new Error(`${d.name} trades a token, not its native coin`);
-  return d.coin.decimals;
 }
 
 let solana: Connection | null = null;

@@ -37,16 +37,14 @@ export interface SolanaWalletContextType extends ConvertMethods {
    * uniform field name across every chain's context. */
   ipowDecimals: number;
   networkName: "Solana";
-  networkDescription: {};
+  networkDescription: object;
   networkLogo: typeof solananetwork;
-  price: {} | null;
-  networkExplorer: {};
-  selfCustodyParameter: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   
   verifiedTokensData: any[]; 
-  liveTokenPrices: Record<string, any>; 
 
   checkAtaRequired: (destinationAddress: string, mintAddress: string | null | undefined) => Promise<boolean>;
 
@@ -83,8 +81,6 @@ export interface SolanaWalletContextType extends ConvertMethods {
   fetchETA: (txHash: string) => Promise<{ estimatedSeconds: number; isCongested: boolean } | null>;
 
   // Convert's methods: ConvertMethods (solanaConvertMethods.ts).
-  initializeProtocol: () => Promise<void>;
-  addSupportedNetwork: (networkName: string, networkId: number, minAddrLen: number, maxAddrLen: number) => Promise<void>; 
 }
 
 
@@ -105,7 +101,7 @@ export type SignMessageFeature = {
   }): Promise<{ signature: Uint8Array }>;
 };
 
-export type NetworkName = "devnet" | "mainnet" 
+export type NetworkName = "devnet"
 
 export type NetworkConfig = {
   network: NetworkName,

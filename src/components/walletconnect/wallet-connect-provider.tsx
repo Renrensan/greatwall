@@ -1,7 +1,7 @@
 "use client";
 
 import { createAppKit } from '@reown/appkit/react';
-import { mainnet, bitcoin, solana, solanaDevnet, sepolia } from '@reown/appkit/networks';
+import { bitcoin, solanaDevnet, sepolia } from '@reown/appkit/networks';
 import { EthersAdapter } from '@reown/appkit-adapter-ethers';
 import { BitcoinAdapter } from '@reown/appkit-adapter-bitcoin';
 import { PROJECT_ID } from './config/constants';
@@ -9,23 +9,24 @@ import { ReactNode } from 'react';
 import { SolanaAdapter } from '@reown/appkit-adapter-solana';
 
 const metadata = {
-  name: "Paradapp",
-  description: "Paradapp is built on a parallel architecture that connects real-word to blockchain, blockchain to blockchain, Artificial Intelligent, and dApps into one unified experience.",
+  name: "Greatwall",
+  description:
+    "Greatwall: convert, move and basket coins across networks, settled on Bitcoin through the iPoW protocol.",
   url:
     typeof window !== "undefined"
       ? window.location.origin
-      : "https://paradapp.com",
-  icons: ["https://paradapp.com/logo.png"],
+      : "https://greatwall.finance",
+  // The app icon (src/app/icon.png), which Next serves at /icon.png.
+  icons: ["https://greatwall.finance/icon.png"],
 };
 
 
 export const appKit = createAppKit({
   adapters: [new EthersAdapter(), new BitcoinAdapter(), new SolanaAdapter()],
+  // The test networks Greatwall runs on, and real Bitcoin (iPoW reads real Bitcoin).
   networks: [
-    mainnet,
     sepolia,
     bitcoin,
-    solana,
     solanaDevnet,
   ],
   defaultNetwork: sepolia,

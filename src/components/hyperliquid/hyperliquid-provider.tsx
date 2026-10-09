@@ -14,7 +14,7 @@ import {
 } from "react";
 import { ethers } from "ethers";
 
-import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 import { hyperliquidnetwork } from "@/index";
 import { IPOW_NETWORK_ID } from "./config/constants";
 import { NO_CONVERT, evmConvertMethods } from "@/components/integrator/ipow/convertMethods";
@@ -39,7 +39,6 @@ const HyperliquidWalletContext = createContext<HyperliquidWalletContextType>({
   ipowDecimals: 18,
   networkName: "Hyperliquid",
   networkDescription: {},
-  selfCustodyParameter: {},
   networkLogo: hyperliquidnetwork,
   price: {},
   networkExplorer: {},
@@ -62,28 +61,12 @@ export function useHyperliquidWallet() {
   return useContext(HyperliquidWalletContext);
 }
 
-interface CustodyParams {
-  network: string;
-  env: string;
-  tokens: any[];
-  fetched: boolean;
-}
 
 export function HyperliquidProvider({ children }: { children: ReactNode }) {
-  const { hyperliquidMainnet } = useNetwork();
-  const isMainnet = hyperliquidMainnet;
-  const currentNetworkConfig = useMemo(() => {
-    return isMainnet ? appConfig.networks.mainnet : appConfig.networks.testnet;
-  }, [isMainnet]);
+  // Greatwall runs the network's testnet only.
+  const currentNetworkConfig = appConfig.networks.testnet;
+  const netKey = "testnet";
 
-  const netKey = useMemo(() => (isMainnet ? "mainnet" : "testnet"), [isMainnet]);
-
-  const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-    network: "HYPERLIQUID",
-    env: isMainnet ? "MAINNET" : "TESTNET",
-    tokens: [],
-    fetched: false,
-  });
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -135,7 +118,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
           await prov.send("wallet_addEthereumChain", [
             {
               chainId: targetChainIdHex,
-              chainName: isMainnet ? "Hyperliquid" : "Hyperliquid Testnet",
+              chainName: "Hyperliquid Testnet",
               nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
               rpcUrls: [currentNetworkConfig.jsonRpcUrl],
               blockExplorerUrls: [currentNetworkConfig.networkExplorer],
@@ -143,7 +126,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
           ]);
         } catch {
           throw new Error(
-            `Your wallet doesn't have ${isMainnet ? "Hyperliquid" : "Hyperliquid Testnet"} added. Please add or switch to it manually.`,
+            `Your wallet doesn't have Hyperliquid Testnet added. Please add or switch to it manually.`,
           );
         }
       } else if (walletRejected(switchError)) {
@@ -170,7 +153,10 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
       }
 
       if (accounts.length > 0) {
-        await switchNetwork(prov);
+        // A reconnect on page load doesn't move the wallet's network: every
+        // network's wallet reconnects on pages that read them all, and each
+        // switch would prompt. Signing switches first (getActiveSigner).
+        if (!isAutoConnect) await switchNetwork(prov);
         const signer = await prov.getSigner();
         const addr = await signer.getAddress();
 
@@ -343,21 +329,6 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
 
         if (signal?.aborted) return;
 
-        let pricedTokens = tokens;
-        if (tokens && tokens.length > 0 && isMainnet) {
-          const addresses = tokens.map((t) => t.mint);
-          const prices = await fetchHyperEvmUsdPrices(addresses);
-          if (signal?.aborted) return;
-          pricedTokens = tokens.map((t) => {
-            const p = prices[t.mint.toLowerCase()];
-            return {
-              ...t,
-              price: p ? p.usd.toString() : "0",
-              priceChange24h: p ? p.usd_24h_change : 0,
-            };
-          });
-        }
-
         let unconfirmedWei = pendingWei - confirmedWei;
         if (unconfirmedWei < BigInt(0)) unconfirmedWei = BigInt(0);
 
@@ -365,7 +336,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
         const unconfirmed = Number(ethers.formatEther(unconfirmedWei)) || 0;
 
         setBalance((prev) => {
-          const nextTokens = pricedTokens === null ? prev.tokens : pricedTokens;
+          const nextTokens = tokens === null ? prev.tokens : tokens;
           const tokensChanged = JSON.stringify(prev.tokens) !== JSON.stringify(nextTokens);
           if (!tokensChanged && prev.fetched && prev.confirmed === confirmed && prev.unconfirmed === unconfirmed) {
             return prev;
@@ -378,7 +349,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
         setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
       }
     },
-    [address, netKey, isMainnet, readOnlyProvider],
+    [address, readOnlyProvider],
   );
 
   const estimateFee = useCallback(
@@ -469,68 +440,19 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=HYPE&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("HYPE");
+    if (p) setPrice(p as any);
   };
 
   useEffect(() => {
     fetchPrice();
     const i = setInterval(fetchPrice, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
-  useEffect(() => {
-    setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
-
-    let cancelled = false;
-    let quickRetries = 0;
-    const MAX_QUICK_RETRIES = 4;
-    const QUICK_RETRY_DELAY_MS = 2000;
-
-    const fetchSelfCustodyConstraints = async () => {
-      try {
-        const envMode = isMainnet ? "MAINNET" : "TESTNET";
-        const response = await fetch(`/api/transaction/constraints/?network=HYPERLIQUID&env=${envMode}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data: CustodyParams = await response.json();
-        if (cancelled) return;
-
-        if (data && data.tokens) {
-          setSelfCustodyParameter({ ...data, fetched: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to fetch HYPERLIQUID self-custody limits:", error);
-      }
-
-      if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-        quickRetries += 1;
-        setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-      }
-    };
-
-    fetchSelfCustodyConstraints();
-    const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isMainnet]);
 
   useEffect(() => {
     if (!walletType || !connected) return;
@@ -556,7 +478,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       injection?.removeListener("accountsChanged", handleAccountsChanged);
     };
-  }, [walletType, connected, netKey]);
+  }, [walletType, connected]);
 
   useEffect(() => {
     if (!address) return;
@@ -598,7 +520,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
   // The convert screens' methods, on the new protocol's Conversion.
   const signerRef = useRef(getActiveSigner);
@@ -636,9 +558,7 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
         networkLogo: hyperliquidnetwork,
         networkDescription: {
           en: "Hyperliquid is a high-performance L1 built around its own order-book exchange, with HyperEVM, an Ethereum-compatible execution layer, for smart contracts and tokens like USDT0.",
-          id: "Hyperliquid adalah L1 berperforma tinggi yang dibangun di sekitar bursa order-book miliknya sendiri, dengan HyperEVM, lapisan eksekusi yang kompatibel dengan Ethereum, untuk smart contract dan token seperti USDT0.",
         },
-        selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
         ...convert,
@@ -658,31 +578,4 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
       {children}
     </HyperliquidWalletContext.Provider>
   );
-}
-
-// CoinGecko's asset-platform id for HyperEVM is "hyperevm" (verified live: chain_identifier
-// 999, matching eth_chainId) — distinct from "hyperliquid", which CoinGecko uses for an
-// unrelated native-ledger platform.
-async function fetchHyperEvmUsdPrices(
-  addresses: string[],
-): Promise<Record<string, { usd: number; usd_24h_change: number }>> {
-  if (addresses.length === 0) return {};
-  try {
-    const url = `https://api.coingecko.com/api/v3/simple/token_price/hyperevm?contract_addresses=${addresses.join(",")}&vs_currencies=usd&include_24hr_change=true`;
-    const res = await fetch(url);
-    if (!res.ok) return {};
-    const data = await res.json();
-
-    const normalized: Record<string, { usd: number; usd_24h_change: number }> = {};
-    for (const [addr, info] of Object.entries<any>(data || {})) {
-      normalized[addr.toLowerCase()] = {
-        usd: info?.usd ?? 0,
-        usd_24h_change: info?.usd_24h_change ?? 0,
-      };
-    }
-    return normalized;
-  } catch (err) {
-    console.error("Failed to fetch HyperEVM ERC-20 USD prices:", err);
-    return {};
-  }
 }

@@ -11,7 +11,7 @@ import { RWA_TOKENS } from "@/components/integrator/ipow/rwaTokens";
 
 export const runtime = "nodejs";
 
-const CHAIN_IDS: Record<string, number> = { ethereum: 11155111, base: 84532, robinhood: 46630, hyperliquid: 998, tempo: 42431 };
+const CHAIN_IDS: Record<string, number> = { ethereum: 11155111, base: 84532, robinhood: 46630, hyperliquid: 998, tempo: 42431, arbitrum: 421614 };
 
 export function GET(req: Request) {
   // Behind a proxy the request's origin may be an internal host; the public
@@ -19,7 +19,7 @@ export function GET(req: Request) {
   const origin = process.env.PUBLIC_ORIGIN ?? new URL(req.url).origin;
   const tokens = Object.entries(RWA_TOKENS).flatMap(([chain, list]) =>
     CHAIN_IDS[chain]
-      ? (list ?? []).map((t) => ({
+      ? (list ?? []).filter((t) => t.token !== "").map((t) => ({
           chainId: CHAIN_IDS[chain],
           address: t.token,
           symbol: t.symbol,

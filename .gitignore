@@ -21,3 +21,7 @@ yarn-error.log*
 
 mise.local.toml
 .env.prod
+
+# Greatwall's own store (basket metadata and images it hosts)
+/data/
+*.tsbuildinfo

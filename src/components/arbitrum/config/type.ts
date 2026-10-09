@@ -1,8 +1,8 @@
 import { arbitrumnetwork } from "@/index";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet";
-export type ChainId = "0xa4b1" | "0x66eee"; // 42161 mainnet, 421614 testnet (Arbitrum Sepolia)
+export type NetworkName = "testnet";
+export type ChainId = "0x66eee"; // 421614, Arbitrum Sepolia
 
 export type NetworkConfig = {
   network: NetworkName;
@@ -48,12 +48,11 @@ export interface ArbitrumWalletContextType {
   decimals: number;
   ipowDecimals: number;
   networkName: "Arbitrum";
-  networkDescription: {};
-  selfCustodyParameter: {};
+  networkDescription: object;
   networkLogo: typeof arbitrumnetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: ArbitrumWalletType) => Promise<void>;
   fetchETA: (

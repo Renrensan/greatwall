@@ -12,8 +12,10 @@ import { useParams, useRouter } from "next/navigation";
 import type { EvmChain } from "@/components/integrator/ipow/sdk";
 import { EthereumConnectButton } from "../EthereumConnectButton";
 import { BaseConnectButton } from "../BaseConnectButton";
+import { ArbitrumConnectButton } from "../ArbitrumConnectButton";
 import { RobinhoodConnectButton } from "../RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "../HyperliquidConnectButton";
+import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 export { TICKER } from "@/components/integrator/ipow/sdk";
 
@@ -21,12 +23,12 @@ export function ConnectNetworkButton({ chain }: { chain: EvmChain }) {
   if (chain === "ethereum") return <EthereumConnectButton />;
   if (chain === "base") return <BaseConnectButton />;
   if (chain === "robinhood") return <RobinhoodConnectButton />;
+  if (chain === "arbitrum") return <ArbitrumConnectButton />;
   return <HyperliquidConnectButton />;
 }
 
 // Greatwall's accent is its ink on every network (`chain` kept for callers).
 export const accentText = (_chain: string) => "text-ink";
-export const accentBg = (_chain: string) => "bg-ink";
 /** A faint wash of the accent. */
 export const accentSoft = (_chain: string) => "bg-sand";
 
@@ -66,12 +68,19 @@ export function errorText(e: unknown): string {
   };
   if (any?.code === "ACTION_REJECTED" || any?.code === 4001) return "You rejected the request in your wallet.";
   if (/User rejected|rejected the request/i.test(any?.message ?? "")) return "You rejected the request in your wallet.";
+  // A provider's rate limit, however it surfaced (the RPC proxy's busy
+  // error, or a raw 429 from a client that called a provider directly).
+  if (/\b429\b|Too Many Requests|rate limit|network is busy/i.test(`${any?.message ?? ""} ${any?.shortMessage ?? ""}`)) return "The network is busy right now. Wait a few seconds and try again.";
   // A Solana program's error, as Anchor gives it.
   if (any?.error?.errorMessage) return `${any.error.errorMessage} (${any.error.errorCode?.code ?? "program error"})`;
   // A contract's own error, named by its ABI.
   const custom = any?.revert?.name ?? (any?.data ? customError(any.data) : null);
   if (custom) return `The contract refused it: ${custom}.`;
   if (/insufficient funds/i.test(any?.message ?? "")) return "Not enough coin in your wallet for this and its network fee.";
+  // A JSON-RPC error ethers couldn't name ("could not coalesce error"):
+  // the provider's own message is inside.
+  const rpc = (any as { error?: { message?: string } })?.error?.message;
+  if (rpc && /could not coalesce/i.test(any?.shortMessage ?? "")) return rpc;
   return any?.reason ?? any?.shortMessage ?? any?.message ?? String(e);
 }
 
@@ -123,7 +132,8 @@ export function Row({ label, value, bold }: { label: string; value: React.ReactN
 export function SectionTabs({ chain, app, sections }: { chain: string; app: string; sections: { id: string; label: string }[] }) {
   const router = useRouter();
   const { locale, section } = useParams<{ locale: string; section?: string }>();
-  const active = section ?? sections[0].id;
+  // "send" is the bridge's Unlock under its old address.
+  const active = app === "bridge" && section === "send" ? "unlock" : (section ?? sections[0].id);
   return (
     <div className="flex justify-between rounded-md bg-sand p-1 gap-1">
       {sections.map((s) => (
@@ -131,7 +141,7 @@ export function SectionTabs({ chain, app, sections }: { chain: string; app: stri
           key={s.id}
           type="button"
           aria-pressed={active === s.id}
-          onClick={() => router.push(`/${locale}/${chain}/${app}/${s.id}`, { scroll: false })}
+          onClick={() => router.push(app === "bridge" ? lockPath(locale, chain, s.id) : `/${locale}/${chain}/${app}/${s.id}`, { scroll: false })}
           className={`w-full px-3 py-2.5 text-center rounded text-xs sm:text-sm transition-colors ${
             active === s.id ? "font-semibold bg-ink text-snow" : "font-medium text-ink/75 hover:text-ink"
           }`}
@@ -155,6 +165,13 @@ export function evmTxLink(chain: string, hash: string): string | null {
     base: "https://sepolia.basescan.org/tx/",
     robinhood: "https://explorer.testnet.chain.robinhood.com/tx/",
     hyperliquid: "https://testnet.purrsec.com/tx/",
+    arbitrum: "https://sepolia.arbiscan.io/tx/",
   };
   return base[chain] ? base[chain] + hash : null;
+}
+
+/** An address on an EVM network's explorer, or null. */
+export function evmAddressLink(chain: string, address: string): string | null {
+  const tx = evmTxLink(chain, "");
+  return tx ? tx.replace(/\/tx\/$/, "/address/") + address : null;
 }

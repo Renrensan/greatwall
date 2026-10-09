@@ -7,6 +7,7 @@ import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
+import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 
 import type { EvmChain } from "./sdk";
@@ -17,6 +18,7 @@ export function useEvmWallet(chain: EvmChain | null) {
     base: useBaseWallet(),
     robinhood: useRobinhoodWallet(),
     hyperliquid: useHyperliquidWallet(),
+    arbitrum: useArbitrumWallet(),
   };
   const bitcoin = useBitcoinWallet();
   const w = chain ? wallets[chain] : null;
@@ -27,6 +29,8 @@ export function useEvmWallet(chain: EvmChain | null) {
     networkName: (w?.networkName as string | undefined) ?? "",
     networkLogo: w?.networkLogo,
     getSigner: w?.getSigner,
+    /** A test RWA token's faucet (MockRWA.faucet), signed by the wallet; the hash. */
+    faucet: (w as any)?.faucet as ((token: string) => Promise<string>) | undefined,
     bitcoin: {
       connected: Boolean(bitcoin.connected),
       address: (bitcoin.address as string | null) ?? null,

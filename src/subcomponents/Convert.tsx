@@ -6,7 +6,10 @@ import ConvertToken from './ConvertToken';
 
 import ConvertHistory from './ConvertHistory';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import HeadlineConvert from './HeadlineConvert';
+import Image from 'next/image';
+import { Poster } from './ipow/Poster';
+import poster from '@/assets/background-convert-token.jpg';
+import { bitcoin } from '..';
 import { useTranslations } from 'next-intl';
 
 
@@ -77,12 +80,28 @@ function Convert() {
   return (
   
      
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6">
 
        
-<HeadlineConvert/>
+<Poster
+  image={poster}
+  title={t("convertHeroTitle")}
+  text={t("convertHeroText")}
+  corner={
+    <span className="rounded-full bg-white/90 text-ink px-3 py-1.5 flex items-center gap-2 shadow-sm">
+      <Image src={bitcoin} alt="" className="w-6 h-6 rounded-full object-contain" />
+      <span className="flex flex-col leading-tight pr-1">
+        <span className="text-[9px] uppercase tracking-wide">Interoperable Proof of Work</span>
+        <span className="text-xs font-bold whitespace-nowrap">Powered by Bitcoin</span>
+      </span>
+    </span>
+  }
+/>
        
 
+<div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6 items-start">
+  {/* The tabs first on a phone, on the right on a wide screen. */}
+  <div className="inset-well rounded-2xl bg-paper border border-ink/10 p-4 sm:p-5 flex flex-col gap-5 min-w-0 lg:order-2">
 {/* TABS */}
 <div className="flex justify-between rounded-md bg-sand p-1 gap-1">
   {[
@@ -106,11 +125,19 @@ function Convert() {
   })}
 </div>
 
-      {/* CONTENT */}
-      <div>
+            <div>
         {activeComponent === 0 && <ConvertToken />}
         {activeComponent === 1 && <ConvertHistory />}
       </div>
+  </div>
+  <section className="min-w-0 lg:order-1 rounded-2xl bg-paper border border-ink/10 p-5 flex flex-col gap-4" aria-labelledby="converting-title">
+    <div className="flex flex-col gap-1">
+      <h2 id="converting-title" className="text-lg font-bold">{t("convertSideTitle")}</h2>
+      <p className="text-xs opacity-70">{t("convertSideText")}</p>
+    </div>
+    <ConvertHistory inProgress />
+  </section>
+</div>
     </div>
 
 

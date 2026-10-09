@@ -1,18 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  /* Greatwall's type: TASA Explorer for headlines and the wordmark, TASA
-   * Orbiter for everything read (loaded by next/font in [locale]/layout). */
-  --font-explorer: var(--font-tasa-explorer), "TASA Explorer", ui-sans-serif, system-ui, sans-serif;
-  --font-orbiter: var(--font-tasa-orbiter), "TASA Orbiter", ui-sans-serif, system-ui, sans-serif;
-  --font-grotesk: var(--font-orbiter);
-  /* Greatwall's palette. */
-  --color-ink: #181818;
+  /* Greatwall's type (brand guidelines): Instrument Serif for headlines and
+   * hierarchy, a grotesk for everything read (loaded by next/font in
+   * [locale]/layout; --font-sans-body is BDO Grotesk, or its stand-in). */
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  --font-sans: var(--font-sans-body), "BDO Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-wordmark: var(--font-instrument-sans), "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-explorer: var(--font-serif);
+  --font-orbiter: var(--font-sans);
+  --font-grotesk: var(--font-sans);
+  /* Greatwall's palette (brand guidelines): a warm neutral set, light only. */
+  --color-ink: #181818; /* charcoal: text, primary buttons */
+  --color-warm: #2f2c25; /* warm dark: secondary emphasis, strong borders */
   --color-pitch: #000000;
-  --color-stone: #6b6b6b;
+  --color-stone: #6b6b6b; /* muted gray: secondary text */
   --color-snow: #ffffff;
-  --color-paper: #fbf9f1;
-  --color-sand: #f1eadd;
+  --color-cream: #f1eadd; /* page background */
+  --color-paper: #fefaf3; /* cards, inputs, elevated surfaces */
+  --color-sand: #fbf9f1; /* tertiary surfaces, light button fill */
+  --color-well: #efece5; /* surfaces set inside a paper box (tabs, fields) */
   --color-secondary: #545c66;
   --color-warning: #f7931a;
   --color-success: #057835;
@@ -28,12 +35,14 @@
 
 @layer base {
   body {
-    font-family: var(--font-orbiter);
-    @apply text-base font-normal antialiased bg-paper text-ink;
+    font-family: var(--font-sans);
+    @apply text-base font-normal antialiased bg-cream text-ink;
   }
 
+  /* Headlines: Instrument Serif, regular weight (its one weight). */
   h1, h2, h3, h4, .font-display {
-    font-family: var(--font-explorer);
+    font-family: var(--font-serif);
+    font-weight: 400;
   }
 
   section {
@@ -44,16 +53,16 @@
 
 @layer utilities {
   .bgBox {
-    @apply p-5 rounded-xl border border-sand;
+    @apply p-5 rounded-xl border border-ink/10;
   }
 
   .bgRound {
-    @apply rounded-full border border-sand;
+    @apply rounded-full border border-ink/10;
   }
 
   /* Greatwall's card: a flat white sheet on the paper ground, edged in sand. */
   .glass-card {
-    @apply relative overflow-hidden bg-snow border border-sand;
+    @apply relative overflow-hidden bg-paper border border-ink/10;
   }
 
   /* The wallet buttons of every network share one look. */
@@ -61,8 +70,20 @@
     @apply inline-flex items-center gap-1.5 rounded-md bg-ink text-snow px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-pitch;
   }
 
+  /* A connected wallet: black, as the button that connects it. */
   .gw-wallet-pill {
-    @apply inline-flex items-center gap-1.5 rounded-md border border-sand bg-snow text-ink px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-sand;
+    @apply inline-flex items-center gap-1.5 rounded-md bg-ink text-snow px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors hover:bg-pitch;
+  }
+
+  /* Glass: a sheet of frosted white over what scrolls beneath, with a
+   * bright top edge. 35% white: a thinner sheet, made for a dark ground,
+   * would vanish on Greatwall's cream. */
+  .gw-glass {
+    @apply relative overflow-hidden bg-white/35 backdrop-blur-[10px] border border-white/40;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.1);
   }
 
   /* In the navbar they are as tall as its icon buttons. */
@@ -131,3 +152,8 @@
   --color-buttonText: #fff;
 }
 
+/* A paper box whose own cards, fields and tab bar sit a shade darker, so
+   they read apart from the box (the bridge's Lock / Unlock / History). */
+.inset-well :is(.glass-card, .bg-paper, .bg-sand) {
+  background-color: var(--color-well);
+}

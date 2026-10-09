@@ -2,8 +2,8 @@ import type { ConvertMethods } from "@/components/integrator/ipow/convertMethods
 import { basenetwork } from "@/index";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet";
-export type ChainId = "0x2105" | "0x14a34"; // 8453 mainnet, 84532 testnet (Base Sepolia)
+export type NetworkName = "testnet";
+export type ChainId = "0x14a34"; // 84532, Base Sepolia
 
 export type NetworkConfig = {
   network: NetworkName;
@@ -49,12 +49,11 @@ export interface BaseWalletContextType extends ConvertMethods {
   decimals: number;
   ipowDecimals: number;
   networkName: "Base";
-  networkDescription: {};
-  selfCustodyParameter: {};
+  networkDescription: object;
   networkLogo: typeof basenetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: BaseWalletType) => Promise<void>;
   fetchETA: (

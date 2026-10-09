@@ -1,233 +1,138 @@
-# Paradapp Client – Setup & Run Instructions
+# Greatwall
 
-## Important Notes
+**Index tokens and assets that work across networks, settled on Bitcoin.**
 
-### Online Client Demo Available
+Greatwall is a web app for holding and combining real-world-asset tokens across
+seven networks. Lock an asset on its own network and use it on another, convert
+between networks, and create index tokens backed by assets from several
+networks at once, all without a bridge to trust. Every cross-network step runs
+on [**iPoW**](https://github.com/kelwinshen/ipow), a protocol that uses
+Bitcoin's chain of blocks as the shared source of truth: each network checks
+Bitcoin's proof of work itself, and operators who carry messages between
+networks put up stake that is slashed if they lie.
 
-> You can easily view our client demo at **https://paradapp.com** without the hassle of local configs.
+- **Live:** [greatwall.finance](https://greatwall.finance)
+- **Protocol:** [github.com/kelwinshen/ipow](https://github.com/kelwinshen/ipow)
+- **Follow:** [X](https://x.com/greatwallfi) · [Telegram](https://t.me/greatwallfinance) · [YouTube](https://www.youtube.com/@greatwallfinance)
 
----
+> [!NOTE]
+> Greatwall runs on test networks only: Ethereum Sepolia, Base Sepolia, Arbitrum
+> Sepolia, Robinhood Chain testnet, HyperEVM testnet, Tempo testnet and Solana
+> devnet. The real-world-asset tokens are test stand-ins with no value. Bitcoin
+> is the one real network: iPoW reads real Bitcoin.
 
-### Paradapp Protocol Repository
+## What you can do
 
-The **Paradapp Protocol** code repository is available here:
+| Page | What it does |
+|---|---|
+| **Explore** | Every index token on a network: what backs it, on which networks, and what one token is worth now |
+| **Create** | Launch an index token from assets on any network: pick the parts, set how much of each one token holds, name it and give it an image |
+| **Lock / Unlock** | Lock an asset on its own network and receive it on a paired network, paid in about two minutes on the fast path; unlock it back the same way |
+| **Convert** | Move value between networks, or to and from Bitcoin, through an operator's quote |
+| **Portfolio** | Everything your wallets hold, by network and in dollars, plus your index tokens |
+| **Protocol** | A live explorer of iPoW itself: every protocol transaction on every network, who made it (an operator, a user, a guardian) and what it did |
 
-**https://github.com/Renrensan/paradapp-IPoW-v2**
+### Try it in three minutes
 
-This repository contains the **core Paradapp Protocol**, which powers the underlying protocol logic of our project.
+1. Open [greatwall.finance](https://greatwall.finance) and connect a wallet (MetaMask for the EVM networks, Phantom for Solana).
+2. In **Portfolio** or **Lock**, use **Faucet** to get test tokens (you need a little test ETH or SOL for fees).
+3. **Lock** a token on Ethereum for use on Solana, and watch it arrive.
+4. **Create** an index token from a few assets, then find it in **Explore** and mint some.
+5. Open **Protocol** to see the transactions you just made, next to the operators' work behind them.
 
----
+## How it fits together
 
-### Paradapp IPoW Repository
+```
+ Greatwall (this repo)          Next.js app: pages, wallets, server routes
+        │
+        ▼
+ @ipow/sdk                      TypeScript SDK from the iPoW repo
+        │
+        ▼
+ iPoW on each network           light client · protocol · vault        (protocol)
+                                Conversion · BETA index baskets        (applications)
+        │
+        ▼
+ Bitcoin                        the shared source of truth, read by every network
+```
 
-The **Paradapp IPoW** code repository is available here:
+- **Lock / Unlock** use iPoW's **vault**: an asset locked on its home network
+  is issued as a receipt on the paired network once an operator's claim about
+  it stands, or at once on the fast path, backed by an attester's stake.
+- **Index tokens** are **BETA baskets**, an application on iPoW: one token
+  backed by fixed amounts of several assets, minted by depositing that mix and
+  burned to take it back.
+- **Convert** uses the **Conversion** application, and the operator node's
+  tunnel for conversions between two networks.
+- **Protocol** reads the iPoW contracts' events (EVM) and the programs'
+  transactions (Solana) directly from each network: nothing comes from a
+  database of ours.
 
-**https://github.com/kelwinshen/ipow**
+## Run it locally
 
-This is now a monorepo containing the IPoW cross-chain programs/contracts for every
-supported network (Ethereum, Solana, Base, HyperEVM, Robinhood and Tempo).
-
----
-
-### Litepaper
-
-Our **Paradapp Litepaper** is available here:
-
-**[https://drive.google.com/file/d/1pS5Vepda4Fn4yxOPMP_0JlUyDYIqUND1/view?usp=sharing](https://drive.google.com/file/d/1pS5Vepda4Fn4yxOPMP_0JlUyDYIqUND1/view?usp=sharing)**
-
-This document provides an overview of the project vision, protocol design, and key concepts behind Paradapp.
-
----
-
-### YouTube Channel (Brand & Demo Videos)
-
-Our official **YouTube channel** is available here:
-
-**[https://www.youtube.com/@paralleldapp](https://www.youtube.com/@paralleldapp)**
-
-This channel contains our **brand materials** and **demo videos** for Paradapp.
-
-### Supported Networks
-
-Greatwall currently supports: **Bitcoin**, **Ethereum**, **Solana**, **Base**, **HyperEVM**, **Robinhood** and **Tempo** (Arbitrum's wallet is wired, without the protocol yet).
-
----
-
-### Why we use `mise`
-
-We use [`mise`](https://mise.rs) to ensure a more consistent and reproducible local development setup across machines.
-
-This helps reduce environment mismatch issues and makes local run/setup easier to duplicate for all contributors.
-
-You can also view all available project tasks defined in `mise` by running:
+Greatwall uses the iPoW SDK straight from the iPoW repository, so clone both
+side by side:
 
 ```bash
-mise tasks
+git clone https://github.com/kelwinshen/ipow.git
+git clone https://github.com/Renrensan/greatwall.git
+cd greatwall
 ```
 
----
-
-## Local Setup Guide
-
-### 1) Install `mise` (if not already installed)
-
-See: https://mise.rs
-
----
-
-### 2) Clone the repository
+Requirements: **Node 22** and **pnpm 11** (both pinned in `mise.toml`; with
+[mise](https://mise.jdx.dev), run `mise install`).
 
 ```bash
-git clone https://github.com/kelwinshen/paradapp-client.git
-cd paradapp-client
+pnpm install
+cp .env.example .env.local    # then fill in the values below
+pnpm run build && pnpm start  # production build, served on http://localhost:3000
+# or, while developing:
+pnpm dev
 ```
 
----
+### Environment
 
-### 3) Install Node.js version from `mise.toml`
+Set in `.env.local` (never commit it):
+
+| Variable | What it is |
+|---|---|
+| `ETH_TESTNET_RPC_URL`, `BASE_TESTNET_RPC_URL`, `ARBITRUM_TESTNET_RPC_URL`, `ROBINHOOD_TESTNET_RPC_URL`, `HYPERLIQUID_TESTNET_RPC_URL`, `TEMPO_TESTNET_RPC_URL` | Each EVM test network's RPC. The browser reaches them through this app's `/api/rpc/*` routes, so the URLs (and their API keys) stay on the server |
+| `SOLANA_DEVNET_RPC_URL` | Solana devnet RPC, also proxied |
+| `TUNNEL_API_URL`, `TUNNEL_API_KEY` | The iPoW operator node's tunnel API, for conversions between two networks. Called only from this app's server |
+| `SOLANA_MOCK_RWA_MINT_AUTHORITY` | The test tokens' mint authority on Solana devnet, for the Solana faucet |
+| `PINATA_JWT`, `IPFS_GATEWAY` | Where index-token images and metadata are pinned (IPFS). Without them, files are kept in `GREATWALL_DATA_DIR` |
+| `PUBLIC_ORIGIN` | This site's public address, written into index metadata (set it in production) |
+| `NEXT_PUBLIC_GA_ID` | Optional: Google Analytics |
+
+### Checks
 
 ```bash
-mise install
+pnpm lint    # ESLint
+pnpm build   # type-checks and builds
 ```
 
----
+## Project layout
 
-### 4) Set up environment variables
-
-```bash
-cp .env.example .env
+```
+src/
+  app/
+    [locale]/[network]/...   pages (Explore, Create, Lock, Convert, Portfolio, Protocol, legal)
+    api/rpc/*                RPC proxies, rate-limited, keys kept server-side
+    api/explorer/*           the protocol explorer's readers (EVM events, Solana programs, Bitcoin tip)
+    api/baskets, api/beta    index-token listings and metadata
+    api/faucet, api/tunnel   test-token faucet, operator tunnel
+  components/
+    <network>/               one wallet provider per network
+    integrator/ipow/         Greatwall's use of @ipow/sdk (vaults, baskets, conversion, tunnel)
+  subcomponents/             the pages' components
+messages/en.json             all user-facing text
 ```
 
----
+## Status
 
-## Environment Configuration
-
-Edit `.env` with the following values.
-
-Replace placeholders with actual values.
-
-### Backend & AI
-
-#### `BACKEND_URL`
-
-URL of your Paradapp API Service (**NODE backend**)
-
-- Local development: `http://localhost:[port]`
-- Production: your deployed backend URL or may use `https://api.paradapp.com`
-
-#### `PARA_AI_URL`
-
-Base URL for AI service (**Email us if need to test AI in local**)
-
-#### `PARA_AI_API_KEY`
-
-API key for AI service (**Email us if need to test AI in local**)
-
-```env
-BACKEND_URL=
-PARA_AI_URL=
-PARA_AI_API_KEY=
-```
-
----
-
-### Ethereum – Testnet (Sepolia)
-
-#### `ETH_TESTNET_RPC_URL`
-
-Ethereum Sepolia RPC URL
-
-- Public: `https://rpc.sepolia.org`
-- Infura: `https://sepolia.infura.io/v3/<your-project-id>`
-- Alchemy: `https://eth-sepolia.g.alchemy.com/v2/<your-api-key>`
-
-#### `ETH_TESTNET_EXPLORER`
-
-Sepolia block explorer
-
-- Default: `https://sepolia.etherscan.io`
-
-```env
-ETH_TESTNET_RPC_URL=
-ETH_TESTNET_EXPLORER=https://sepolia.etherscan.io
-```
-
----
-
-### Ethereum – Mainnet
-
-#### `ETH_MAINNET_RPC_URL`
-
-Ethereum Mainnet RPC URL
-
-- Public: `https://eth.llamarpc.com`
-- Infura: `https://mainnet.infura.io/v3/<your-project-id>`
-- Alchemy: `https://eth-mainnet.g.alchemy.com/v2/<your-api-key>`
-
-#### `ETH_MAINNET_EXPLORER`
-
-Mainnet block explorer
-
-- Default: `https://etherscan.io`
-
-```env
-ETH_MAINNET_RPC_URL=
-ETH_MAINNET_EXPLORER=https://etherscan.io
-```
-
----
-
-### Supra
-
-#### `SUPRA_API_KEY`
-
-API key for Supra (**Email us if needed this API key for local test**)
-
-```env
-SUPRA_API_KEY=
-```
-
----
-
-## Continue After Editing `.env`
-
-### 5) Install npm dependencies
-
-> **Important:** This project currently uses `--legacy-peer-deps` during installation to prevent peer dependency resolution issues that may occur in some local environments.
-
-```bash
-npm install --legacy-peer-deps
-```
-
----
-
-### 6) Run development server
-
-```bash
-mise run dev
-```
-
----
-
-## Optional: Build and run production standalone server
-
-```bash
-mise run build
-mise run start
-```
-
-## Testing Limitations for Convert / Self-Custody Features
-
-When testing our **Convert** or **Self-Custody** features locally, please note the following current limitations:
-
-### Bitcoin Buy Token
-
-- Cannot simulate a completed paid flow to receive BTC
-- Able to create the deposit transaction successfully
-
-### Convert To Bitcoin
-
-- No Bitcoin will be received during testing
-- Refund flow can still be tested based on our protocol refund scenario path
-
----
+- Test networks only, as above; the protocol is under active development and
+  **has not been audited**. See the iPoW repository's `SECURITY.md` for what is
+  still centralized today.
+- [Terms of Use](https://greatwall.finance/en/ethereum/terms) ·
+  [Privacy Policy](https://greatwall.finance/en/ethereum/privacy) ·
+  [Cookies Policy](https://greatwall.finance/en/ethereum/cookies)

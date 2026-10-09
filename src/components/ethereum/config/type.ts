@@ -3,8 +3,8 @@ import { TxPhase, TypeFilter } from "@/components/integrator/ipow/evm/type";
 import { BytesLike } from "ethers";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet" 
-export type ChainId = '0x1' | '0xaa36a7' ; 
+export type NetworkName = "testnet"
+export type ChainId = '0xaa36a7'; // Sepolia
 
 export type NetworkConfig = {
   network: NetworkName,
@@ -59,12 +59,11 @@ export interface EthereumWalletContextType {
    * numbers diverge). */
   ipowDecimals: number;
   networkName: "Ethereum";
-  networkDescription: {};
-  selfCustodyParameter: {};
+  networkDescription: object;
   networkLogo: typeof ethereumnetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: EthereumWalletType) => Promise<void>;
   fetchETA: (

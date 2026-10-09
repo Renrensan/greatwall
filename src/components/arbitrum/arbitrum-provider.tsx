@@ -14,10 +14,16 @@ import {
 } from "react";
 import { ethers } from "ethers";
 
-import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 import { arbitrumnetwork } from "@/index";
 import { appConfig, ArbitrumWalletContextType, ArbitrumWalletType } from "./config";
 import { getEvmWalletProvider, walletErrorCode, walletRejected } from "@/subcomponents/wallet-connect/evm-wallet-detection";
+import { NO_CONVERT, evmConvertMethods } from "@/components/integrator/ipow/convertMethods";
+import { deploymentOf } from "@/components/integrator/ipow/sdk";
+import { IPOW_NETWORK_ID } from "./config/constants";
+
+/** Whether iPoW runs on Arbitrum here: its deployment is in the SDK. */
+const ipowLive = deploymentOf("arbitrum") !== null;
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 import { VERIFIED_ERC20_TOKENS } from "./config/verified-tokens";
 import { fetchErc20Balances } from "@/components/ethereum/erc20-balances";
@@ -38,7 +44,6 @@ const ArbitrumWalletContext = createContext<ArbitrumWalletContextType>({
   ipowDecimals: 18,
   networkName: "Arbitrum",
   networkDescription: {},
-  selfCustodyParameter: {},
   networkLogo: arbitrumnetwork,
   price: {},
   networkExplorer: {},
@@ -76,28 +81,12 @@ export function useArbitrumWallet() {
   return useContext(ArbitrumWalletContext);
 }
 
-interface CustodyParams {
-  network: string;
-  env: string;
-  tokens: any[];
-  fetched: boolean;
-}
 
 export function ArbitrumProvider({ children }: { children: ReactNode }) {
-  const { arbitrumMainnet } = useNetwork();
-  const isMainnet = arbitrumMainnet;
-  const currentNetworkConfig = useMemo(() => {
-    return isMainnet ? appConfig.networks.mainnet : appConfig.networks.testnet;
-  }, [isMainnet]);
+  // Greatwall runs the network's testnet only.
+  const currentNetworkConfig = appConfig.networks.testnet;
+  const netKey = "testnet";
 
-  const netKey = useMemo(() => (isMainnet ? "mainnet" : "testnet"), [isMainnet]);
-
-  const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-    network: "ARBITRUM",
-    env: isMainnet ? "MAINNET" : "TESTNET",
-    tokens: [],
-    fetched: false,
-  });
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -149,7 +138,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
           await prov.send("wallet_addEthereumChain", [
             {
               chainId: targetChainIdHex,
-              chainName: isMainnet ? "Arbitrum One" : "Arbitrum Sepolia",
+              chainName: "Arbitrum Sepolia",
               nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
               rpcUrls: [currentNetworkConfig.jsonRpcUrl],
               blockExplorerUrls: [currentNetworkConfig.networkExplorer],
@@ -157,7 +146,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
           ]);
         } catch {
           throw new Error(
-            `Your wallet doesn't have ${isMainnet ? "Arbitrum One" : "Arbitrum Sepolia"} added. Please add or switch to it manually.`,
+            `Your wallet doesn't have Arbitrum Sepolia added. Please add or switch to it manually.`,
           );
         }
       } else if (walletRejected(switchError)) {
@@ -184,7 +173,10 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
       }
 
       if (accounts.length > 0) {
-        await switchNetwork(prov);
+        // A reconnect on page load doesn't move the wallet's network: every
+        // network's wallet reconnects on pages that read them all, and each
+        // switch would prompt. Signing switches first (getActiveSigner).
+        if (!isAutoConnect) await switchNetwork(prov);
         const signer = await prov.getSigner();
         const addr = await signer.getAddress();
 
@@ -357,21 +349,6 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
 
         if (signal?.aborted) return;
 
-        let pricedTokens = tokens;
-        if (tokens && tokens.length > 0 && isMainnet) {
-          const addresses = tokens.map((t) => t.mint);
-          const prices = await fetchArbitrumUsdPrices(addresses);
-          if (signal?.aborted) return;
-          pricedTokens = tokens.map((t) => {
-            const p = prices[t.mint.toLowerCase()];
-            return {
-              ...t,
-              price: p ? p.usd.toString() : "0",
-              priceChange24h: p ? p.usd_24h_change : 0,
-            };
-          });
-        }
-
         let unconfirmedWei = pendingWei - confirmedWei;
         if (unconfirmedWei < BigInt(0)) unconfirmedWei = BigInt(0);
 
@@ -379,7 +356,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         const unconfirmed = Number(ethers.formatEther(unconfirmedWei)) || 0;
 
         setBalance((prev) => {
-          const nextTokens = pricedTokens === null ? prev.tokens : pricedTokens;
+          const nextTokens = tokens === null ? prev.tokens : tokens;
           const tokensChanged = JSON.stringify(prev.tokens) !== JSON.stringify(nextTokens);
           if (!tokensChanged && prev.fetched && prev.confirmed === confirmed && prev.unconfirmed === unconfirmed) {
             return prev;
@@ -392,7 +369,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
       }
     },
-    [address, netKey, isMainnet, readOnlyProvider],
+    [address, readOnlyProvider],
   );
 
   const estimateFee = useCallback(
@@ -484,68 +461,19 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=ETH&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("ETH");
+    if (p) setPrice(p as any);
   };
 
   useEffect(() => {
     fetchPrice();
     const i = setInterval(fetchPrice, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
-  useEffect(() => {
-    setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
-
-    let cancelled = false;
-    let quickRetries = 0;
-    const MAX_QUICK_RETRIES = 4;
-    const QUICK_RETRY_DELAY_MS = 2000;
-
-    const fetchSelfCustodyConstraints = async () => {
-      try {
-        const envMode = isMainnet ? "MAINNET" : "TESTNET";
-        const response = await fetch(`/api/transaction/constraints/?network=ARBITRUM&env=${envMode}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data: CustodyParams = await response.json();
-        if (cancelled) return;
-
-        if (data && data.tokens) {
-          setSelfCustodyParameter({ ...data, fetched: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to fetch ARBITRUM self-custody limits:", error);
-      }
-
-      if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-        quickRetries += 1;
-        setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-      }
-    };
-
-    fetchSelfCustodyConstraints();
-    const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isMainnet]);
 
   useEffect(() => {
     if (!walletType || !connected) return;
@@ -571,7 +499,7 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       injection?.removeListener("accountsChanged", handleAccountsChanged);
     };
-  }, [walletType, connected, netKey]);
+  }, [walletType, connected]);
 
   useEffect(() => {
     if (!address) return;
@@ -613,7 +541,16 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
+
+  // The convert screens' methods, on the new protocol's Conversion, once
+  // Arbitrum is deployed; until then none.
+  const signerRef = useRef(getActiveSigner);
+  signerRef.current = getActiveSigner;
+  const convert = useMemo(
+    () => (ipowLive ? evmConvertMethods({ chain: "arbitrum", getSigner: () => signerRef.current(), address, uiNetworkId: IPOW_NETWORK_ID }) : NO_CONVERT),
+    [address]
+  );
 
   return (
     <ArbitrumWalletContext.Provider
@@ -643,11 +580,10 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         networkLogo: arbitrumnetwork,
         networkDescription: {
           en: "Arbitrum One is an Ethereum Layer 2 built on Optimistic Rollup technology for fast, low-cost transactions. It's one of the largest L2 ecosystems by value locked, powering DeFi, trading, and everyday onchain apps.",
-          id: "Arbitrum One adalah Layer 2 Ethereum yang dibangun dengan teknologi Optimistic Rollup untuk transaksi yang cepat dan berbiaya rendah. Arbitrum menjadi salah satu ekosistem L2 terbesar berdasarkan nilai yang terkunci, mendukung DeFi, trading, dan aplikasi onchain sehari-hari.",
         },
-        selfCustodyParameter,
-        ipowConvert: "comingsoon",
-        ipowNetworkId: 0,
+        // Convert runs once the SDK carries Arbitrum's deployment (D141).
+        ipowConvert: ipowLive ? "testnet" : "comingsoon",
+        ipowNetworkId: ipowLive ? IPOW_NETWORK_ID : 0,
         connect,
         setFeeSelection,
         disconnect,
@@ -659,51 +595,10 @@ export function ArbitrumProvider({ children }: { children: ReactNode }) {
         getSigner: getActiveSigner,
         estimateErc20SendFee,
         fetchETA,
-        commitNativeToBitcoin: notSupported,
-        commitBitcoinToNative: notSupported,
-        depositApprovedConversion: notSupported,
-        submitBitcoinMerkleProofWithTx: notSupported,
-        getMyTxIds: async () => [],
-        getConversion: notSupported,
-        refundIfNotApproved: notSupported,
-        claimNativeAfterOperatorExpired: notSupported,
-        refundAfterNoProofNativeToBitcoin: notSupported,
-        estimateBitcoinFromNative: notSupported,
-        estimateNativeFromBitcoin: notSupported,
-        anchorInfo: notSupported,
-        proofInfo: notSupported,
-        windowsFor: notSupported,
-        globalHeightToHashLE: notSupported,
-        globalHeaders: notSupported,
+        ...convert,
       }}
     >
       {children}
     </ArbitrumWalletContext.Provider>
   );
-}
-
-// CoinGecko's asset-platform id for Arbitrum is "arbitrum-one" (verified against their
-// asset_platforms list) — distinct from "ethereum", which only covers mainnet-native tokens.
-async function fetchArbitrumUsdPrices(
-  addresses: string[],
-): Promise<Record<string, { usd: number; usd_24h_change: number }>> {
-  if (addresses.length === 0) return {};
-  try {
-    const url = `https://api.coingecko.com/api/v3/simple/token_price/arbitrum-one?contract_addresses=${addresses.join(",")}&vs_currencies=usd&include_24hr_change=true`;
-    const res = await fetch(url);
-    if (!res.ok) return {};
-    const data = await res.json();
-
-    const normalized: Record<string, { usd: number; usd_24h_change: number }> = {};
-    for (const [addr, info] of Object.entries<any>(data || {})) {
-      normalized[addr.toLowerCase()] = {
-        usd: info?.usd ?? 0,
-        usd_24h_change: info?.usd_24h_change ?? 0,
-      };
-    }
-    return normalized;
-  } catch (err) {
-    console.error("Failed to fetch Arbitrum ERC-20 USD prices:", err);
-    return {};
-  }
 }

@@ -14,7 +14,7 @@ import {
 } from "react";
 import { ethers } from "ethers";
 
-import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 import { robinhoodnetwork } from "@/index";
 import { IPOW_NETWORK_ID } from "./config/constants";
 import { NO_CONVERT, evmConvertMethods } from "@/components/integrator/ipow/convertMethods";
@@ -39,7 +39,6 @@ const RobinhoodWalletContext = createContext<RobinhoodWalletContextType>({
   ipowDecimals: 18,
   networkName: "Robinhood",
   networkDescription: {},
-  selfCustodyParameter: {},
   networkLogo: robinhoodnetwork,
   price: {},
   networkExplorer: {},
@@ -62,35 +61,19 @@ export function useRobinhoodWallet() {
   return useContext(RobinhoodWalletContext);
 }
 
-interface CustodyParams {
-  network: string;
-  env: string;
-  tokens: any[];
-  fetched: boolean;
-}
 
 export function RobinhoodProvider({ children }: { children: ReactNode }) {
-  const { robinhoodMainnet } = useNetwork();
-  const isMainnet = robinhoodMainnet;
-  const currentNetworkConfig = useMemo(() => {
-    return isMainnet ? appConfig.networks.mainnet : appConfig.networks.testnet;
-  }, [isMainnet]);
+  // Greatwall runs the network's testnet only.
+  const currentNetworkConfig = appConfig.networks.testnet;
+  const netKey = "testnet";
 
-  const netKey = useMemo(() => (isMainnet ? "mainnet" : "testnet"), [isMainnet]);
-
-  // Mainnet's jsonRpcUrl is our own relative proxy route (keyed Alchemy RPC); testnet is
-  // Robinhood's own public absolute URL. Only prepend origin for the relative case.
+  // The testnet's jsonRpcUrl is Robinhood's own public absolute URL; origin is only
+  // prepended for a relative (own proxy route) URL.
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const fullRpcUrl = currentNetworkConfig.jsonRpcUrl.startsWith("http")
     ? currentNetworkConfig.jsonRpcUrl
     : `${origin}${currentNetworkConfig.jsonRpcUrl}`;
 
-  const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-    network: "ROBINHOOD",
-    env: isMainnet ? "MAINNET" : "TESTNET",
-    tokens: [],
-    fetched: false,
-  });
   const [price, setPrice] = useState(null);
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -142,7 +125,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
           await prov.send("wallet_addEthereumChain", [
             {
               chainId: targetChainIdHex,
-              chainName: isMainnet ? "Robinhood Chain" : "Robinhood Chain Testnet",
+              chainName: "Robinhood Chain Testnet",
               nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
               rpcUrls: [fullRpcUrl],
               blockExplorerUrls: [currentNetworkConfig.networkExplorer],
@@ -150,7 +133,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
           ]);
         } catch {
           throw new Error(
-            `Your wallet doesn't have ${isMainnet ? "Robinhood Chain" : "Robinhood Chain Testnet"} added. Please add or switch to it manually.`,
+            `Your wallet doesn't have Robinhood Chain Testnet added. Please add or switch to it manually.`,
           );
         }
       } else if (walletRejected(switchError)) {
@@ -177,7 +160,10 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
       }
 
       if (accounts.length > 0) {
-        await switchNetwork(prov);
+        // A reconnect on page load doesn't move the wallet's network: every
+        // network's wallet reconnects on pages that read them all, and each
+        // switch would prompt. Signing switches first (getActiveSigner).
+        if (!isAutoConnect) await switchNetwork(prov);
         const signer = await prov.getSigner();
         const addr = await signer.getAddress();
 
@@ -370,7 +356,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
         setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
       }
     },
-    [address, netKey, readOnlyProvider],
+    [address, readOnlyProvider],
   );
 
   const estimateFee = useCallback(
@@ -449,68 +435,19 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=ETH&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("ETH");
+    if (p) setPrice(p as any);
   };
 
   useEffect(() => {
     fetchPrice();
     const i = setInterval(fetchPrice, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
-  useEffect(() => {
-    setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
-
-    let cancelled = false;
-    let quickRetries = 0;
-    const MAX_QUICK_RETRIES = 4;
-    const QUICK_RETRY_DELAY_MS = 2000;
-
-    const fetchSelfCustodyConstraints = async () => {
-      try {
-        const envMode = isMainnet ? "MAINNET" : "TESTNET";
-        const response = await fetch(`/api/transaction/constraints/?network=ROBINHOOD&env=${envMode}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data: CustodyParams = await response.json();
-        if (cancelled) return;
-
-        if (data && data.tokens) {
-          setSelfCustodyParameter({ ...data, fetched: true });
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to fetch ROBINHOOD self-custody limits:", error);
-      }
-
-      if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-        quickRetries += 1;
-        setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-      }
-    };
-
-    fetchSelfCustodyConstraints();
-    const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isMainnet]);
 
   useEffect(() => {
     if (!walletType || !connected) return;
@@ -536,7 +473,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       injection?.removeListener("accountsChanged", handleAccountsChanged);
     };
-  }, [walletType, connected, netKey]);
+  }, [walletType, connected]);
 
   useEffect(() => {
     if (!address) return;
@@ -580,7 +517,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
       setBalance({ confirmed: 0, unconfirmed: 0, fetched: false, tokens: [] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
   // The convert screens' methods, on the new protocol's Conversion.
   const signerRef = useRef(getActiveSigner);
@@ -618,9 +555,7 @@ export function RobinhoodProvider({ children }: { children: ReactNode }) {
         networkLogo: robinhoodnetwork,
         networkDescription: {
           en: "Robinhood Chain is an Ethereum Layer 2 built on the Arbitrum Orbit stack for tokenized real-world assets like stocks and ETFs, with 100ms blocks and Chainlink as its native oracle layer.",
-          id: "Robinhood Chain adalah Layer 2 Ethereum yang dibangun di atas Arbitrum Orbit untuk aset dunia nyata yang di-tokenisasi seperti saham dan ETF, dengan blok 100ms dan Chainlink sebagai lapisan oracle aslinya.",
         },
-        selfCustodyParameter,
         ipowConvert: "testnet",
         ipowNetworkId: IPOW_NETWORK_ID,
         ...convert,

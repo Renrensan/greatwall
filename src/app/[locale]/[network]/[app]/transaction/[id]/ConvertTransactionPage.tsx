@@ -21,15 +21,15 @@ import { useSolanaWallet } from '@/components/solana/solana-provider';
 import { useBaseWallet } from '@/components/base/base-provider';
 import { useRobinhoodWallet } from '@/components/robinhood/robinhood-provider';
 import { useHyperliquidWallet } from '@/components/hyperliquid/hyperliquid-provider';
+import { useArbitrumWallet } from '@/components/arbitrum/arbitrum-provider';
 import { setTunnelSell } from '@/components/integrator/ipow/tunnel';
 import { TUNNEL_MARGIN_BLOCKS } from '@/components/integrator/ipow/convertMethods';
 import { bitcoinExplorer } from '@/components/integrator/ipow/sdk';
 import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
 import ConvertDetails from '@/subcomponents/ConvertDetails';
-import { Bitcoin } from '@ipow/sdk';
 
 const bitcoinChain = bitcoinExplorer;
-import { SupportedChain, useNetwork } from '@/app/network-provider';
+import { SupportedChain } from '@/app/network-provider';
 
 import Button from "@/subcomponents/Button"; 
 import { BitcoinConnectButton } from '@/subcomponents/BitcoinConnectButton';
@@ -46,13 +46,13 @@ import InformationPopUp from '@/subcomponents/InformationPopUp';
 import { TxPhase, TypeFilter } from '@/components/integrator/ipow/evm/type';
 
 const PROTOCOL_TERMS = {
-  epochStart: { en: { title: "First Epoch", description: "The first block of every 2016 Bitcoin block cycle (estimated ~2 weeks). It dictates the minimum mining difficulty used to ensure the trustless security of your transaction." }, id: { title: "First Epoch", description: "Blok pertama dari setiap siklus 2016 blok Bitcoin (estimasi ~2 minggu). Ini menentukan kesulitan penambangan minimum untuk memastikan keamanan transaksi secara trustless." } },
-  anchor: { en: { title: "Anchor Block", description: "A highly finalized recent Bitcoin block (~6 confirmations) used as the cryptographic key and starting point to securely verify your transaction." }, id: { title: "Anchor Block", description: "Blok Bitcoin terbaru dengan finalitas tinggi (~6 konfirmasi) yang digunakan sebagai kunci kriptografis dan titik awal untuk memverifikasi transaksi secara aman." } },
-  depositEnd: { en: { title: "Deposit End", description: "The final deposit block deadline. Once this block is reached, you can no longer make a deposit to continue the conversion." }, id: { title: "Deposit End", description: "Batas waktu deposit blok terakhir. Setelah blok ini tercapai, kamu tidak dapat lagi melakukan deposit untuk melanjutkan konversi." } },
-  pendingProof: { en: { title: "Pending Proof", description: "Cryptographic evidence has been submitted and is currently waiting to be verified by block streaming the highly finalized blocks (~6 confirmations) until the height of the proof. If valid, the pending proof will be marked as verified proof." }, id: { title: "Pending Proof", description: "Bukti kriptografis telah dikirim dan saat ini sedang menunggu verifikasi dengan menyiarkan blok dengan finalitas tinggi (~6 konfirmasi) sampai blok dari proof tercapai. Jika valid, pending proof akan ditandai menjadi proof yang valid." } },
-  incorrectProof: { en: { title: "Incorrect Proof", description: "The submitted cryptographic proof was invalid. A valid proof must be resubmitted." }, id: { title: "Incorrect Proof", description: "Bukti kriptografis yang dikirimkan tidak valid. Bukti yang valid harus dikirim ulang." } },
-  verifiedProof: { en: { title: "Verified Proof", description: "The cryptographic proof has been successfully verified on-chain, and the proof can be used to finalize the transaction." }, id: { title: "Verified Proof", description: "Bukti kriptografis telah berhasil diverifikasi secara on-chain, dan proof dapat menyelesaikan transaksi." } },
-  proofEnd: { en: { title: "Proof End", description: "The final send proof block deadline. If a valid proof is not submitted by this block, the transaction is closed by the protocol rules." }, id: { title: "Proof End", description: "Batas waktu proof dikirim. Jika bukti yang valid tidak dikirimkan pada blok ini, transaksi ditutup oleh aturan protokol." } }
+  epochStart: { en: { title: "First Epoch", description: "The first block of every 2016 Bitcoin block cycle (estimated ~2 weeks). It dictates the minimum mining difficulty used to ensure the trustless security of your transaction." } },
+  anchor: { en: { title: "Anchor Block", description: "A highly finalized recent Bitcoin block (~6 confirmations) used as the cryptographic key and starting point to securely verify your transaction." } },
+  depositEnd: { en: { title: "Deposit End", description: "The final deposit block deadline. Once this block is reached, you can no longer make a deposit to continue the conversion." } },
+  pendingProof: { en: { title: "Pending Proof", description: "Cryptographic evidence has been submitted and is currently waiting to be verified by block streaming the highly finalized blocks (~6 confirmations) until the height of the proof. If valid, the pending proof will be marked as verified proof." } },
+  incorrectProof: { en: { title: "Incorrect Proof", description: "The submitted cryptographic proof was invalid. A valid proof must be resubmitted." } },
+  verifiedProof: { en: { title: "Verified Proof", description: "The cryptographic proof has been successfully verified on-chain, and the proof can be used to finalize the transaction." } },
+  proofEnd: { en: { title: "Proof End", description: "The final send proof block deadline. If a valid proof is not submitted by this block, the transaction is closed by the protocol rules." } }
 };
 
 const MAX_HEADERS_PER_TX = 40;
@@ -113,7 +113,7 @@ const decodeNetworkAddress = (hex: string | any, networkKey?: string): string =>
         }
         
         if (/^[a-zA-Z0-9\.\-_]+$/.test(str)) return str;
-    } catch (e) {}
+    } catch {}
 
     return safeHex; 
 };
@@ -140,13 +140,11 @@ export default function ConvertTransactionPage() {
 
   const [isShowDetails, setIsShowDetails] = useState(false);
   const [mempoolDetectedTx, setMempoolDetectedTx] = useState<{txid: string, vout: number, height: number} | null>(null);
-  const [isScanningMempool, setIsScanningMempool] = useState(false);
   const [activeInfoTerm, setActiveInfoTerm] = useState<keyof typeof PROTOCOL_TERMS | null>(null);
   
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [txid, setTxid] = useState<string | null>(null);
-  const [lastAction, setLastAction] = useState<string | null>(null); 
   
   const ethereumWallet = useEthereumWallet();
   const bitcoinWallet = useBitcoinWallet();
@@ -154,6 +152,7 @@ export default function ConvertTransactionPage() {
   const baseWallet = useBaseWallet();
   const robinhoodWallet = useRobinhoodWallet();
   const hyperliquidWallet = useHyperliquidWallet();
+  const arbitrumWallet = useArbitrumWallet();
   const { scriptPubKeyHexToAddress } = useBitcoinWallet();
 
   // nativeToken.decimals formats the ipow *contract's* on-chain amounts, so every entry
@@ -169,7 +168,9 @@ export default function ConvertTransactionPage() {
       { id: baseWallet.ipowNetworkId, key: "base", name: baseWallet.networkName, logo: baseWallet.networkLogo, nativeToken: { symbol: baseWallet.currencyTicker, decimals: 18, logo: baseWallet.networkLogo } },
       { id: robinhoodWallet.ipowNetworkId, key: "robinhood", name: robinhoodWallet.networkName, logo: robinhoodWallet.networkLogo, nativeToken: { symbol: robinhoodWallet.currencyTicker, decimals: 18, logo: robinhoodWallet.networkLogo } },
       { id: hyperliquidWallet.ipowNetworkId, key: "hyperliquid", name: hyperliquidWallet.networkName, logo: hyperliquidWallet.networkLogo, nativeToken: { symbol: hyperliquidWallet.currencyTicker, decimals: 18, logo: hyperliquidWallet.networkLogo } },
-    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]
+      // Arbitrum once Convert runs there: until then its id is 0, Bitcoin's.
+      ...(arbitrumWallet.ipowNetworkId ? [{ id: arbitrumWallet.ipowNetworkId, key: "arbitrum", name: arbitrumWallet.networkName, logo: arbitrumWallet.networkLogo, nativeToken: { symbol: arbitrumWallet.currencyTicker, decimals: 18, logo: arbitrumWallet.networkLogo } }] : []),
+    ], [bitcoinWallet, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, arbitrumWallet]
   );
 
   const activeProvider: any = useMemo(() => {
@@ -183,9 +184,10 @@ export default function ConvertTransactionPage() {
         case 'base': return baseWallet;
         case 'robinhood': return robinhoodWallet;
         case 'hyperliquid': return hyperliquidWallet;
+        case 'arbitrum': return arbitrumWallet;
         default: return ethereumWallet;
     }
-  }, [network, linkedParam, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet]);
+  }, [network, linkedParam, ethereumWallet, solanaWallet, baseWallet, robinhoodWallet, hyperliquidWallet, arbitrumWallet]);
 
   const [conversion, setConversion] = useState<any>(null);
   const [partnerConversion, setPartnerConversion] = useState<any>(null); 
@@ -198,46 +200,6 @@ export default function ConvertTransactionPage() {
   
   const [selectedBlockHeight, setSelectedBlockHeight] = useState<string | null>(null);
   const headerCache = useRef<Record<string, string>>({});
-
-  const {
-    bitcoinMainnet, setBitcoinMainnet,
-    ethereumMainnet, setEthereumMainnet,
-    solanaMainnet, setSolanaMainnet
-  } = useNetwork();
-
-  const mismatches = useMemo(() => {
-    const checks = [
-      { name: bitcoinWallet.networkName, current: bitcoinMainnet, required: bitcoinWallet.ipowConvert, setter: setBitcoinMainnet },
-      { name: ethereumWallet.networkName, current: ethereumMainnet, required: ethereumWallet.ipowConvert, setter: setEthereumMainnet },
-      { name: solanaWallet.networkName, current: solanaMainnet, required: solanaWallet.ipowConvert, setter: setSolanaMainnet },
-    ];
-    return checks.filter(c => {
-      if (c.required === 'comingsoon') return false;
-      const isRequiredMainnet = c.required === 'mainnet';
-      return c.current !== isRequiredMainnet;
-    });
-  }, [
-      bitcoinMainnet, ethereumMainnet, solanaMainnet,
-      bitcoinWallet, ethereumWallet, solanaWallet,
-      setBitcoinMainnet, setEthereumMainnet, setSolanaMainnet
-  ]);
-  
-  const isAllFulfilled = mismatches.length === 0;
-  
-  const dynamicMismatchText = useMemo(() => {
-    if (mismatches.length === 0) return "";
-    const phrases = mismatches.map(m => `${m.required} wallet in ${m.name}`);
-
-    if (phrases.length === 1) return locale == "en" ? `Please select ${phrases[0]} in the wallet settings to use Convert.` :  `Mohon pilih wallet ${phrases[0]} di pengaturan wallet untuk menggunakan Konversi`;
-    if (phrases.length === 2) return locale == "en" ? `Please select ${phrases[0]} and ${phrases[1]} in the wallet settings to use Convert.` : `Mohon pilih wallet ${phrases[0]} dan ${phrases[1]} di pengaturan wallet untuk menggunakan Konversi`;
-    
-    const lastPhrase = phrases.pop();
-    return locale == "en" ? `Please select ${phrases.join(', ')}, and ${lastPhrase} in the wallet settings to use Convert.` :  `Mohon pilih wallet  ${phrases.join(', ')}, dan ${lastPhrase} di pengaturan wallet untuk  untuk menggunakan Konversi`;
-  }, [mismatches]);
-
-  const handleSwitchAll = () => {
-    mismatches.forEach(m => m.setter(m.required === 'mainnet'));
-  };
 
   const isAuthorized = useMemo(() => {
     if (!conversion || !activeProvider) return false;
@@ -253,7 +215,7 @@ export default function ConvertTransactionPage() {
             try {
                 const btcParticipant = btcAddressOf(conversion.userProgram);
                 isMatch = !!btcParticipant && bitcoinWallet.address.toLowerCase() === btcParticipant.toLowerCase();
-            } catch (e) { isMatch = false; }
+            } catch { isMatch = false; }
         }
     } else {
         const activeAddress = activeProvider.address?.toLowerCase();
@@ -294,7 +256,7 @@ export default function ConvertTransactionPage() {
 
     // A tunnel's swap: the shared words (convertStatus.ts), styled here.
     const sourceNetworkName = networkConfigs.find((n) => n.id === (isOutbound ? (localTx.contractChainId ?? activeProvider.ipowNetworkId) : localTx.networkId))?.name ?? "";
-    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t, locale);
+    const tunnel = tunnelStatus(localTx, partnerTx, { source: sourceNetworkName, destination: destinationNetworkName }, t);
     if (tunnel) {
         const style = {
             wait: { color: `${colorFlip}`, bg: `${bgFlip}`, border: `${borderFlip}`, icon: <FaClock className="animate-pulse"/> },
@@ -457,12 +419,13 @@ export default function ConvertTransactionPage() {
             if (id === baseWallet.ipowNetworkId) return baseWallet;
             if (id === robinhoodWallet.ipowNetworkId) return robinhoodWallet;
             if (id === hyperliquidWallet.ipowNetworkId) return hyperliquidWallet;
+            if (arbitrumWallet.ipowNetworkId && id === arbitrumWallet.ipowNetworkId) return arbitrumWallet;
             return null;
         };
 
 
         let partnerData = null;
-        let partnerProvider = getProviderById(partnerId);
+        const partnerProvider = getProviderById(partnerId);
 
         if (isNativeToNative && partnerProvider) {
             try {
@@ -498,8 +461,8 @@ export default function ConvertTransactionPage() {
 
 
         let estimatedVal = "0";
-        let sourceTxObj = isOutbound ? localData : partnerData;
-        let destTxObj = isOutbound ? partnerData : localData;
+        const sourceTxObj = isOutbound ? localData : partnerData;
+        const destTxObj = isOutbound ? partnerData : localData;
 
         try {
             let btcSatsStr = "0";
@@ -543,7 +506,7 @@ export default function ConvertTransactionPage() {
                     estimatedVal = btcSatsStr;
                 }
             }
-        } catch (e) {}
+        } catch {}
 
 
         let anchorRes = null, proofRes = null, windowRes = null;
@@ -735,7 +698,6 @@ export default function ConvertTransactionPage() {
       if (!depositAddr) return;
 
       const scan = async () => {
-          setIsScanningMempool(true);
           try {
               const res = await fetch(`https://mempool.space/api/address/${depositAddr}/txs`);
               if (!res.ok) return;
@@ -752,8 +714,7 @@ export default function ConvertTransactionPage() {
                       height: match.status.block_height || 0 
                   });
               }
-          } catch (e) { console.error("Mempool scanner error:", e); } 
-          finally { setIsScanningMempool(false); }
+          } catch (e) { console.error("Mempool scanner error:", e); }
       };
 
       scan();
@@ -855,7 +816,6 @@ export default function ConvertTransactionPage() {
       setBusy(true); 
       setMsg(null); 
       setError(null);
-      setLastAction(action); 
       
       const txId = BigInt(txIdStr);
       
@@ -934,7 +894,7 @@ export default function ConvertTransactionPage() {
       setBusy(true);
       setError(null);
       try {
-          if (!source?.connected) throw new Error(locale === "en" ? `Connect your ${tunnel.fromChain} wallet first` : `Hubungkan dompet ${tunnel.fromChain} Anda terlebih dahulu`);
+          if (!source?.connected) throw new Error(`Connect your ${tunnel.fromChain} wallet first`);
           const check = await activeProvider.checkPayable(BigInt(txIdStr), TUNNEL_MARGIN_BLOCKS);
           if (!check.ok) throw new Error(check.reason);
           // The buy must be the one the operator promised: for this user's
@@ -943,19 +903,19 @@ export default function ConvertTransactionPage() {
           const want = tunnel.token && tunnel.token !== "native" ? tunnel.token.toLowerCase() : null;
           const sameToken = want ? check.token.toLowerCase() === want : /^0x0{40}$/i.test(check.token);
           if (!tunnel.amountOut || !sameUser || !sameToken || check.amount !== BigInt(tunnel.amountOut) || check.sats !== BigInt(tunnel.sats))
-              throw new Error(locale === "en" ? "This buy is not the one the operator promised you: do not sell." : "Pembelian ini bukan yang dijanjikan operator kepada Anda: jangan jual.");
+              throw new Error("This buy is not the one the operator promised you: do not sell.");
           // A sale already paying this buy (signed before, its record lost):
           // a second would be lost, since the buy pays out once.
           const existing = await source.sellPaying(check.address);
           if (existing !== null) {
               setTunnelSell(tunnel.toChain, tunnel.buyId, existing.toString());
               await fetchData(false);
-              throw new Error(locale === "en" ? `You already signed this sale (swap ${existing}): do not sign again.` : `Anda sudah menandatangani penjualan ini (swap ${existing}): jangan tandatangani lagi.`);
+              throw new Error(`You already signed this sale (swap ${existing}): do not sign again.`);
           }
           const sellId = await source.tunnelSell({ token: tunnel.fromToken ?? "native", amount: BigInt(tunnel.amountIn), sats: check.sats, to: check.address, window: check.payBlocks });
           setTunnelSell(tunnel.toChain, tunnel.buyId, sellId.toString());
           setTxid(null);
-          setMsg(locale === "en" ? "Deposit signed. Converting now; this page follows the progress." : "Deposit ditandatangani. Konversi berjalan; halaman ini mengikuti prosesnya.");
+          setMsg("Deposit signed. Converting now; this page follows the progress.");
           await fetchData(false);
       } catch (e: any) {
           console.error(e);
@@ -1006,7 +966,7 @@ export default function ConvertTransactionPage() {
       try {
         const last = Number(localStorage.getItem(payKey) ?? 0);
         if (Date.now() - last < 3 * 60_000) {
-          setError(locale === "en" ? "A payment was just sent from this browser. Check your Bitcoin wallet before paying again." : "Pembayaran baru saja dikirim dari browser ini. Periksa dompet Bitcoin Anda sebelum membayar lagi.");
+          setError("A payment was just sent from this browser. Check your Bitcoin wallet before paying again.");
           return;
         }
       } catch {}
@@ -1017,7 +977,7 @@ export default function ConvertTransactionPage() {
       }
       // The fastest fee is known once the wallet has read fees.
       if (!bitcoinWallet.estimatedFee?.fetched || !bitcoinWallet.estimatedFee?.high) {
-        setError(locale === "en" ? "Bitcoin fees are still loading: try again in a moment." : "Biaya Bitcoin masih dimuat: coba lagi sebentar lagi.");
+        setError("Bitcoin fees are still loading: try again in a moment.");
         return;
       }
       try { localStorage.setItem(payKey, String(Date.now())); } catch {}
@@ -1037,13 +997,15 @@ export default function ConvertTransactionPage() {
     }
   };
 
-  const TopRightTimer = () => {
+  // A plain render function, not a component: defined here, it would be a
+  // new component (and remount) on every render.
+  const renderTopRightTimer = () => {
     const { timeLeft, blocksLeft, blockLabel, isTimeExpired, isBlockExpired } = timerData;
     if (!timeLeft && blocksLeft === null) return null;
 
     const timeLabel = (phase === TxPhase.WAITING_OPERATOR_APPROVAL) 
-        ? (locale === "en" ? "Connecting Timeout In" : "Percobaan Menghubungkan Berakhir Dalam") 
-        : (locale === "en" ? "Connection Timeout In" : "Koneksi Berakhir Dalam");
+        ? ("Connecting Timeout In") 
+        : ("Connection Timeout In");
 
     return (
         <div className="flex flex-col items-end gap-1.5 text-right animate-fade-in">
@@ -1053,7 +1015,7 @@ export default function ConvertTransactionPage() {
                     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${blocksLeft <= 2 ? 'bg-red-50 border-red-200 text-red-600' : `${bgFlip} ${borderFlip} ${colorFlip}`}`}>
                         <FaCube size={8} className={blocksLeft <= 2 ? 'animate-pulse' : ''} />
                         <span className="text-[10px] font-mono font-black">
-                           {isBlockExpired ? (locale === "en" ? "EXPIRED" : "KEDALUWARSA") : (locale === "en" ? `${blocksLeft} ${blocksLeft === 1 ? "Block" : "Blocks"}` : `${blocksLeft} Blok`)}
+                           {isBlockExpired ? ("EXPIRED") : (`${blocksLeft} ${blocksLeft === 1 ? "Block" : "Blocks"}`)}
                         </span>
                     </div>
                 </div>
@@ -1065,7 +1027,7 @@ export default function ConvertTransactionPage() {
                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${isTimeExpired? 'bg-red-50 border-red-200 text-red-600' : `${bgFlip} ${borderFlip} ${colorFlip}`}`}>
                         <FaClock size={8} className={isTimeExpired  ? 'animate-pulse' : ''} />
                         <span className="text-[10px] font-mono font-black">
-                           {isTimeExpired ? (locale === "en" ? "EXPIRED" : "KEDALUWARSA") : timeLeft}
+                           {isTimeExpired ? ("EXPIRED") : timeLeft}
                         </span>
                     </div>
                 </div>
@@ -1085,7 +1047,7 @@ export default function ConvertTransactionPage() {
     );
   } else if (!conversion) return  <div className="flex justify-center items-center h-[60vh]"><div className="text-center space-y-3"><p className="text-sm text-gray-500">{"No transaction found"}</p></div></div>
 
-  if (!isAuthorized || !isAllFulfilled) {
+  if (!isAuthorized) {
     const currentNetworkName = network == "bitcoin" ? "Bitcoin" : networkConfigs.find((n) => n.id === activeProvider.ipowNetworkId)?.name || "Unknown Network";
     const handleShareLink = () => navigator.clipboard.writeText(window.location.href);
 
@@ -1099,42 +1061,17 @@ export default function ConvertTransactionPage() {
             {network === "bitcoin" ? <BitcoinConnectButton /> : network === "ethereum" ? <EthereumConnectButton /> : network === "solana" ? <SolanaConnectButton /> : network === "base" ? <BaseConnectButton /> : network === "robinhood" ? <RobinhoodConnectButton /> : network === "hyperliquid" ? <HyperliquidConnectButton /> : null}
         </div>
 
-           <div className="max-w-2xl mx-auto mt-4">
-            {!isAllFulfilled && (
-               <div className="flex flex-col gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 animate-pulse">
-            <div className="flex items-start gap-3">
-                  <Icon icon="solar:danger-triangle-bold" className="text-red-500 text-xl shrink-0 mt-0.5" />
-                       <div className="flex flex-col gap-0.5">
-                         <p className="text-xs font-bold text-red-500 uppercase tracking-widest">{t("text26")}</p>
-                         <p className="text-[11px] font-bold leading-relaxed">{dynamicMismatchText}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleSwitchAll}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white rounded-xl text-xs font-bold hover:bg-red-600 transition-all shadow-lg active:scale-[0.98]"
-                >
-                  {mismatches.length > 1 ? t("text185") : t("text153")}
-                </button>
-              </div>
-            )}
-        </div> 
         <div className={`bgBox glass-card p-6 shadow-lg max-w-2xl mx-auto mt-8`}>
              <div className="p-5 glass-card shadow-buttonNav! flex justify-center items-center mx-auto w-28 h-28 rounded-full">
                            <Icon icon="iconoir:wallet-solid" className={`text-6xl  ${colorFlip} text-end`}/>
                          </div>
              <h2 className="text-xl font-bold text-center pt-3">{t("text250")}</h2>
             <p className="text-sm mb-10 leading-relaxed px-4 justify-center text-center">
-               {locale === "en" ? (
+               {(
   <>
     To view and manage this transaction, please connect the correct
     <span className={`font-bold ${colorFlip}`}> {currentNetworkName} </span> 
     wallet and network mode used for this Transaction.
-  </>
-) : (
-  <>
-    Untuk melihat dan mengelola transaksi ini, harap hubungkan dompet dan mode jaringan
-    <span className={`font-bold ${colorFlip}`}> {currentNetworkName} </span> 
-    yang benar yang digunakan untuk transaksi ini.
   </>
 )}
             </p>
@@ -1286,7 +1223,7 @@ let toAddressDisplay = destAsset.address;
         </div>
         <p className="text-xs">{statusInfo.desc}</p>
     </div>
-    <TopRightTimer />
+    {renderTopRightTimer()}
 </div>
           
           <div className="px-2 md:px-8 py-5 border-b  flex justify-between items-center ">
@@ -1404,11 +1341,11 @@ let toAddressDisplay = destAsset.address;
             <h4 className={`text-xs font-bold ${colorFlip} uppercase flex items-center gap-1.5`}>
                       
               <FaCube className={`${colorFlip}`}/> 
-              {locale === "en" ? "Trustless Chain Verification" : "Verifikasi Bockchain Secara Trustless"}
+              {"Trustless Chain Verification"}
             </h4>
 
            <p className="text-[10px] mt-1 max-w-sm leading-tight">
-  {locale === "en" ? (
+  {(
     <>
       The smart contract acts as a Bitcoin Light Client. It mathematically verifies the{" "}
       <strong 
@@ -1425,24 +1362,6 @@ let toAddressDisplay = destAsset.address;
         Anchor <FaInfoCircle size={9} className="opacity-50"/>
       </strong>
       , and streams headers to prove the transaction.
-    </>
-  ) : (
-    <>
-      Smart contract bertindak sebagai Bitcoin Light Client. Ini memverifikasi secara matematis{" "}
-      <strong 
-        onClick={() => setActiveInfoTerm('epochStart')}
-        className={`${colorFlip} cursor-pointer inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity`}
-      >
-        Awal Epoch <FaInfoCircle size={9} className="opacity-50"/>
-      </strong>
-      , menghubungkannya ke{" "}
-      <strong 
-        onClick={() => setActiveInfoTerm('anchor')}
-        className={`${colorFlip} cursor-pointer inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity`}
-      >
-        Anchor <FaInfoCircle size={9} className="opacity-50"/>
-      </strong>
-      , dan menyiarkan header untuk membuktikan transaksi.
     </>
   )}
 </p>
@@ -1605,7 +1524,7 @@ let toAddressDisplay = destAsset.address;
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
-                      {locale == "en" ? "Bitcoin Linked Program" : "Bitcoin Program Terikat"}
+                      {"Bitcoin Linked Program"}
                     </span>
                     <a href={`https://mempool.space/address/${btcAddressOf(isOutbound ? conversion.userProgram : conversion.ipowReceiveProgram) ?? ""}`} target="_blank" className={`flex items-center gap-1 text-[9px] hover:underline text-black font-bold`}>
                       {t("text255")} <FaLink size={8}/>
@@ -1621,7 +1540,7 @@ let toAddressDisplay = destAsset.address;
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
-                      {locale == "en" ? "Proof Submitted" : "Proof yang Dikirim"} 
+                      {"Proof Submitted"} 
                     </span>
                     <a href={`https://mempool.space/tx/${swapEndian(proofData.txidLE)}`} target="_blank" rel="noreferrer" className={`flex items-center gap-1 text-[9px] text-black hover:underline font-bold`}>
                       {t("text255")} <FaLink/>
@@ -1633,7 +1552,7 @@ let toAddressDisplay = destAsset.address;
                       <span className="font-mono text-gray-800 truncate ml-2">{swapEndian(proofData.txidLE)}</span>
                     </div>
                     <div className="flex justify-between text-[9px]">
-                      <span className="text-gray-500">{locale == "en" ? "Attempts" : "Percobaan"}:</span>
+                      <span className="text-gray-500">{"Attempts"}:</span>
                       <span className="font-mono text-gray-800">{proofData.attempts}</span>
                     </div>
                    <div className="flex justify-between text-[9px]">
@@ -1663,9 +1582,7 @@ let toAddressDisplay = destAsset.address;
              {(conversion.phase === TxPhase.OPERATOR_APPROVAL_EXPIRED && network !== "bitcoin") && (
               <div className="pt-4 text-center space-y-2">
                   <p className="text-[11px] sm:text-xs opacity-80">
-                    {locale === "en"
-                      ? "The fee goes to your credit, to withdraw in one step afterwards."
-                      : "Biayanya masuk ke kredit Anda, untuk ditarik dalam satu langkah setelahnya."}
+                    {"The fee goes to your credit, to withdraw in one step afterwards."}
                   </p>
                   <Button chain={network} buttonText={t("text256")} onClick={() => handleAction('refund_approval')} disabled={busy} />
               </div>
@@ -1681,13 +1598,11 @@ let toAddressDisplay = destAsset.address;
                       // needs, from the tip (about 10 minutes a block).
                       const tip = Number(extraData?.tipHeight || 0);
                       const left = conversion.payBlocks && tip ? Math.max(0, conversion.payBlocks.last - TUNNEL_MARGIN_BLOCKS - tip) : null;
-                      const open = left === null ? (locale === "en" ? "for a limited time" : "untuk waktu terbatas") : locale === "en" ? `for about ${left * 10} more minutes` : `sekitar ${left * 10} menit lagi`;
-                      return locale === "en"
-                        ? `${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""} is reserved for you. Deposit ${sourceAsset.amountFmt} ${sourceAsset.nativeToken?.symbol ?? ""} on ${partnerNet?.name ?? conversion.tunnel.tunnel.fromChain} to complete the conversion. The tunnel stays open ${open}.`
-                        : `${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""} sudah disediakan untuk Anda. Deposit ${sourceAsset.amountFmt} ${sourceAsset.nativeToken?.symbol ?? ""} di ${partnerNet?.name ?? conversion.tunnel.tunnel.fromChain} untuk menyelesaikan konversi. Terowongan terbuka ${open}.`;
+                      const open = left === null ? ("for a limited time") : `for about ${left * 10} more minutes`;
+                      return `${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""} is reserved for you. Deposit ${sourceAsset.amountFmt} ${sourceAsset.nativeToken?.symbol ?? ""} on ${partnerNet?.name ?? conversion.tunnel.tunnel.fromChain} to complete the conversion. The tunnel stays open ${open}.`;
                     })()}
                   </p>
-                  <Button chain={network} buttonText={busy ? t("text10") : `${locale === "en" ? "Deposit on" : "Deposit di"} ${partnerNet?.name ?? ""}`} onClick={() => startTunnelSell()} disabled={busy} />
+                  <Button chain={network} buttonText={busy ? t("text10") : `${"Deposit on"} ${partnerNet?.name ?? ""}`} onClick={() => startTunnelSell()} disabled={busy} />
               </div>
           )}
 
@@ -1788,11 +1703,9 @@ let toAddressDisplay = destAsset.address;
             {(network !== 'bitcoin' && !isOutbound && conversion.completable) && (
                 <div className="text-center space-y-2">
                     <p className="text-[11px] sm:text-xs">
-                        {locale === "en"
-                          ? "The operator's receipt of your payment is proven. Take your coin now, or wait for the operator to send it."
-                          : "Tanda terima operator atas pembayaran Anda sudah terbukti. Ambil koin Anda sekarang, atau tunggu operator mengirimnya."}
+                        {"The operator's receipt of your payment is proven. Take your coin now, or wait for the operator to send it."}
                     </p>
-                    <Button chain={network} buttonText={busy ? t("text10") : `${locale === "en" ? "Claim" : "Ambil"} ${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""}`} onClick={() => handleAction('complete')} disabled={busy} />
+                    <Button chain={network} buttonText={busy ? t("text10") : `${"Claim"} ${destAsset.amountFmt} ${destAsset.nativeToken?.symbol ?? ""}`} onClick={() => handleAction('complete')} disabled={busy} />
                 </div>
             )}
         </div>
@@ -1806,11 +1719,11 @@ let toAddressDisplay = destAsset.address;
   {(feeCredit > BigInt(0) && network !== "bitcoin") && (
     <div className="mt-6 p-4 rounded-xl border border-black/10 bg-white flex items-center justify-between gap-4">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{locale === "en" ? "Refund available" : "Pengembalian tersedia"}</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">{"Refund available"}</p>
         <p className="text-sm">{formatAmt(feeCredit.toString(), contractNet0?.nativeToken.decimals || 18)} {contractNet0?.nativeToken.symbol}</p>
-        <p className="text-[11px] opacity-70">{locale === "en" ? "The fees of your conversions that nobody took, in one claim." : "Biaya konversi Anda yang tidak diambil siapa pun, dalam satu klaim."}</p>
+        <p className="text-[11px] opacity-70">{"The fees of your conversions that nobody took, in one claim."}</p>
       </div>
-      <Button chain={network} buttonText={busy ? t("text10") : (locale === "en" ? "Claim refund" : "Klaim pengembalian")} onClick={() => withdrawFeeCredit()} disabled={busy} />
+      <Button chain={network} buttonText={busy ? t("text10") : ("Claim refund")} onClick={() => withdrawFeeCredit()} disabled={busy} />
     </div>
   )}
 
@@ -1821,7 +1734,6 @@ let toAddressDisplay = destAsset.address;
     partner={partnerConversion}
     partnerChain={(partnerNet0?.key as any) ?? null}
     partnerExplorer={partnerNet0?.key ? (sourceWalletOf(partnerNet0.key)?.networkExplorer ?? null) : null}
-    locale={locale}
   />
 
   <div className="w-30 pt-5">
@@ -1905,8 +1817,8 @@ let toAddressDisplay = destAsset.address;
           <InformationPopUp
             isOpen={!!activeInfoTerm}
             onClose={() => setActiveInfoTerm(null)}
-            title={activeInfoTerm ? PROTOCOL_TERMS[activeInfoTerm][locale as "en" | "id"]?.title : ""}
-            description={activeInfoTerm ? PROTOCOL_TERMS[activeInfoTerm][locale as "en" | "id"]?.description : ""}
+            title={activeInfoTerm ? PROTOCOL_TERMS[activeInfoTerm].en.title : ""}
+            description={activeInfoTerm ? PROTOCOL_TERMS[activeInfoTerm].en.description : ""}
             image={null}
           />
           </div>

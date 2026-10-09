@@ -12,7 +12,7 @@ import {
 } from "react";
 import * as bitcoin from "bitcoinjs-lib";
 import { bitcoinnetwork } from "@/index";
-import { useNetwork } from "@/app/network-provider";
+import { nativeUsdPrice } from "@/components/integrator/ipow/coinPrices";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 import { bitcoin as btcMainnet } from "@reown/appkit/networks";
 import { appKit } from "../walletconnect/wallet-connect-provider";
@@ -72,7 +72,6 @@ const BitcoinWalletContext = createContext<BitcoinWalletContextType>({
   networkName: "Bitcoin",
   networkDescription: {},
   networkLogo: bitcoinnetwork,
-  selfCustodyParameter: {},
   selectedAccount: null,
   price: {},
   networkExplorer: {},
@@ -101,21 +100,11 @@ export function BitcoinProvider({ children }: { children: ReactNode }) {
   const { walletProvider: akProvider } = useAppKitProvider("bip122");
   const [walletType, setWalletType] = useState<BitcoinWalletType | null>(null);
 
+  // Bitcoin mainnet, always: iPoW anchors to real Bitcoin (its light client accepts only
+  // real Bitcoin headers), so Greatwall has no Bitcoin testnet.
   const currentNetworkConfig = useMemo(() => {
     return appConfig.networks.mainnet 
   }, []);
-
-  const { bitcoinMainnet } = useNetwork();
-  const isMainnet = bitcoinMainnet;
-
-const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>({
-  network: "BITCOIN",
-   env: isMainnet ? "MAINNET" : "TESTNET",
-  tokens: [
-
-  ],
-  fetched: false,
-});
 
 
   const [connected, setConnected] = useState(false);
@@ -181,7 +170,6 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
         akConnected && allAccounts?.some((acc) => acc.namespace === "bip122");
 
       if (!hasBtcSession || !akProvider) {
-        console.log("Bitcoin session overwritten. Reconnecting...");
         await connect("walletconnect", true);
       }
       return akProvider;
@@ -218,7 +206,7 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
           );
           const storedType = localStorage.getItem(`btcSelectedType_${netKey}`);
 
-          let preferred =
+          const preferred =
             mapped.find((a) => a.address === storedAddr) ||
             mapped.find((a) => a.addressType === storedType) ||
             mapped.find((a) => a.addressType === "p2wpkh") ||
@@ -266,7 +254,7 @@ const [selfCustodyParameter, setSelfCustodyParameter] = useState<CustodyParams>(
           );
           const storedType = localStorage.getItem(`btcSelectedType_${netKey}`);
 
-          let preferred =
+          const preferred =
             mapped.find((a) => a.address === storedAddr) ||
             mapped.find((a) => a.addressType === storedType) ||
             mapped.find((a) => a.addressType === "p2wpkh") ||
@@ -428,9 +416,7 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
         selectedFee: prev.selectedFee,
       }));
     } catch (err: any) {
-      if (err.name === "AbortError") {
-        console.log(`[Abort] Cancelled fee estimation for ${selectedAccount.address}`);
-      } else {
+      if (err.name !== "AbortError") {
         console.error("Failed to estimate fees:", err);
       }
     }
@@ -688,29 +674,17 @@ const fetchBalance = useCallback(async (signal?: AbortSignal) => {
       
       setBalance({ confirmed, unconfirmed, fetched: true, tokens: []});
     } catch (err: any) {
-      if (err.name === "AbortError") {
-        console.log(`[Abort] Cancelled balance fetch for ${selectedAccount.address}`);
-      } else {
+      if (err.name !== "AbortError") {
         console.error("Failed to fetch balance:", err);
       }
     }
   }, [selectedAccount?.address, currentNetworkConfig.jsonRpcUrl]); 
 
-  const favoriteTimers = useRef<Record<number, NodeJS.Timeout>>({});
 
+  // The native coin's market price (coinPrices.ts, through /api/prices).
   const fetchPrice = async () => {
-    try {
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-      const response = await fetch(`/api/token-price?token=BTC&env=${envMode}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = await response.json();
-      setPrice(data);
-    } catch (error) {
-      console.error("Error fetching price:", error);
-    }
+    const p = await nativeUsdPrice("BTC");
+    if (p) setPrice(p as any);
   };
 
   const syncRef = useRef<string>("");
@@ -749,7 +723,7 @@ const fetchBalance = useCallback(async (signal?: AbortSignal) => {
         const storedAddr = localStorage.getItem(`btcSelectedAddress_${netKey}`);
         const storedType = localStorage.getItem(`btcSelectedType_${netKey}`);
 
-        let preferred =
+        const preferred =
           mappedAccounts.find((a) => a.address === storedAddr) ||
           mappedAccounts.find((a) => a.addressType === storedType) ||
           mappedAccounts.find((a) => a.addressType === "p2wpkh") ||
@@ -769,59 +743,8 @@ const fetchBalance = useCallback(async (signal?: AbortSignal) => {
         );
       }
     }
-  }, [akConnected, allAccounts, akProvider, walletType, isMainnet]);
+  }, [akConnected, allAccounts, akProvider, walletType]);
 
-useEffect(() => {
-  setSelfCustodyParameter((prev) => ({ ...prev, tokens: [], fetched: false }));
-
-  let cancelled = false;
-  let quickRetries = 0;
-  const MAX_QUICK_RETRIES = 4;
-  const QUICK_RETRY_DELAY_MS = 2000;
-
-  const fetchSelfCustodyConstraints = async () => {
-    try {
-
-      const currentNetwork = "BITCOIN";
-      const envMode = isMainnet ? "MAINNET" : "TESTNET";
-
-      const response = await fetch(
-        `/api/transaction/constraints/?network=${currentNetwork}&env=${envMode}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-
-      const data: CustodyParams = await response.json();
-      if (cancelled) return;
-
-      if (data && data.tokens) {
-        setSelfCustodyParameter({ ...data, fetched: true });
-        return;
-      }
-    } catch (error) {
-      console.error(`Failed to fetch ${network} self-custody limits:`, error);
-    }
-
-    // A malformed/empty response shouldn't strand the UI in "still loading" for a full 5
-    // minutes (the normal poll cadence below) — retry quickly a few times first, since that's
-    // a much more plausible transient hiccup than a genuinely empty token list.
-    if (!cancelled && quickRetries < MAX_QUICK_RETRIES) {
-      quickRetries += 1;
-      setTimeout(fetchSelfCustodyConstraints, QUICK_RETRY_DELAY_MS);
-    }
-  };
-
-  fetchSelfCustodyConstraints();
-
-
-  const interval = setInterval(fetchSelfCustodyConstraints, 300000);
-  return () => {
-    cancelled = true;
-    clearInterval(interval);
-  };
-}, [isMainnet]);
 
   useEffect(() => {
     fetchPrice();
@@ -829,8 +752,7 @@ useEffect(() => {
       fetchPrice();
     }, 60000);
     return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMainnet]);
+  }, []);
 
 useEffect(() => {
     if (!selectedAccount){
@@ -849,7 +771,6 @@ useEffect(() => {
       ws = new WebSocket(networkConfig.mainnet.websocketUrl);
 
       ws.onopen = () => {
-        console.log("Connected to Mempool WebSocket");
         ws.send(JSON.stringify({ action: "track-address", address: selectedAccount.address }));
       };
 
@@ -857,7 +778,6 @@ useEffect(() => {
         try {
           const data = JSON.parse(event.data);
           if (data["address-transactions"] || data.block) {
-            console.log("Activity detected! Refetching balance & UTXOs...");
             fetchBalance();
             estimateFee(); 
           }
@@ -873,7 +793,6 @@ useEffect(() => {
 
       ws.onclose = (event) => {
         if (isMounted && !event.wasClean) {
-          console.log("WebSocket dropped. Attempting to reconnect in 5 seconds...");
           reconnectTimeout = setTimeout(connectWebSocket, 5000);
         }
       };
@@ -882,7 +801,6 @@ useEffect(() => {
     connectWebSocket();
 
     const feeInterval = setInterval(() => {
-      console.log("Polling network fees...");
       estimateFee(); 
     }, 60000);
 
@@ -918,7 +836,7 @@ useEffect(() => {
           );
           const storedType = localStorage.getItem(`btcSelectedType_${netKey}`);
 
-          let p =
+          const p =
             mapped.find((a) => a.address === storedAddr) ||
             mapped.find((a) => a.addressType === storedType) ||
             mapped.find((a) => a.addressType === "p2wpkh") ||
@@ -933,7 +851,7 @@ useEffect(() => {
       return () =>
         prov.removeListener("accountsChanged", handleAccountsChanged);
     }
-  }, [isMainnet]);
+  }, []);
 
   useEffect(() => {
     const wasConnected =
@@ -951,7 +869,7 @@ useEffect(() => {
     if (wasConnected && (savedWallet === "phantom" || savedWallet === "xverse")) {
       connect(savedWallet, true);
     }
-  }, [isMainnet, akConnected]);
+  }, [akConnected]);
   return (
     <BitcoinWalletContext.Provider
       value={{
@@ -981,10 +899,8 @@ useEffect(() => {
         networkName: "Bitcoin",
         networkDescription: {
           en: `Bitcoin runs on the world’s most secure decentralized network, powered by Proof-of-Work. It lets you store and transfer value without banks or intermediaries. Giving you full control over your real money, anytime, anywhere.`,
-          id: `Bitcoin berjalan di jaringan terdesentralisasi paling aman di dunia, didukung oleh Proof-of-Work. Jaringan Bitcoin ini memungkinkan kamu menyimpan dan mengirim nilai tanpa bank atau perantara. Memberikan kamu kendali penuh atas uang yang sebenarnya, kapan pun dan di mana pun.`,
         },
         networkLogo: bitcoinnetwork,
-        selfCustodyParameter,
         ipowConvert: "mainnet",
 
         ipowNetworkId: IPOW_NETWORK_ID,

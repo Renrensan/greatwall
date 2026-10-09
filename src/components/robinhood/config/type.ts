@@ -2,8 +2,8 @@ import type { ConvertMethods } from "@/components/integrator/ipow/convertMethods
 import { robinhoodnetwork } from "@/index";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet";
-export type ChainId = "0x1237" | "0xb626"; // 4663 mainnet, 46630 testnet
+export type NetworkName = "testnet";
+export type ChainId = "0xb626"; // 46630, Robinhood Chain testnet
 
 export type NetworkConfig = {
   network: NetworkName;
@@ -50,12 +50,11 @@ export interface RobinhoodWalletContextType extends ConvertMethods {
   decimals: number;
   ipowDecimals: number;
   networkName: "Robinhood";
-  networkDescription: {};
-  selfCustodyParameter: {};
+  networkDescription: object;
   networkLogo: typeof robinhoodnetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: RobinhoodWalletType) => Promise<void>;
   fetchETA: (

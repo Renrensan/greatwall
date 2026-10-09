@@ -13,7 +13,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { followLock, getBurn, getSolanaBurn, receiptMark, requestPaid } from "@ipow/sdk";
 
-import { ComingSoon, Notice, Row, StateChip, TICKER, coin, errorText, shortHash } from "@/subcomponents/ipow/common";
+import { ComingSoon, Notice, Row, StateChip, coin, errorText, shortHash } from "@/subcomponents/ipow/common";
 import {
   EVM_CHAINS,
   appRunsOn,
@@ -26,6 +26,8 @@ import {
   solanaVaultWith,
   type EvmChain,
 } from "@/components/integrator/ipow/sdk";
+import { evmAssetName, solanaAssetName, solanaPairOf } from "@/components/integrator/ipow/vaultAssetName";
+import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 const REFRESH_MS = 20_000;
 const ZERO = BigInt(0);
@@ -85,14 +87,14 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
     const kind = match[1];
     const number = BigInt(match[2]);
     const d = deploymentOf(chain)!;
-    const ticker = TICKER[chain];
     return async (): Promise<View> => {
       const provider = readProvider(chain);
       if (kind === "lock") {
         const j = await followLock(provider, d, number, solanaVaultOf(chain));
         const to = solanaAddress(j.lock.recipient);
+        const a = await evmAssetName(chain, solanaPairOf(chain), j.lock.asset);
         return {
-          title: t("lockTitle", { ticker }),
+          title: t("lockTitle", { ticker: a.symbol }),
           // Given up is not yet returned: the coin is back only once that is
           // carried here and the lock is returned.
           chip: j.stage === "Issued" ? "Done" : j.stage === "Returned" ? "Refunded" : "Open",
@@ -103,10 +105,10 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
             { label: t("stepCarried"), done: j.lock.stage === "Carried" },
           ],
           note: lockNote(t, j.stage, j.attests),
-          amount: `${coin(j.lock.amount, 9)} ${ticker}`,
+          amount: `${coin(j.lock.amount, a.decimals)} ${a.symbol}`,
           fee: j.lock.fee,
           fastFee: j.lock.fastFee,
-          feeSymbol: ticker,
+          feeSymbol: a.symbol,
           recipient: to ? { text: to, link: solanaExplorer("address", to) } : null,
           from: j.lock.owner,
           at: j.lock.lockedAt,
@@ -114,8 +116,9 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
       }
       const [b, paid] = await Promise.all([getBurn(provider, d, number), solanaVaultOf(chain).evmBurnPaid(number)]);
       const to = solanaAddress(b.to);
+      const a = await solanaAssetName(chain, b.asset);
       return {
-        title: t("burnTitle"),
+        title: t("receiptBack", { ticker: a.symbol }),
         chip: paid ? "Done" : "Open",
         stage: paid ? "Paid" : b.stage,
         steps: [
@@ -124,10 +127,10 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
           { label: t("stepPaidOn", { network: "Solana" }), done: paid },
         ],
         note: paid ? null : b.stage === "Carried" ? t("noteBurnCarried") : t("noteWaitingBurn"),
-        amount: `${coin(b.amount, 9)} vSOL`,
+        amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
         fee: b.fee,
         fastFee: b.fastFee,
-        feeSymbol: "vSOL",
+        feeSymbol: a.symbol,
         recipient: to ? { text: to, link: solanaExplorer("address", to) } : null,
         from: b.owner,
         at: b.at,
@@ -150,15 +153,15 @@ function SolanaTransfer() {
     const number = BigInt(match[3]);
     const d = deploymentOf(peer)!;
     const vault = solanaVaultWith(peer, null);
-    const ticker = TICKER[peer];
     const onPeer = (address: string) => ({ text: address, link: evmAddressLink(peer, address) });
     return async (): Promise<View> => {
       const provider = readProvider(peer);
       if (kind === "lock") {
         const [l, mark] = await Promise.all([vault.getLock(number), receiptMark(provider, d, number)]);
+        const a = await solanaAssetName(peer, l.asset);
         const stage = l.stage === "Returned" ? "Returned" : mark?.givenUp ? "GivenUp" : mark?.issued ? "Issued" : l.stage;
         return {
-          title: t("solTo", { network: nameOf(peer) }),
+          title: t("lockAssetFor", { symbol: a.symbol, network: nameOf(peer) }),
           chip: stage === "Issued" ? "Done" : stage === "Returned" ? "Refunded" : "Open",
           stage,
           steps: [
@@ -167,34 +170,35 @@ function SolanaTransfer() {
             { label: t("stepCarried"), done: l.stage === "Carried" },
           ],
           note: lockNote(t, stage, mark?.attests ?? 0),
-          amount: `${coin(l.amount, 9)} SOL`,
+          amount: `${coin(l.amount, a.decimals)} ${a.symbol}`,
           fee: l.fee,
           fastFee: l.fastFee,
-          feeSymbol: "SOL",
+          feeSymbol: a.symbol,
           recipient: onPeer(l.recipient),
           from: l.owner,
           at: l.lockedAt,
         };
       }
       const [b, paid] = await Promise.all([getSolanaBurn(vault, number), requestPaid(provider, d, number)]);
+      const a = await evmAssetName(peer, solanaPairOf(peer), b.asset);
       return {
-        title: t("receiptBack", { ticker }),
+        title: t("receiptBack", { ticker: a.symbol }),
         chip: paid ? "Done" : "Open",
         stage: paid ? "Paid" : b.stage,
         steps: [
-          { label: t("stepBurnedHere", { symbol: `v${ticker}` }), done: true },
+          { label: t("stepBurnedHere", { symbol: a.symbol }), done: true },
           { label: t("stepBurnCarried"), done: b.stage === "Carried" },
           { label: t("stepPaidOn", { network: nameOf(peer) }), done: paid },
         ],
         note: paid
           ? null
           : b.stage === "Carried"
-            ? t("noteBurnCarriedEvm", { network: nameOf(peer), ticker })
+            ? t("noteBurnCarriedEvm", { network: nameOf(peer), ticker: a.symbol })
             : t("noteWaitingBurnEvm", { network: nameOf(peer) }),
-        amount: `${coin(b.amount, 9)} v${ticker}`,
+        amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
         fee: b.fee,
         fastFee: b.fastFee,
-        feeSymbol: `v${ticker}`,
+        feeSymbol: a.symbol,
         recipient: onPeer(b.to),
         from: b.owner,
         at: b.at,
@@ -218,6 +222,7 @@ function evmAddressLink(chain: EvmChain, address: string): string {
     base: "https://sepolia.basescan.org/address/",
     robinhood: "https://explorer.testnet.chain.robinhood.com/address/",
     hyperliquid: "https://testnet.purrsec.com/address/",
+    arbitrum: "https://sepolia.arbiscan.io/address/",
   };
   return base[chain] + address;
 }
@@ -233,7 +238,7 @@ function TransferView({ chain, read }: { chain: string; read: (() => Promise<Vie
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto">
-      <Link href={`/${locale}/${chain}/bridge/history`} className="text-xs sm:text-sm opacity-70 hover:opacity-100">
+      <Link href={lockPath(locale, chain, "history")} className="text-xs sm:text-sm opacity-70 hover:opacity-100">
         ← {t("backToHistory")}
       </Link>
 

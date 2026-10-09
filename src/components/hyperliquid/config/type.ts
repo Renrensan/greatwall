@@ -2,8 +2,8 @@ import type { ConvertMethods } from "@/components/integrator/ipow/convertMethods
 import { hyperliquidnetwork } from "@/index";
 import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-validation";
 
-export type NetworkName = "testnet" | "mainnet";
-export type ChainId = "0x3e7" | "0x3e6"; // 999 mainnet, 998 testnet
+export type NetworkName = "testnet";
+export type ChainId = "0x3e6"; // 998, Hyperliquid testnet
 
 export type NetworkConfig = {
   network: NetworkName;
@@ -50,12 +50,11 @@ export interface HyperliquidWalletContextType extends ConvertMethods {
   decimals: number;
   ipowDecimals: number;
   networkName: "Hyperliquid";
-  networkDescription: {};
-  selfCustodyParameter: {};
+  networkDescription: object;
   networkLogo: typeof hyperliquidnetwork;
-  price: {} | null;
-  networkExplorer: {};
-  ipowConvert: "testnet" | "mainnet" | "comingsoon";
+  price: object | null;
+  networkExplorer: object;
+  ipowConvert: "testnet" | "comingsoon";
   ipowNetworkId: number;
   connect: (wallet: HyperliquidWalletType) => Promise<void>;
   fetchETA: (

@@ -30,6 +30,7 @@ const NODE_NETWORK: Partial<Record<SupportedChain, string>> = {
   base: process.env.NEXT_PUBLIC_TUNNEL_NETWORK_BASE ?? "base-sepolia",
   robinhood: process.env.NEXT_PUBLIC_TUNNEL_NETWORK_ROBINHOOD ?? "robinhood-testnet",
   hyperliquid: process.env.NEXT_PUBLIC_TUNNEL_NETWORK_HYPERLIQUID ?? "hyperliquid-testnet",
+  arbitrum: process.env.NEXT_PUBLIC_TUNNEL_NETWORK_ARBITRUM ?? "arbitrum-sepolia",
 };
 
 function nodeName(chain: SupportedChain): string {
@@ -150,11 +151,6 @@ function save(list: Tunnel[]) {
 
 export function saveTunnel(t: Omit<Tunnel, "at" | "sellId">) {
   save([{ ...t, sellId: null, at: Date.now() }, ...all().filter((x) => !(x.toChain === t.toChain && x.buyId === t.buyId))]);
-}
-
-/** Forgets a buy the operator did not take as a tunnel's. */
-export function removeTunnel(toChain: SupportedChain, buyId: string) {
-  save(all().filter((x) => !(x.toChain === toChain && x.buyId === buyId)));
 }
 
 export function setTunnelSell(toChain: SupportedChain, buyId: string, sellId: string) {

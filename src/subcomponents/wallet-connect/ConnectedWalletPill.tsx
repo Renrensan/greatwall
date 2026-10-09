@@ -6,14 +6,15 @@ export function ConnectedWalletPill({
   icon,
   alt,
   label,
-  isMainnet,
+  testnet = true,
   className,
   onClick,
 }: {
   icon: StaticImageData;
   alt: string;
   label: string;
-  isMainnet: boolean;
+  /** Orange for a test network; green for Bitcoin, the one real network. */
+  testnet?: boolean;
   className: string;
   onClick: () => void;
 }) {
@@ -23,10 +24,10 @@ export function ConnectedWalletPill({
       {label}
       <span className="relative flex h-2 w-2 ml-1">
         <span
-          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isMainnet ? "bg-green-400" : "bg-orange-400"}`}
+          className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${testnet ? "bg-orange-400" : "bg-green-400"}`}
         ></span>
         <span
-          className={`relative inline-flex rounded-full h-2 w-2 ${isMainnet ? "bg-green-500" : "bg-orange-500"}`}
+          className={`relative inline-flex rounded-full h-2 w-2 ${testnet ? "bg-orange-500" : "bg-green-500"}`}
         ></span>
       </span>
     </button>

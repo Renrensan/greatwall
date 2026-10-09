@@ -26,12 +26,6 @@ export function rememberBasket(baskets: string, key: string) {
   } catch {}
 }
 
-export function forgetBasket(baskets: string, key: string) {
-  try {
-    localStorage.setItem(keyOf(baskets), JSON.stringify(knownBaskets(baskets).filter((k) => !same(k, key))));
-  } catch {}
-}
-
 export const isBasketKey = (key: string) => /^0x[0-9a-fA-F]{64}$/.test(key.trim());
 
 /** A Solana basket: an account address, 32 bytes in base58. */

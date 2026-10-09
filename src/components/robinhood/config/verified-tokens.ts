@@ -1,9 +1,5 @@
-// Empty for now — Robinhood Chain's main use case (tokenized equities/ETFs) involves
-// RWA-issuance contracts specific to Robinhood's own registry, unlike a simple dominant
-// stablecoin (USDT0 on Hyperliquid, USDT on Tron). Rather than guess at a tokenized-stock
-// contract address, this starts native-ETH-only; add entries here once specific tokens are
-// verified live (contract code + symbol()/decimals() via eth_call), same process used for
-// every other chain's allowlist.
+// Same rationale as Ethereum's verified-tokens.ts: a small, hand-curated allowlist rather
+// than a full external list. Greatwall's mock RWA tokens on Robinhood Chain testnet.
 export interface VerifiedErc20Token {
   address: string;
   symbol: string;
@@ -12,8 +8,7 @@ export interface VerifiedErc20Token {
   logo?: string;
 }
 
-export const VERIFIED_ERC20_TOKENS: Record<"mainnet" | "testnet", VerifiedErc20Token[]> = {
-  mainnet: [],
+export const VERIFIED_ERC20_TOKENS: Record<"testnet", VerifiedErc20Token[]> = {
   testnet: [
     // Greatwall's mock RWA tokens (iPoW repo, deployments/robinhood-testnet-rwa.json,
     // 2026-10-05): stand-ins for real tokenized assets, with a faucet in the token itself.

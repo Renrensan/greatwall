@@ -1,7 +1,6 @@
 "use client";
 
 import { useBitcoinWallet, XVERSE_PROVIDER_ID } from "@/components/bitcoin/bitcoin-provider";
-import Image from "next/image";
 import { xverse, walletconnect } from "..";
 import { isProviderInstalled } from "sats-connect";
 import { XVERSE_INSTALL_LINKS } from "./wallet-connect/wallet-install-links";
@@ -13,7 +12,6 @@ import { VscDebugDisconnect } from "react-icons/vsc";
 import { MdOutlineChangeCircle } from "react-icons/md";
 import { IoCopyOutline, IoWalletOutline } from "react-icons/io5";
 import ButtonContrast from "./ButtonContrast";
-import { useNetwork } from "@/app/network-provider";
 import { AnimatedModalNavbar } from "./AnimatedModalNavbar";
 import { BitcoinWalletType } from "@/components/bitcoin/config";
 import { ellipsifyAddress } from "./wallet-connect/ellipsify";
@@ -21,7 +19,6 @@ import { BITCOIN_WALLET_ICONS } from "./wallet-connect/wallet-icons";
 import { ConnectingButton } from "./wallet-connect/ConnectingButton";
 import { ConnectedWalletPill } from "./wallet-connect/ConnectedWalletPill";
 import { WalletListItem } from "./wallet-connect/WalletListItem";
-import { MainnetToggleRow } from "./wallet-connect/MainnetToggleRow";
 import { NetworkStatusCard, SettingsRow } from "./wallet-connect/WalletSettingsRows";
 
 interface BitcoinConnectButtonProps {
@@ -34,7 +31,6 @@ export function BitcoinConnectButton({
   setIsOpen,
 }: BitcoinConnectButtonProps) {
   const t = useTranslations("All");
-  const { bitcoinMainnet, setBitcoinMainnet } = useNetwork();
 
   const {
     connected,
@@ -115,7 +111,7 @@ export function BitcoinConnectButton({
           icon={walletType ? BITCOIN_WALLET_ICONS[walletType] : walletconnect}
           alt="icon"
           label={ellipsifyAddress(address!)}
-          isMainnet={bitcoinMainnet}
+          testnet={false}
           className="gw-wallet-pill"
           onClick={toggleSettings}
         />
@@ -123,7 +119,6 @@ export function BitcoinConnectButton({
 
       <BitcoinSettingsSheet
         isOpen={settingsOpen && connected}
-        isMainnet={bitcoinMainnet}
         address={address!}
         accounts={accounts}
         onCopy={handleCopy}
@@ -141,8 +136,6 @@ export function BitcoinConnectButton({
         title={t("text35")}
         subtitle={connected ? t("text220") : t("text36")}
         detected={detected}
-        isMainnet={bitcoinMainnet}
-        setIsMainnet={setBitcoinMainnet}
         onSelect={connected ? handleSwitchWallet : handleConnect}
         onClose={() => setWalletSheetOpen(false)}
       />
@@ -155,8 +148,6 @@ function BitcoinWalletSheet({
   title,
   subtitle,
   detected,
-  isMainnet,
-  setIsMainnet,
   onSelect,
   onClose,
 }: any) {
@@ -173,14 +164,6 @@ function BitcoinWalletSheet({
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-[12px] opacity-70">{subtitle}</p>
         </div>
-
-        <MainnetToggleRow
-          heading={t("text37")}
-          isMainnet={isMainnet}
-          onChange={setIsMainnet}
-        />
-
-        <hr className="border-black/5 mb-6" />
 
         <div className="flex flex-col gap-3 py-2">
           {detected.xverse && (
@@ -215,7 +198,6 @@ function BitcoinWalletSheet({
 
 function BitcoinSettingsSheet({
   isOpen,
-  isMainnet,
   onCopy,
   onDisconnect,
   onChangeWallet,
@@ -246,8 +228,8 @@ function BitcoinSettingsSheet({
         <div className="flex flex-col gap-3 py-2">
           <NetworkStatusCard
             label={t("text151")}
-            isMainnet={isMainnet}
-            borderClassName="border-black/20"
+            testnet={false}
+           
             pulse={false}
           />
 
