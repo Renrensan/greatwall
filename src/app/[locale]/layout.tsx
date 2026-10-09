@@ -33,27 +33,17 @@ const wordmark = localFont({
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
-// Body and UI: BDO Grotesk once its files are in src/assets/fonts/bdo-grotesk
-// (Light 300, Regular 400, Medium 500, DemiBold 600, Bold 700, ExtraBold
-// 800, Black 900 as .woff2). Until then TASA Orbiter stands in. To switch:
-// replace the block below with
-//   const sans = localFont({
-//     src: [
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Light.woff2", weight: "300", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2", weight: "400", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Medium.woff2", weight: "500", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-DemiBold.woff2", weight: "600", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Bold.woff2", weight: "700", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-ExtraBold.woff2", weight: "800", style: "normal" },
-//       { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Black.woff2", weight: "900", style: "normal" },
-//     ],
-//     variable: "--font-sans-body",
-//     display: "swap",
-//     fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
-//   });
+// Body and UI: BDO Grotesk, self-hosted (src/assets/fonts/bdo-grotesk).
 const sans = localFont({
-  src: "../../assets/fonts/TASAOrbiter-Variable.ttf",
-  weight: "400 800",
+  src: [
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Light.woff2", weight: "300", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-DemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Bold.woff2", weight: "700", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-ExtraBold.woff2", weight: "800", style: "normal" },
+    { path: "../../assets/fonts/bdo-grotesk/BDOGrotesk-Black.woff2", weight: "900", style: "normal" },
+  ],
   variable: "--font-sans-body",
   display: "swap",
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],

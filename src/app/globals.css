@@ -20,6 +20,31 @@
   --color-paper: #fefaf3; /* cards, inputs, elevated surfaces */
   --color-sand: #fbf9f1; /* tertiary surfaces, light button fill */
   --color-well: #efece5; /* surfaces set inside a paper box (tabs, fields) */
+  /* The names of the brand-guidelines branch (main), kept as aliases. */
+  --font-headline: var(--font-serif);
+  --font-body-brand: var(--font-sans);
+  --color-gw-charcoal: var(--color-ink);
+  --color-gw-warm-dark: var(--color-warm);
+  --color-gw-muted: var(--color-stone);
+  --color-gw-off-white: var(--color-sand);
+  --color-gw-bg: var(--color-cream);
+  --color-gw-surface: var(--color-paper);
+  /* Each network's brand color. */
+  --color-bitcoin: #f7931a;
+  --color-hedera: #000000;
+  --color-solana: #8c52ff;
+  --color-ethereum: #7581aa;
+  --color-polkadot: #000000;
+  --color-tron: #FF0013;
+  --color-hyperliquid: #0F3933;
+  --color-robinhood: #CCFF00;
+  --color-arbitrum: #28A0F0;
+  /* No --color-base: "base" literally collides with Tailwind's own reserved font-size scale
+   * key (text-base = 1rem), so defining a theme color named "base" silently hijacks the
+   * global .text-base utility (used ~140x app-wide for font/icon sizing, unrelated to any
+   * network) to mean "color: Base blue" instead of its real font-size meaning. Base's brand
+   * color is applied via literal arbitrary-value classes (bg-[#0052FF] etc.) everywhere
+   * instead of the usual bg-${network}/text-${network} pattern — see each call site. */
   --color-secondary: #545c66;
   --color-warning: #f7931a;
   --color-success: #057835;
@@ -52,6 +77,30 @@
 
 
 @layer utilities {
+  .font-headline {
+    font-family: var(--font-headline);
+  }
+
+  .font-body-brand {
+    font-family: var(--font-body-brand);
+  }
+
+  .bg-gw-page {
+    background-color: var(--color-gw-bg);
+  }
+
+  .bg-gw-surface {
+    background-color: var(--color-gw-surface);
+  }
+
+  .text-gw-primary {
+    color: var(--color-gw-charcoal);
+  }
+
+  .text-gw-secondary {
+    color: var(--color-gw-muted);
+  }
+
   .bgBox {
     @apply p-5 rounded-xl border border-ink/10;
   }
