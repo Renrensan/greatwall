@@ -111,7 +111,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   }, []);
 
   const handleAbout= () => {
-   router.push(`/${locale}`)
+   router.push(`/${locale}/${chain}/about`)
   };
 
   const handleNetworkChange = (chain: SupportedChain) => {

@@ -16,6 +16,7 @@ const SOCIAL = [
 // The pages not published yet keep "#": set their addresses here.
 const LINKS = (base: string) => [
   { label: "Documentation", href: "#" },
+  { label: "About", href: `${base}/about` },
   { label: "Terms of Use", href: `${base}/terms` },
   { label: "Privacy Policy", href: `${base}/privacy` },
   { label: "Cookies Policy", href: `${base}/cookies` },
