@@ -5,6 +5,7 @@ import Hero from "@/components/Hero";
 import QuoteSection from "@/components/QuoteSection";
 import DiversificationSection from "@/components/DiversificationSection";
 import NetworksSection from "@/components/NetworksSection";
+import AboutFooter from "@/components/AboutFooter";
 
 export const metadata: Metadata = {
   title: "About · Greatwall",
@@ -63,6 +64,7 @@ export default function About() {
           </ul>
         </div>
       </div>
+      <AboutFooter />
     </>
   );
 }

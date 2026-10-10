@@ -2,12 +2,15 @@
 
 import { ReactNode, Suspense} from 'react'
 import { Toaster } from 'react-hot-toast'
+import { usePathname } from 'next/navigation'
 import Navbar from '@/subcomponents/Navbar'
 import Footer from '@/subcomponents/Footer'
 
 import { BrandPulseLoader } from '@/components/ui/BrandPulseLoader'
 
 export function UiLayout({ children }: { children: ReactNode }) {
+  // The About page brings its own overlapping footer.
+  const hasOwnFooter = usePathname()?.endsWith('/about') ?? false
 
   return (
       <div className="min-h-screen flex flex-col">
@@ -24,7 +27,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </Suspense>
         <Toaster position="bottom-right" />
       </div>
-      <Footer />
+      {!hasOwnFooter && <Footer />}
     </div>
   )
 }

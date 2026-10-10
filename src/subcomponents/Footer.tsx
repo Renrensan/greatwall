@@ -7,14 +7,14 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FaTelegram, FaXTwitter, FaYoutube } from "react-icons/fa6";
 
-const SOCIAL = [
+export const SOCIAL = [
   { label: "X", href: "https://x.com/greatwallfi", icon: FaXTwitter },
   { label: "Telegram", href: "https://t.me/greatwallfinance", icon: FaTelegram },
   { label: "YouTube", href: "https://www.youtube.com/@greatwallfinance", icon: FaYoutube },
 ];
 
 // The pages not published yet keep "#": set their addresses here.
-const LINKS = (base: string) => [
+export const LINKS = (base: string) => [
   { label: "Documentation", href: "#" },
   { label: "About", href: `${base}/about` },
   { label: "Terms of Use", href: `${base}/terms` },
