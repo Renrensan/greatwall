@@ -16,7 +16,7 @@ import { useTranslations } from "next-intl";
 import { Contract, JsonRpcProvider, formatUnits } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 
-import { EVM_CHAINS, TICKER, deploymentOf, readProvider, solanaBeta, solanaConnection, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { BASKET_CHAINS, EVM_CHAINS, TICKER, deploymentOf, readProvider, solanaBeta, solanaConnection, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { knownBaskets } from "@/components/integrator/ipow/basketList";
 import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { within } from "@/components/integrator/ipow/indexMetadata";
@@ -26,15 +26,16 @@ import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
+import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { solanaBalances } from "./LockedHoldings";
 import { EmptyPanel, IconPicture, ListSkeleton, emptyAction } from "./ipow/EmptyPanel";
 import { useUsdValue } from "./ipow/useUsdValue";
 
-type Net = EvmChain | "solana";
-type TokenNet = Net | "tempo";
+type Net = BasketChain | "solana";
+type TokenNet = Net | "bitcoin";
 type Holding = { symbol: string; amount: string };
-type Row = { net: TokenNet; held: Holding[]; state: "read" | "failed" | "connect" };
+type Row = { net: TokenNet; held: Holding[]; state: "read" | "reading" | "failed" | "connect" };
 
 /** Every network Greatwall runs, in the order the navbar lists them. */
 const TOKEN_NETS: TokenNet[] = [...EVM_CHAINS, ...(deploymentOf("tempo") ? (["tempo"] as const) : []), "solana"];
@@ -105,6 +106,8 @@ async function holdingsOn(net: TokenNet, owner: string): Promise<Row> {
     }
     return { net, held, state: "read" };
   }
+  // Bitcoin's row comes from the Bitcoin wallet itself, not from here.
+  if (net === "bitcoin") return { net, held, state: "read" };
   const rwa = rwaTokensOf(net);
   const [coin, ...amounts] = await Promise.all([readProvider(net).getBalance(owner), ...rwa.map((r) => balanceOf(net, r.token, owner).catch(() => BigInt(0)))]);
   if (coin > BigInt(0)) held.push({ symbol: TICKER[net], amount: formatUnits(coin, 18) });
@@ -123,6 +126,14 @@ export default function HoldingsSummary({ view = "tokens" }: { view?: "tokens" |
   const evmAddress = evm.find((w) => w.connected && w.address)?.address ?? (tempoWallet.connected ? ((tempoWallet.address as string | null) ?? null) : null);
   const solanaWallet = useSolanaWallet();
   const solanaAddress = solanaWallet.connected ? ((solanaWallet.address as string | null) ?? null) : null;
+  // Bitcoin, from the Bitcoin wallet's own balance (read from mempool.space),
+  // as its Portfolio shows it: real BTC, the one real network here.
+  const btc = useBitcoinWallet();
+  const bitcoinRow: Row = !btc.connected
+    ? { net: "bitcoin", held: [], state: "connect" }
+    : !btc.balance?.fetched
+      ? { net: "bitcoin", held: [], state: "reading" }
+      : { net: "bitcoin", held: btc.balance.confirmed > 0 ? [{ symbol: "BTC", amount: String(btc.balance.confirmed) }] : [], state: "read" };
 
   const [rows, setRows] = useState<Row[] | null>(null);
   const [indexes, setIndexes] = useState<Index[] | null>(null);
@@ -150,7 +161,7 @@ export default function HoldingsSummary({ view = "tokens" }: { view?: "tokens" |
     (async () => {
       const solanaHeld = solanaAddress ? await solanaBalances(solanaAddress).catch(() => new Map<string, bigint>()) : undefined;
       const idx: Promise<Index[]>[] = [];
-      if (evmAddress) for (const c of EVM_CHAINS) idx.push(indexesOn(c, evmAddress));
+      if (evmAddress) for (const c of BASKET_CHAINS) idx.push(indexesOn(c, evmAddress));
       if (solanaAddress) idx.push(indexesOn("solana", solanaAddress, solanaHeld));
       const rs = await Promise.allSettled(idx);
       if (!live) return;
@@ -164,8 +175,8 @@ export default function HoldingsSummary({ view = "tokens" }: { view?: "tokens" |
 
   const worth = (r: Row) => r.held.reduce((s, h) => s + (valueOf(h.symbol, h.amount) ?? 0), 0);
   // Held first, by value; then nothing held; then not read; then not connected.
-  const rank = (r: Row) => (r.held.length ? 0 : r.state === "read" ? 1 : r.state === "failed" ? 2 : 3);
-  const shown = (rows ?? []).slice().sort((a, b) => rank(a) - rank(b) || worth(b) - worth(a));
+  const rank = (r: Row) => (r.held.length ? 0 : r.state === "read" ? 1 : r.state === "reading" ? 2 : r.state === "failed" ? 3 : 4);
+  const shown = (rows ? [bitcoinRow, ...rows] : []).sort((a, b) => rank(a) - rank(b) || worth(b) - worth(a));
   /** One index token's worth: its parts at their prices, when every part has one. */
   const perToken = (c: Card): number | null => {
     let v = 0;
@@ -262,6 +273,8 @@ export default function HoldingsSummary({ view = "tokens" }: { view?: "tokens" |
                           </>
                         ) : r.state === "connect" ? (
                           t("holdingsRowConnect", { network: cap(r.net) })
+                        ) : r.state === "reading" ? (
+                          t("holdingsRowReading")
                         ) : r.state === "failed" ? (
                           t("holdingsRowFailed")
                         ) : (

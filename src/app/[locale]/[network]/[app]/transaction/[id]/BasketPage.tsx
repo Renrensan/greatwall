@@ -4,19 +4,19 @@
 // burning it. Burned BETA pays each part back, less the creator's burn fee;
 // what a burner deferred, and the creator's fees, are collected here too.
 
+import { trackTx } from "@/components/ui/txToast";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import toast from "react-hot-toast";
-import { Contract, ZeroAddress, parseUnits } from "ethers";
+import { Contract, ZeroAddress, parseUnits, formatUnits } from "ethers";
 import { ABIS, burnBeta, collectFees, collectOwed, getBasket, mintBeta, quoteMint, type Basket, type MintQuote } from "@ipow/sdk";
 
-import { ComingSoon, ConnectNetworkButton, Notice, coin, errorText, evmAddressLink, evmTxLink } from "@/subcomponents/ipow/common";
-import { IndexDetail, IndexDetailSkeleton, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
+import { ComingSoon, ConnectNetworkButton, Notice, coin, errorText, evmAddressLink } from "@/subcomponents/ipow/common";
+import { IndexDetail, IndexDetailSkeleton, type CollectItem, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
 import { ActivityCharts } from "@/subcomponents/ipow/ActivityCharts";
 import { evmActivity, type Activity } from "@/components/integrator/ipow/indexActivity";
 import { useUsdValue } from "@/subcomponents/ipow/useUsdValue";
-import { EVM_CHAINS, TICKER, deploymentOf, isEvmChain, readProvider, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { EVM_CHAINS, PATH_USD, TICKER, deploymentOf, isBasketChain, readProvider, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { localAsset, lockLink, readMetadata, within, type IndexMetadata } from "@/components/integrator/ipow/indexMetadata";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf, tokenInfo, type TokenInfo } from "@/components/integrator/ipow/tokens";
@@ -41,7 +41,7 @@ const mintTakes = (amount: bigint, perToken: bigint, feeBps: number) => {
 export default function BasketPage() {
   const { network } = useParams<{ network: string }>();
   if (network === "solana") return <SolanaBasketPage />;
-  if (!isEvmChain(network)) return <ComingSoon network={network} app="beta" />;
+  if (!isBasketChain(network)) return <ComingSoon network={network} app="beta" />;
   return <BasketView chain={network} />;
 }
 
@@ -50,8 +50,11 @@ type Mine = { beta: bigint; parts: bigint[]; owed: bigint[]; fees: bigint[]; coi
 type View = { symbol: string; name: string; logo: string | null; network: string; cross: CrossChoice | null; known: boolean };
 /** Below this much of the coin, a mint may not pay its network fee. */
 const LOW_COIN = BigInt(500_000_000_000_000);
+/** Tempo pays fees in PathUSD (6 decimals): 0.05, a few transactions' worth. Its
+ *  eth_getBalance answers one huge number for every address, so it isn't read. */
+const LOW_PATH_USD = BigInt(50_000);
 
-function BasketView({ chain }: { chain: EvmChain }) {
+function BasketView({ chain }: { chain: BasketChain }) {
   const t = useTranslations("Beta");
   const { locale, id: key } = useParams<{ locale: string; id: string }>();
   const wallet = useEvmWallet(chain);
@@ -72,8 +75,6 @@ function BasketView({ chain }: { chain: EvmChain }) {
   const [quote, setQuote] = useState<MintQuote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
 
   const valid = isBasketKey(key);
 
@@ -129,10 +130,10 @@ function BasketView({ chain }: { chain: EvmChain }) {
         const who = wallet.address;
         const [beta, parts, owed, fees, coinBal] = await Promise.all([
           balanceOf(chain, b.beta, who),
-          Promise.all(b.parts.map((p) => (!p.made ? Promise.resolve(ZERO) : p.token === ZeroAddress ? provider.getBalance(who) : balanceOf(chain, p.token, who)))),
+          Promise.all(b.parts.map((p) => (!p.made ? Promise.resolve(ZERO) : p.token === ZeroAddress ? (chain === "tempo" ? Promise.resolve(ZERO) : provider.getBalance(who)) : balanceOf(chain, p.token, who)))),
           Promise.all(b.parts.map((_, i) => c.owed(key, who, i) as Promise<bigint>)),
           Promise.all(b.parts.map((_, i) => c.fees(key, who, i) as Promise<bigint>)),
-          provider.getBalance(who),
+          chain === "tempo" ? balanceOf(chain, PATH_USD, who) : provider.getBalance(who),
         ]);
         setMine({ beta, parts, owed, fees, coin: coinBal });
       } else setMine(null);
@@ -221,19 +222,27 @@ function BasketView({ chain }: { chain: EvmChain }) {
             ? t("burnTooSmall", { symbol: sym })
             : null;
 
-  async function act(name: string, run: () => Promise<{ txHash: string }>) {
-    if (!wallet.getSigner) return;
-    setBusy(name);
-    setError(null);
-    setDone(null);
+  /** One transaction with its toast; whether it went through. `hold` keeps
+   *  the page busy afterwards (collecting all, one after another). */
+  async function act(name: string, run: () => Promise<{ txHash: string }>, busyAs = name, hold = false): Promise<boolean> {
+    if (!wallet.getSigner) return false;
+    setBusy(busyAs);
+    // What the toast calls it: "Mint 1 GREAT", "Collect VTIon fees".
+    const part = Number(name.split("-")[1]);
+    const label =
+      name === "mint" || name === "burn"
+        ? `${name === "mint" ? "Mint" : "Burn"} ${amount} ${sym}`
+        : name === "unwrap"
+          ? "Unwrap SOL"
+          : `Collect ${views[part]?.symbol ?? "part"} ${name.startsWith("fees") ? "fees" : "owed"}`;
     try {
-      setDone((await run()).txHash);
-      setAmount("");
+      const r = await trackTx(chain, label, run, (x) => x.txHash);
+      if (!r.ok) return false;
+      if (name === "mint" || name === "burn") setAmount("");
       await load();
-    } catch (e) {
-      setError(errorText(e));
+      return true;
     } finally {
-      setBusy(null);
+      if (!hold) setBusy(null);
     }
   }
   const signer = async () => {
@@ -249,6 +258,27 @@ function BasketView({ chain }: { chain: EvmChain }) {
         ...(mine.fees[i] > ZERO ? [{ kind: "fees" as const, i, amount: mine.fees[i] }] : []),
       ])
     : [];
+
+  const collectItems: CollectItem[] = collectable.map((c) => ({
+    id: `${c.kind}-${c.i}`,
+    kind: c.kind,
+    part: c.i,
+    symbol: views[c.i].symbol,
+    amount: coin(c.amount, infos[c.i].decimals),
+  }));
+  const collectRun = (id: string) => {
+    const [kind, i] = [id.split("-")[0], Number(id.split("-")[1])];
+    return async () => (kind === "owed" ? collectOwed(await signer(), d, key, i) : collectFees(await signer(), d, key, i));
+  };
+  const collect = (item: CollectItem, busyAs = item.id, hold = false) => act(item.id, collectRun(item.id), busyAs, hold);
+  /** Every amount, one transaction after another; stops at the first not done. */
+  async function collectAll() {
+    try {
+      for (const item of collectItems) if (!(await collect(item, "all", true))) break;
+    } finally {
+      setBusy(null);
+    }
+  }
 
   // What each part is worth, at the prices Greatwall knows.
   const whole = (units: bigint, decimals: number) => Number(units) / 10 ** decimals;
@@ -271,7 +301,8 @@ function BasketView({ chain }: { chain: EvmChain }) {
     let warning: DetailPart["warning"] = null;
     if (side === "mint" && wallet.connected) {
       const from = v.cross?.from ?? null;
-      const lockHref = lockLink(locale, chain, from, v.cross?.home ?? null, EVM_CHAINS);
+      // The Lock page doesn't lock to Tempo yet: no link to it from a Tempo index.
+      const lockHref = chain === "tempo" ? null : lockLink(locale, chain, from, v.cross?.home ?? null, EVM_CHAINS);
       const lock = lockHref ? { kind: "lock" as const, label: t("lockNow"), href: lockHref } : undefined;
       // A test token of this network: its faucet, one click.
       const testToken = !v.cross && rwaTokensOf(chain).some((r) => r.token.toLowerCase() === p.token.toLowerCase());
@@ -292,6 +323,7 @@ function BasketView({ chain }: { chain: EvmChain }) {
       logo: v.logo,
       network: v.network,
       perToken: coin(perBeta[i], infos[i].decimals),
+      perTokenExact: Number(formatUnits(perBeta[i], infos[i].decimals)),
       valueUsd: worth[i],
       need: need !== null ? coin(need, infos[i].decimals) : null,
       have: mine && p.made ? coin(mine.parts[i], infos[i].decimals) : mine ? "0" : null,
@@ -306,17 +338,13 @@ function BasketView({ chain }: { chain: EvmChain }) {
     if (!wallet.faucet) return;
     setFaucetBusy(token);
     try {
-      await wallet.faucet(token);
-      toast.success(t("faucetSent", { symbol }));
-      await load();
-    } catch (e) {
-      toast.error(errorText(e));
+      const r = await trackTx(chain, `Faucet: ${symbol}`, () => wallet.faucet!(token), (h) => h);
+      if (r.ok) await load();
     } finally {
       setFaucetBusy(null);
     }
   }
 
-  const black = "w-full rounded-lg bg-ink text-snow py-3 text-sm font-medium hover:bg-pitch disabled:opacity-40 transition-colors";
   const named = basket.name && basket.name !== "BETA";
   return (
     <IndexDetail
@@ -355,32 +383,13 @@ function BasketView({ chain }: { chain: EvmChain }) {
       compositionNote={firstMint ? t("compositionWillHold", { symbol: named ? basket.symbol : "BETA" }) : t("compositionHoldsOf", { symbol: named ? basket.symbol : "BETA" })}
       backHref={`/${locale}/${chain}/index`}
       history={<ActivityCharts events={history.events} supply={supply} symbol={named ? basket.symbol : "BETA"} status={history.status} />}
-      error={error}
-      doneHref={done ? evmTxLink(chain, done) : null}
       connected={wallet.connected}
       connectButton={<ConnectNetworkButton chain={chain} />}
       onSubmit={() =>
         act(side, async () => (side === "mint" ? mintBeta(await signer(), d, await quoteMint(provider, d, key, amountUnits!)) : burnBeta(await signer(), d, key, amountUnits!)))
       }
-      feeWarning={side === "mint" && mine && mine.coin < LOW_COIN ? { text: t("lowCoinForFees", { symbol: ticker }), action: { label: t("faucetNow"), href: `/${locale}/${chain}/vault/assets` } } : null}
-      extras={
-        collectable.length > 0 ? (
-          <div className="glass-card rounded-2xl p-5 flex flex-col gap-3">
-            <p className="font-semibold text-sm">{t("toCollect")}</p>
-            {collectable.map((c) => (
-              <button
-                key={`${c.kind}-${c.i}`}
-                type="button"
-                className={black}
-                disabled={!!busy}
-                onClick={() => act(`${c.kind}-${c.i}`, async () => (c.kind === "owed" ? collectOwed(await signer(), d, key, c.i) : collectFees(await signer(), d, key, c.i)))}
-              >
-                {busy === `${c.kind}-${c.i}` ? t("confirming") : t(c.kind === "owed" ? "collectOwed" : "collectFees", { amount: coin(c.amount, infos[c.i].decimals), symbol: views[c.i].symbol })}
-              </button>
-            ))}
-          </div>
-        ) : null
-      }
+      feeWarning={side === "mint" && mine && mine.coin < (chain === "tempo" ? LOW_PATH_USD : LOW_COIN) ? { text: t("lowCoinForFees", { symbol: ticker }), action: { label: t("faucetNow"), href: `/${locale}/${chain}/vault/assets` } } : null}
+      collect={{ items: collectItems, busy, onCollect: (item) => collect(item), onCollectAll: collectAll }}
     />
   );
 }

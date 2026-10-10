@@ -14,12 +14,13 @@
 // by the pair's receipts contract (SDK `burn`). Amounts and fees are in the
 // vault's record units, the receipt's own; the fast path is on by default.
 
+import { trackTx } from "@/components/ui/txToast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
-import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+import { FaCheckCircle } from "react-icons/fa";
 import { ZeroAddress, formatUnits, isAddress, parseUnits } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 import { burn, homeAssets, receiptTokens } from "@ipow/sdk";
@@ -33,10 +34,9 @@ import { BaseConnectButton } from "./BaseConnectButton";
 import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
-import { errorText, evmTxLink } from "./ipow/common";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, useNotEnoughText } from "./ipow/Faucet";
-import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaExplorer, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -141,9 +141,6 @@ export default function UnlockToken({ initial }: { initial: Net }) {
   const [solBalance, setSolBalance] = useState<bigint | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ text: string; link: string | null } | null>(null);
   const [chainModalOpen, setChainModalOpen] = useState(false);
   const [chainModalSide, setChainModalSide] = useState<Side>("home");
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
@@ -300,33 +297,31 @@ export default function UnlockToken({ initial }: { initial: Net }) {
 
   const handleUnlock = async () => {
     if (problem || !info || info.number === null || !amountUnits) return;
-    try {
-      setIsProcessing(true);
-      setShowErrorModal(false);
-      let link: string | null;
+    const number = info.number;
+    setIsProcessing(true);
+    // The send, as one step for its toast: it resolves with its hash.
+    const send = async (): Promise<string> => {
       if (heldOn === "solana") {
         const anchor = solanaWallet.getAnchorWallet();
         if (!anchor) throw new Error(tb("lockConnect", { network: nameOf("solana") }));
-        const r = await solanaVaultWith(home as EvmChain, anchor).burn({ asset: info.number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee });
-        link = solanaExplorer("tx", r.signature);
-      } else {
-        if (!heldEvm.getSigner) throw new Error(tb("lockConnect", { network: nameOf(heldOn) }));
-        const d = deploymentOf(heldOn)!;
-        const signer = await heldEvm.getSigner();
-        const onChain = (await signer.provider?.getNetwork())?.chainId;
-        if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(tb("wrongNetwork"));
-        const pair = vaultsOf(heldOn).findIndex((v) => v.peer === numberOf(home));
-        if (pair < 0) throw new Error(tb("unlockNoPair", { network: nameOf(home) }));
-        const r = await burn(signer, d, { asset: info.number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee, pair });
-        link = evmTxLink(heldOn, r.txHash);
+        return (await solanaVaultWith(home as EvmChain, anchor).burn({ asset: number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee })).signature;
       }
-      setDone({ text: tb("unlockDone", { amount, symbol: asset.symbol, network: nameOf(home) }), link });
+      if (!heldEvm.getSigner) throw new Error(tb("lockConnect", { network: nameOf(heldOn) }));
+      const d = deploymentOf(heldOn)!;
+      const signer = await heldEvm.getSigner();
+      const onChain = (await signer.provider?.getNetwork())?.chainId;
+      if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(tb("wrongNetwork"));
+      const pair = vaultsOf(heldOn).findIndex((v) => v.peer === numberOf(home));
+      if (pair < 0) throw new Error(tb("unlockNoPair", { network: nameOf(home) }));
+      return (await burn(signer, d, { asset: number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee, pair })).txHash;
+    };
+    try {
+      const r = await trackTx(heldOn, `Unlock ${amount} ${asset.symbol} on ${nameOf(home)}`, send, (h) => h, {
+        done: `${tb("unlockDone", { amount, symbol: asset.symbol, network: nameOf(home) })}. ${tb("timing")}`,
+      });
+      if (!r.ok) return;
       setAmount("");
       setRefresh((n) => n + 1);
-    } catch (e) {
-      console.error(e);
-      setUnlockError(errorText(e));
-      setShowErrorModal(true);
     } finally {
       setIsProcessing(false);
     }
@@ -352,7 +347,6 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
   const pickChain = (n: Net) => {
-    setShowErrorModal(false);
     if (chainModalSide === "home") {
       const ps = pairsOf(n);
       setHome(n);
@@ -525,37 +519,7 @@ export default function UnlockToken({ initial }: { initial: Net }) {
       </div>
 
 
-      <AnimatedModal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} maxWidthClass="lg:w-100">
-        <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-          <div className="p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full text-red-500 mb-5">
-            <FaExclamationCircle className="text-6xl" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">{t("text33")}</h2>
-          <p className="text-sm mb-4">{t("text34")}</p>
-          {unlockError && <p className="text-xs break-words mb-4 opacity-80">{unlockError}</p>}
-        </div>
-        <div className="px-6 py-6 border-t border-black/5 bg-white">
-          <ButtonContrast onClick={() => setShowErrorModal(false)} buttonText={t("text128")} />
-        </div>
-      </AnimatedModal>
 
-      <AnimatedModal isOpen={done !== null} onClose={() => setDone(null)} maxWidthClass="lg:w-100">
-        <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-          <div className="p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full text-ink mb-5">
-            <FaCheckCircle className="text-6xl" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">{done?.text}</h2>
-          <p className="text-sm mb-4">{tb("timing")}</p>
-          {done?.link && (
-            <a href={done.link} target="_blank" rel="noreferrer" className="text-xs underline font-semibold mb-4">
-              {tb("viewTx")}
-            </a>
-          )}
-        </div>
-        <div className="px-6 py-6 border-t border-black/5 bg-white">
-          <ButtonContrast onClick={() => setDone(null)} buttonText={t("text128")} />
-        </div>
-      </AnimatedModal>
 
       {/* NETWORK SELECTION MODAL: the asset's own network, or where it is held. */}
       <AnimatedModal isOpen={chainModalOpen} onClose={() => setChainModalOpen(false)} maxWidthClass="lg:w-150">

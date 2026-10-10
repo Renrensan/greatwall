@@ -82,6 +82,8 @@ export interface TempoWalletContextType {
   ) => Promise<string | null>;
   /** The test RWA tokens' faucet: a claim from the token at `token`. */
   faucet?: (token: string) => Promise<string>;
+  /** The connected wallet's signer, on Tempo (switched to it if needed): for the iPoW SDK's index tokens. */
+  getSigner?: () => Promise<import("ethers").Signer>;
   /** The single address-check entry point: whether it's valid, and if not, which
    * specific rule it failed (so forms can show a specific, actionable message). */
   checkAddress: (address: string) => AddressCheckResult;

@@ -13,9 +13,9 @@ const SOCIAL = [
   { label: "YouTube", href: "https://www.youtube.com/@greatwallfinance", icon: FaYoutube },
 ];
 
-// The pages not published yet keep "#": set their addresses here.
+// The footer's page links, under the current network.
 const LINKS = (base: string) => [
-  { label: "Documentation", href: "#" },
+  { label: "Documentation", href: `${base}/docs` },
   { label: "Terms of Use", href: `${base}/terms` },
   { label: "Privacy Policy", href: `${base}/privacy` },
   { label: "Cookies Policy", href: `${base}/cookies` },

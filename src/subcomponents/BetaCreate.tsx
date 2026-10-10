@@ -10,15 +10,15 @@
 // the description, links and image are stored by this site and the chain
 // keeps their URL (/api/beta/metadata). The look is CreateIndex's.
 
+import { trackTx } from "@/components/ui/txToast";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import toast from "react-hot-toast";
 import { ZeroAddress, isAddress, parseUnits } from "ethers";
 import { BASKET_NAMING, createBasket } from "@ipow/sdk";
 
-import { ConnectNetworkButton, TICKER, errorText, evmTxLink } from "./ipow/common";
-import { deploymentOf, readProvider, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { ConnectNetworkButton, TICKER, errorText } from "./ipow/common";
+import { PATH_USD, deploymentOf, readProvider, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { balanceOf, tokenInfo, type TokenInfo } from "@/components/integrator/ipow/tokens";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { crossChoicesOn, pairedWith, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
@@ -71,7 +71,7 @@ const EMPTY_META: IndexMeta = {
 };
 const linkOk = (v: string) => v === "" || /^https:\/\/\S+$/.test(v);
 
-export default function BetaCreate({ chain }: { chain: EvmChain }) {
+export default function BetaCreate({ chain }: { chain: BasketChain }) {
   const t = useTranslations("Beta");
   const router = useRouter();
   const { locale } = useParams<{ locale: string }>();
@@ -80,7 +80,8 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
   const prices = useUsdValue();
   const limits = limitsFor(BASKET_NAMING);
 
-  const [parts, setParts] = useState<Part[]>([{ token: ZeroAddress, amount: "", info: null, error: null, balance: null }]);
+  // Tempo has no coin of its own: its first part is PathUSD, its money.
+  const [parts, setParts] = useState<Part[]>([{ token: chain === "tempo" ? PATH_USD : ZeroAddress, amount: "", info: null, error: null, balance: null }]);
   /** The row being chosen for; "new" for one made once a token is picked. */
   const [picking, setPicking] = useState<number | "new" | null>(null);
   const [cross, setCross] = useState<CrossChoice[]>([]);
@@ -109,13 +110,15 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
 
   const here: Choice[] = useMemo(
     () => [
-      {
-        token: ZeroAddress,
-        symbol: TICKER[chain],
-        name: wallet.networkName || chain,
-        decimals: 18,
-        logo: wallet.networkLogo ?? null,
-      },
+      chain === "tempo"
+        ? { token: PATH_USD, symbol: "pathUSD", name: "PathUSD", decimals: 6, logo: wallet.networkLogo ?? null }
+        : {
+            token: ZeroAddress,
+            symbol: TICKER[chain],
+            name: wallet.networkName || chain,
+            decimals: 18,
+            logo: wallet.networkLogo ?? null,
+          },
       ...rwaTokensOf(chain).map((r) => ({
         token: r.token,
         symbol: r.symbol,
@@ -218,7 +221,8 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
           let balance: number | null = null;
           if (owner) {
             try {
-              const units = p.token === ZeroAddress ? await readProvider(chain).getBalance(owner) : await balanceOf(chain, p.token, owner);
+              // Tempo has no coin: its eth_getBalance answers one huge number for every address.
+              const units = p.token === ZeroAddress ? (chain === "tempo" ? BigInt(0) : await readProvider(chain).getBalance(owner)) : await balanceOf(chain, p.token, owner);
               balance = fromUnits(units, info.decimals);
             } catch {
               balance = null;
@@ -291,8 +295,8 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
     if (problem || !wallet.getSigner) return;
     setBusy(true);
     setError(null);
-    try {
-      const signer = await wallet.getSigner();
+    const send = async () => {
+      const signer = await wallet.getSigner!();
       const onChain = (await signer.provider?.getNetwork())?.chainId;
       if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(t("wrongNetwork"));
       // The metadata and image, hosted here; the chain keeps the URL (E4).
@@ -300,7 +304,7 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
         throw new Error(`${t("uploadFailed")}: ${errorText(e)}`);
       });
       // An id of the creator's own; the time keeps it new for each basket.
-      const { key, txHash } = await createBasket(signer, d, {
+      return createBasket(signer, d, {
         id: BigInt(Date.now()),
         name: meta.name.trim(),
         symbol: meta.symbol.trim(),
@@ -309,27 +313,15 @@ export default function BetaCreate({ chain }: { chain: EvmChain }) {
         mintFeeBps: feeBps,
         burnFeeBps: feeBps,
       });
-      rememberBasket(d.betaBaskets, key);
-      const url = evmTxLink(chain, txHash);
-      toast.success(
-        <span>
-          {t("createdToast")}
-          {url && (
-            <>
-              {" · "}
-              <a href={url} target="_blank" rel="noreferrer" className="underline font-semibold">
-                {t("viewTx")}
-              </a>
-            </>
-          )}
-        </span>,
-        { duration: 8000 },
-      );
-      router.push(`/${locale}/${chain}/index/${key}`);
-    } catch (e) {
-      setError(errorText(e));
+    };
+    const r = await trackTx(chain, `Create ${meta.symbol.trim() || "index"}`, send, (x) => x.txHash);
+    if (!r.ok || !r.result) {
+      setError(r.ok ? null : r.error);
       setBusy(false);
+      return;
     }
+    rememberBasket(d.betaBaskets, r.result.key);
+    router.push(`/${locale}/${chain}/index/${r.result.key}`);
   }
 
   const ingredients: Ingredient[] = parts.map((p, i) => {

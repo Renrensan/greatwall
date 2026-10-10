@@ -36,16 +36,26 @@ function ticks(max: number): number[] {
   return Array.from({ length: n + 1 }, (_, i) => (top * i) / n);
 }
 
-/** Labels along the time axis: months for long ranges, days for short. */
+/** Labels along the time axis: months for long ranges, days for short, and
+ *  the time too within two days, so no two labels read the same. */
 function timeLabels(from: number, to: number): { t: number; label: string }[] {
   const span = to - from;
   const count = 4;
   return Array.from({ length: count + 1 }, (_, i) => {
     const t = from + (span * i) / count;
     const d = new Date(t * 1000);
-    return { t, label: span > 60 * DAY ? d.toLocaleDateString("en-US", { month: "short" }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
+    const label =
+      span > 60 * DAY
+        ? d.toLocaleDateString("en-US", { month: "short" })
+        : span > 2 * DAY
+          ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+    return { t, label };
   });
 }
+
+/** An axis value: whole numbers plain, others with at most 2 decimals. */
+const axisFmt = (n: number) => (n >= 1e3 ? fmt(n) : Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2))));
 
 function RangeTabs({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
   return (
@@ -82,7 +92,7 @@ function Axes({ ys, scaleY, from, to, scaleX }: { ys: number[]; scaleY: (v: numb
         <g key={v}>
           <line x1={PAD.left} x2={W - PAD.right} y1={scaleY(v)} y2={scaleY(v)} stroke="currentColor" strokeOpacity={0.1} />
           <text x={PAD.left - 8} y={scaleY(v) + 3} textAnchor="end" opacity={0.5}>
-            {fmt(v)}
+            {axisFmt(v)}
           </text>
         </g>
       ))}
@@ -179,7 +189,7 @@ export function ActivityCharts({ events, supply, symbol, status }: { events: Act
   const a = activityChart;
   return (
     <div className="flex flex-col gap-5">
-      <Frame title={t("minted")} value={`${fmt(tokens(supply))} $${symbol}`} range={supplyRange} onRange={setSupplyRange}>
+      <Frame title={t("supplyChartTitle")} value={`${fmt(tokens(supply))} $${symbol}`} range={supplyRange} onRange={setSupplyRange}>
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto text-ink" role="img" aria-label={t("mintedChart")}>
           <Axes ys={s.ys} scaleY={s.scaleY} from={s.from} to={s.to} scaleX={s.scaleX} />
           <path d={s.area} fill="#f6e7c8" fillOpacity={0.7} />

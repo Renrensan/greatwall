@@ -26,6 +26,7 @@ import { setTunnelSell } from '@/components/integrator/ipow/tunnel';
 import { TUNNEL_MARGIN_BLOCKS } from '@/components/integrator/ipow/convertMethods';
 import { bitcoinExplorer } from '@/components/integrator/ipow/sdk';
 import { tunnelStatus } from '@/components/integrator/ipow/convertStatus';
+import { trackTx } from '@/components/ui/txToast';
 import ConvertDetails from '@/subcomponents/ConvertDetails';
 
 const bitcoinChain = bitcoinExplorer;
@@ -41,7 +42,6 @@ import { HyperliquidConnectButton } from '@/subcomponents/HyperliquidConnectButt
 import { Icon } from '@iconify/react';
 import ButtonContrast from '@/subcomponents/ButtonContrast';
 import { useTranslations } from 'next-intl';
-import { AnimatedModal } from '@/subcomponents/AnimatedModal';
 import InformationPopUp from '@/subcomponents/InformationPopUp';
 import { TxPhase, TypeFilter } from '@/components/integrator/ipow/evm/type';
 
@@ -142,9 +142,6 @@ export default function ConvertTransactionPage() {
   const [mempoolDetectedTx, setMempoolDetectedTx] = useState<{txid: string, vout: number, height: number} | null>(null);
   const [activeInfoTerm, setActiveInfoTerm] = useState<keyof typeof PROTOCOL_TERMS | null>(null);
   
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [txid, setTxid] = useState<string | null>(null);
   
   const ethereumWallet = useEthereumWallet();
   const bitcoinWallet = useBitcoinWallet();
@@ -196,7 +193,6 @@ export default function ConvertTransactionPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   
   const [selectedBlockHeight, setSelectedBlockHeight] = useState<string | null>(null);
   const headerCache = useRef<Record<string, string>>({});
@@ -699,7 +695,7 @@ export default function ConvertTransactionPage() {
 
       const scan = async () => {
           try {
-              const res = await fetch(`https://mempool.space/api/address/${depositAddr}/txs`);
+              const res = await fetch(`/api/bitcoin/address/${depositAddr}/txs`);
               if (!res.ok) return;
               const txs = await res.json();
 
@@ -812,36 +808,37 @@ export default function ConvertTransactionPage() {
       return () => clearInterval(ticker);
   }, [conversion, extraData, targetTimestamp]);
 
-  const handleAction = async (action: string) => {
-      setBusy(true); 
-      setMsg(null); 
-      setError(null);
-      
-      const txId = BigInt(txIdStr);
-      
-      try {
-          let hash;
-          if (action === 'deposit') hash = await activeProvider.depositApprovedConversion(txId);
-          else if (action === 'refund_approval') hash = await activeProvider.refundIfNotApproved(txId);
-          else if (action === 'claim_expired') hash = await activeProvider.claimNativeAfterOperatorExpired(txId);
-          else if (action === 'refund_timeout') hash = await activeProvider.refundAfterNoProofNativeToBitcoin(txId);
-          else if (action === 'complete') hash = await activeProvider.completeConversion(txId);
+  /** Where a hash is seen on this page's network's explorer. */
+  const explorerTx = (hash: string): string | null => {
+      const ex: any = activeProvider.networkExplorer;
+      return ex?.transaction ? `${ex.transaction}${hash}${ex.urlSuffix ?? ""}` : null;
+  };
+  const ACTION_LABELS: Record<string, string> = {
+      deposit: "Deposit",
+      refund_approval: "Refund",
+      claim_expired: "Claim",
+      refund_timeout: "Refund",
+      complete: "Claim",
+  };
 
-          if(hash) { 
-              setTxid(hash);
-              setShowSuccessModal(true);
-              setShowErrorModal(false);
-              await fetchData(false); 
-          }
-      } catch(e: any) { 
-          console.error(e);
-          // Why it failed, in the page, as well as the modal.
-          setError(e?.shortMessage ?? e?.reason ?? e?.message ?? String(e));
-          setShowErrorModal(true); 
-      } finally { 
-          setBusy(false); 
+  const handleAction = async (action: string) => {
+      setBusy(true);
+      const txId = BigInt(txIdStr);
+      const send = async (): Promise<string | null> => {
+          if (action === 'deposit') return activeProvider.depositApprovedConversion(txId);
+          if (action === 'refund_approval') return activeProvider.refundIfNotApproved(txId);
+          if (action === 'claim_expired') return activeProvider.claimNativeAfterOperatorExpired(txId);
+          if (action === 'refund_timeout') return activeProvider.refundAfterNoProofNativeToBitcoin(txId);
+          if (action === 'complete') return activeProvider.completeConversion(txId);
+          return null;
+      };
+      try {
+          const r = await trackTx(network, ACTION_LABELS[action] ?? "Transaction", send, (h) => h, { linkOf: explorerTx });
+          if (r.ok) await fetchData(false);
+      } finally {
+          setBusy(false);
       }
-    };
+  };
 
   // The fees of the user's untaken jobs, held by the protocol: withdrawn in
   // one transaction, apart from any refund.
@@ -852,14 +849,9 @@ export default function ConvertTransactionPage() {
   useEffect(() => { readFeeCredit(); }, [readFeeCredit, conversion?.phase]);
   const withdrawFeeCredit = async () => {
       setBusy(true);
-      setError(null);
       try {
-          const hash = await activeProvider.withdrawFeeCredit();
-          setTxid(hash);
-          setShowSuccessModal(true);
-          await readFeeCredit();
-      } catch (e: any) {
-          setError(e?.shortMessage ?? e?.message ?? String(e));
+          const r = await trackTx(network, "Claim refund", () => activeProvider.withdrawFeeCredit(), (h: string) => h, { linkOf: explorerTx });
+          if (r.ok) await readFeeCredit();
       } finally {
           setBusy(false);
       }
@@ -892,8 +884,7 @@ export default function ConvertTransactionPage() {
       if (!tunnel || conversion.tunnel.leg !== "buy") return;
       const source: any = sourceWalletOf(tunnel.fromChain);
       setBusy(true);
-      setError(null);
-      try {
+      const send = async () => {
           if (!source?.connected) throw new Error(`Connect your ${tunnel.fromChain} wallet first`);
           const check = await activeProvider.checkPayable(BigInt(txIdStr), TUNNEL_MARGIN_BLOCKS);
           if (!check.ok) throw new Error(check.reason);
@@ -914,12 +905,11 @@ export default function ConvertTransactionPage() {
           }
           const sellId = await source.tunnelSell({ token: tunnel.fromToken ?? "native", amount: BigInt(tunnel.amountIn), sats: check.sats, to: check.address, window: check.payBlocks });
           setTunnelSell(tunnel.toChain, tunnel.buyId, sellId.toString());
-          setTxid(null);
-          setMsg("Deposit signed. Converting now; this page follows the progress.");
-          await fetchData(false);
-      } catch (e: any) {
-          console.error(e);
-          setError(e?.shortMessage ?? e?.message ?? String(e));
+          return sellId;
+      };
+      try {
+          const r = await trackTx(tunnel.fromChain, "Deposit", send, () => null, { done: "Converting now; this page follows the progress." });
+          if (r.ok) await fetchData(false);
       } finally {
           setBusy(false);
       }
@@ -960,42 +950,34 @@ export default function ConvertTransactionPage() {
   // three minutes (a send that looks failed may still have been broadcast).
   const payKey = `greatwall:convert:${network}:${txIdStr}:paidAt`;
   const handleConfirmSend = async (_toAddress: string, _amountToken: number) => {
-    try {
-      setIsSendProcessing(true);
-      setError(null);
+    setIsSendProcessing(true);
+    const send = async (): Promise<string> => {
       try {
         const last = Number(localStorage.getItem(payKey) ?? 0);
-        if (Date.now() - last < 3 * 60_000) {
-          setError("A payment was just sent from this browser. Check your Bitcoin wallet before paying again.");
-          return;
-        }
-      } catch {}
+        if (Date.now() - last < 3 * 60_000) throw new Error("A payment was just sent from this browser. Check your Bitcoin wallet before paying again.");
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("A payment")) throw e;
+      }
       const check = await activeProvider.checkPayable(BigInt(txIdStr));
-      if (!check.ok) {
-        setError(check.reason);
-        return;
-      }
+      if (!check.ok) throw new Error(check.reason);
       // The fastest fee is known once the wallet has read fees.
-      if (!bitcoinWallet.estimatedFee?.fetched || !bitcoinWallet.estimatedFee?.high) {
-        setError("Bitcoin fees are still loading: try again in a moment.");
-        return;
-      }
+      if (!bitcoinWallet.estimatedFee?.fetched || !bitcoinWallet.estimatedFee?.high) throw new Error("Bitcoin fees are still loading: try again in a moment.");
       try { localStorage.setItem(payKey, String(Date.now())); } catch {}
       // The fastest fee: a payment mined after the payment blocks is lost.
       const resultTxid = await bitcoinWallet.sendTokenTo(check.address, check.btc, "high");
-      if (resultTxid) {
-        setTxid(resultTxid);
-        setShowSuccessModal(true);
-      } else {
-        setShowErrorModal(true);
-      }
-    } catch (error: any) {
-      console.error("Transaction Error:", error);
-      setShowErrorModal(true);
+      if (!resultTxid) throw new Error(t("text34"));
+      return resultTxid;
+    };
+    try {
+      const ex: any = bitcoinWallet.networkExplorer;
+      await trackTx("bitcoin", `Pay ${_amountToken} BTC`, send, (h) => h, {
+        linkOf: (h) => (ex?.transaction ? `${ex.transaction}${h}${ex.urlSuffix ?? ""}` : null),
+      });
     } finally {
       setIsSendProcessing(false);
     }
   };
+
 
   // A plain render function, not a component: defined here, it would be a
   // new component (and remount) on every render.
@@ -1740,79 +1722,7 @@ let toAddressDisplay = destAsset.address;
           <Button chain={network} buttonText={t("text105")} onClick={()=>{router.replace(`/${locale}/${network}/convert`);}}></Button>
         </div>
       </div>
-
-      {msg && <div className="mb-6 bg-green-50 text-green-800 text-xs p-4 rounded-xl flex gap-3 items-center border border-green-100 shadow-sm"><FaCheckCircle className="text-lg"/> {msg}</div>}
       {error && <div className="mb-6 bg-red-50 text-red-800 text-xs p-4 rounded-xl flex gap-3 items-center border border-red-100 shadow-sm"><FaExclamationTriangle className="text-lg"/> {error}</div>}
-
-       {/* SUCCESS MODAL */}
-      <AnimatedModal
-        isOpen={showSuccessModal && !!txid}
-        onClose={() => setShowSuccessModal(false)}
-        maxWidthClass="lg:w-100"
-      >
-        <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-          <div
-            className={`p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full mb-5 ${colorFlip}`}
-          >
-            <FaCheckCircle className="text-6xl" />
-          </div>
-          
-          <h2 className="text-2xl font-bold mb-2">{t("text32")}</h2>
-          <p className="text-sm break-all mb-4">Hash: {txid}</p>
-        </div>
-
-        <div className="px-6 py-6 border-t border-black/5 bg-white">
-           <div className="flex flex-col-reverse justify-center gap-3 w-full">
-                 <div className="w-full sm:flex-1">
-              <ButtonContrast
-                onClick={() => setShowSuccessModal(false)}
-                buttonText={t("text128")}
-              />
-            </div>
-            <div className="w-full sm:flex-1">
-              <Button
-                chain={network}
-                buttonText={t("text79")}
-                onClick={() =>
-                  window.open(
-
-                   
-                    `${network == 'bitcoin' ? (bitcoinWallet.networkExplorer as any).transaction :   (activeProvider.networkExplorer as any).transaction}${txid}${(activeProvider.networkExplorer as any).urlSuffix || ""}`,
-                    "_blank"
-                  )
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </AnimatedModal>
-
-     {/* ERROR / RECONFIRM MODAL */}
-     <AnimatedModal
-            isOpen={showErrorModal}
-            onClose={() => setShowErrorModal(false)}
-            maxWidthClass="lg:w-100"
-          >
-            <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-              <div className="p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full text-red-500 mb-5">
-                <FaExclamationCircle className="text-6xl" />
-              </div>
-              
-              <h2 className="text-2xl font-bold mb-2">{t("text33")}</h2>
-              <p className="text-sm mb-4">{t("text34")}</p>
-            </div>
-    
-            <div className="px-6 py-6 border-t border-black/5 bg-white">
-              <div className="flex flex-col-reverse justify-center gap-3 w-full">
-                <div className="w-full sm:flex-1">
-                  <ButtonContrast
-                    onClick={() => setShowErrorModal(false)}
-                    buttonText={t("text128")}
-                  />
-                </div>
-              </div>
-            </div>
-          </AnimatedModal>
 
           <InformationPopUp
             isOpen={!!activeInfoTerm}

@@ -1,5 +1,6 @@
 "use client";
 
+import { readProvider } from "@/components/integrator/ipow/sdk";
 import toast from "react-hot-toast";
 
 import {
@@ -89,8 +90,10 @@ export function HyperliquidProvider({ children }: { children: ReactNode }) {
   }>({ low: 0, medium: 0, high: 0, selectedFee: "medium", fetched: false });
 
   const readOnlyProvider = useMemo(() => {
-    return new ethers.JsonRpcProvider(currentNetworkConfig.jsonRpcUrl);
-  }, [currentNetworkConfig.jsonRpcUrl]);
+    // Reads through this app's own RPC proxy (sdk.ts), so a network that
+    // blocks the public RPC still sees balances; the wallet gets the public one.
+    return readProvider("hyperliquid");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

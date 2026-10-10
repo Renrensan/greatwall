@@ -25,13 +25,34 @@ export function isEvmChain(chain: string): chain is EvmChain {
   return (EVM_CHAINS as readonly string[]).includes(chain);
 }
 
-/** Each network's native coin on its test network. */
-export const TICKER: Record<EvmChain, string> = {
+/**
+ * The EVM networks with index tokens (BETA): the EVM_CHAINS, and Tempo.
+ * Tempo has no coin of its own and refuses a transaction carrying value, so
+ * Greatwall offers tokens only as its parts (PathUSD, its test RWA tokens,
+ * the vault's receipts of Solana's assets) and a mint carries no value. The
+ * contract would take a part of the zero address there, but such a basket
+ * can never be minted; Greatwall shows that part as unknown. Lock and
+ * Convert don't run on Tempo yet (their contracts there are the token builds).
+ */
+export type BasketChain = EvmChain | "tempo";
+export const BASKET_CHAINS: readonly BasketChain[] = [...EVM_CHAINS, ...(deploymentOf("tempo") ? (["tempo"] as const) : [])];
+
+export function isBasketChain(chain: string): chain is BasketChain {
+  return (BASKET_CHAINS as readonly string[]).includes(chain);
+}
+
+/** Tempo's money: PathUSD, its fee token (6 decimals). */
+export const PATH_USD = "0x20C0000000000000000000000000000000000000";
+
+/** Each network's native coin on its test network (Tempo has none: its
+ *  money is PathUSD, a token). */
+export const TICKER: Record<BasketChain, string> = {
   ethereum: "ETH",
   base: "ETH",
   robinhood: "ETH",
   hyperliquid: "HYPE",
   arbitrum: "ETH",
+  tempo: "pathUSD",
 };
 
 /** The iPoW deployment of a network, or null where there is none. */
@@ -46,19 +67,20 @@ export function deploymentOf(chain: SupportedChain): Deployment | null {
 
 // Reads go through the app's own /api/rpc proxies, which hold the endpoints
 // (the same ones ipow's deployments use) server-side.
-const RPC: Record<EvmChain, string> = {
+const RPC: Record<BasketChain, string> = {
   ethereum: "/api/rpc/eth/testnet",
   base: "/api/rpc/base/testnet",
   robinhood: "/api/rpc/robinhood/testnet",
   hyperliquid: "/api/rpc/hyperliquid/testnet",
   arbitrum: "/api/rpc/arbitrum/testnet",
+  tempo: "/api/rpc/tempo/testnet",
 };
 
-const readers = new Map<EvmChain, JsonRpcProvider>();
+const readers = new Map<BasketChain, JsonRpcProvider>();
 
 /** A read-only connection to a network, through its proxy. One per network,
  *  reused. */
-export function readProvider(chain: EvmChain): JsonRpcProvider {
+export function readProvider(chain: BasketChain): JsonRpcProvider {
   let p = readers.get(chain);
   if (!p) {
     const url = RPC[chain].startsWith("/") && typeof window !== "undefined" ? window.location.origin + RPC[chain] : RPC[chain];
@@ -71,11 +93,16 @@ export function readProvider(chain: EvmChain): JsonRpcProvider {
 
 let solana: Connection | null = null;
 
+/** Where a Solana connection subscribes to a transaction's confirmation: a
+ *  WebSocket, which this app's RPC proxy (HTTP only) cannot carry. Without
+ *  it every send waited out web3.js's 30-second timeout (2026-10-10). */
+export const SOLANA_WS = "wss://api.devnet.solana.com";
+
 /** A read-only connection to Solana devnet, through the app's proxy. */
 export function solanaConnection(): Connection {
   if (!solana) {
     const path = "/api/rpc/solana/devnet";
-    solana = new Connection(typeof window !== "undefined" ? window.location.origin + path : path, "confirmed");
+    solana = new Connection(typeof window !== "undefined" ? window.location.origin + path : path, { commitment: "confirmed", wsEndpoint: SOLANA_WS });
   }
   return solana;
 }
@@ -108,8 +135,9 @@ export function isSolanaAddress(address: string): boolean {
 }
 
 /** Which apps run on which networks now: Convert, the Bridge and BETA on
- *  the EVM networks and on Solana. */
-export function appRunsOn(_app: "convert" | "bridge" | "beta", chain: string): boolean {
+ *  the EVM networks and on Solana, and BETA on Tempo too. */
+export function appRunsOn(app: "convert" | "bridge" | "beta", chain: string): boolean {
+  if (app === "beta" && isBasketChain(chain)) return true;
   return isEvmChain(chain) || chain === "solana";
 }
 
@@ -135,7 +163,8 @@ export const solanaBeta = (wallet: SolanaWallet | null) => new SolanaBeta(solana
 /** A link to a Solana devnet transaction or account. */
 export const solanaExplorer = (kind: "tx" | "address", id: string) => `https://explorer.solana.com/${kind}/${id}?cluster=devnet`;
 
-/** Bitcoin as the explorers show it, for the convert screens: blockstream
- *  first (mempool.space hangs from some networks), each call given 8
- *  seconds before the next explorer is tried. */
-export const bitcoinExplorer = new Bitcoin(["https://blockstream.info/api", "https://mempool.space/api"], 8_000);
+/** Bitcoin as the explorers show it, for the convert screens: through this
+ *  app's server (/api/bitcoin, which tries mempool.space then
+ *  blockstream.info), so a network that blocks the explorers doesn't block
+ *  the app; mempool.space directly if the server can't be reached. */
+export const bitcoinExplorer = new Bitcoin(["/api/bitcoin", "https://mempool.space/api"], 22_000);

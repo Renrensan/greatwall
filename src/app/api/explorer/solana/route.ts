@@ -6,9 +6,9 @@
 // fee payer. Answers are kept 30 seconds; a transaction read once is kept.
 
 import { NextResponse } from "next/server";
-import { BorshInstructionCoder, type Idl } from "@coral-xyz/anchor";
+import { BorshAccountsCoder, BorshInstructionCoder, type Idl } from "@coral-xyz/anchor";
 import { Connection, PublicKey, type VersionedTransactionResponse } from "@solana/web3.js";
-import { IDLS, SOLANA, SolanaVault, network, type NetworkName } from "@ipow/sdk";
+import { IDLS, SOLANA, SolanaVault, metadataAddress, network, parseMetadata, type NetworkName } from "@ipow/sdk";
 
 import { NETWORK_OF, assetsOf, cap, evmReader, nameOf } from "@/components/integrator/ipow/explorer";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
@@ -22,7 +22,26 @@ const KEEP_MS = 30_000;
 
 type Program = keyof typeof SOLANA.programs;
 const PROGRAMS = Object.entries(SOLANA.programs) as [Program, string][];
-const coders = new Map<Program, BorshInstructionCoder>(PROGRAMS.map(([role]) => [role, new BorshInstructionCoder((IDLS as Record<string, Idl>)[role])]));
+const coders = new Map<Program, BorshInstructionCoder>(PROGRAMS.map(([role]) => [role, new BorshInstructionCoder((IDLS as unknown as Record<string, Idl>)[role])]));
+
+const basketCoder = new BorshAccountsCoder((IDLS as unknown as Record<string, Idl>).betaBasket);
+const basketInfo = new Map<string, Promise<{ symbol: string; parts: number } | null>>();
+/** An index's symbol (its token's metadata) and number of parts, read once. */
+function indexOf(connection: Connection, address: string | null): Promise<{ symbol: string; parts: number } | null> {
+  if (!address) return Promise.resolve(null);
+  let info = basketInfo.get(address);
+  if (!info) {
+    info = (async () => {
+      const account = await connection.getAccountInfo(new PublicKey(address));
+      if (!account) return null;
+      const b = basketCoder.decode("Basket", account.data);
+      const meta = await connection.getAccountInfo(metadataAddress(b.beta));
+      return { symbol: meta ? parseMetadata(meta.data).symbol || "BETA" : "BETA", parts: b.parts.length };
+    })().catch(() => null);
+    basketInfo.set(address, info);
+  }
+  return info;
+}
 
 /** Pairs Greatwall leaves out (Hedera, Polkadot): their transactions aren't listed. */
 const LEFT_OUT = new Set([5, 6]);
@@ -72,7 +91,7 @@ async function peerAsset(peer: number, n: number) {
 async function describeTx(connection: Connection, tx: VersionedTransactionResponse): Promise<ExplorerTx | null> {
   const keys = tx.transaction.message.getAccountKeys({ accountKeysFromLookups: tx.meta?.loadedAddresses });
   const signer = keys.get(0)?.toBase58() ?? null;
-  const found: { role: Program; name: string; data: Record<string, any>; peer: number | null }[] = [];
+  const found: { role: Program; name: string; data: Record<string, any>; peer: number | null; first: string | null }[] = [];
   for (const ix of tx.transaction.message.compiledInstructions) {
     const program = keys.get(ix.programIdIndex)?.toBase58();
     const role = PROGRAMS.find(([, id]) => id === program)?.[0];
@@ -80,12 +99,12 @@ async function describeTx(connection: Connection, tx: VersionedTransactionRespon
     const decoded = coders.get(role)!.decode(Buffer.from(ix.data));
     if (!decoded) continue;
     const peer = ix.accountKeyIndexes.map((i) => CONFIGS.get(keys.get(i)?.toBase58() ?? "")).find((p) => p !== undefined) ?? null;
-    found.push({ role, name: decoded.name, data: decoded.data as Record<string, any>, peer });
+    found.push({ role, name: decoded.name, data: decoded.data as Record<string, any>, peer, first: keys.get(ix.accountKeyIndexes[0])?.toBase58() ?? null });
   }
   if (!found.length || found.every((f) => f.peer !== null && LEFT_OUT.has(f.peer))) return null;
   const said = await Promise.all(found.map((f) => say(connection, f)));
   const order: Record<Role, number> = { guardian: 0, user: 1, operator: 2, protocol: 3 };
-  const ranked = said.map((s, i) => ({ ...s, i })).sort((a, b) => order[a.role] - order[b.role] || a.i - b.i);
+  const ranked = said.map((s, i) => ({ ...s, i, kind: `${found[i].role}.${found[i].name}` })).sort((a, b) => order[a.role] - order[b.role] || a.i - b.i);
   return {
     tx: tx.transaction.signatures[0],
     block: tx.slot,
@@ -95,10 +114,12 @@ async function describeTx(connection: Connection, tx: VersionedTransactionRespon
     title: ranked[0].title,
     detail: ranked[0].detail,
     also: ranked.slice(1).map((r) => r.title),
+    kind: ranked[0].kind,
+    alsoKinds: ranked.slice(1).map((r) => r.kind),
   };
 }
 
-async function say(connection: Connection, f: { role: Program; name: string; data: Record<string, any>; peer: number | null }): Promise<{ role: Role; title: string; detail: string }> {
+async function say(connection: Connection, f: { role: Program; name: string; data: Record<string, any>; peer: number | null; first: string | null }): Promise<{ role: Role; title: string; detail: string }> {
   const a = f.data;
   const peer = f.peer !== null ? cap(nameOf(f.peer)) : "its pair";
   const op = (title: string, detail = "") => ({ role: "operator" as Role, title, detail });
@@ -107,16 +128,19 @@ async function say(connection: Connection, f: { role: Program; name: string; dat
   switch (`${f.role}.${f.name}`) {
     // The light client: Bitcoin blocks, checked on Solana.
     case "lightClient.extend":
-      return op(`${a.headers?.length ?? "Several"} Bitcoin blocks stored`, "Their proof of work checked on Solana");
+      return op(`${a.headers?.length ?? "New"} Bitcoin blocks added`, "Solana checked their proof of work and saved them");
     case "lightClient.extend_back":
-      return op("Bitcoin block stored (going back)", "Linked to a block already stored");
+      return op("Older Bitcoin block added", "Fills a gap in Solana's copy of Bitcoin's chain");
     case "lightClient.jump":
-      return op(`Light client jumped to Bitcoin ${Number(a.height).toLocaleString("en-US")}`, "Linked to a known difficulty epoch");
+      return op(`Caught up with Bitcoin at block ${Number(a.height).toLocaleString("en-US")}`, "Solana's copy of Bitcoin starts again from a recent block");
     case "lightClient.add_epoch_start":
-      return op(`Bitcoin difficulty epoch recorded`, `From block ${Number(a.height).toLocaleString("en-US")}`);
+      return op("Bitcoin difficulty period recorded", `Starting at block ${Number(a.height).toLocaleString("en-US")}`);
     case "lightClient.begin_walk":
+      return op("Started verifying a Bitcoin block", "Checking it is part of Bitcoin's chain, step by step");
     case "lightClient.walk_step":
-      return op("Walking back through Bitcoin blocks", "Checking one block descends from another");
+      return op("Verifying a Bitcoin block", "One more step back along Bitcoin's chain");
+    case "lightClient.close_walk":
+      return op("Bitcoin block verified", "Confirmed it is part of Bitcoin's chain");
     // The protocol: operators and jobs.
     case "protocol.lock_bond":
       return op("Operator bond locked", `${fmt(big(a.amount), 9)} SOL as stake`);
@@ -124,15 +148,15 @@ async function say(connection: Connection, f: { role: Program; name: string; dat
       return op("Operator bond withdrawn", `${fmt(big(a.amount), 9)} SOL`);
     case "protocol.register_chain_head":
     case "protocol.advance_chain_head":
-      return op("Operator chain head set", "Its Bitcoin coin registered");
+      return op("Operator's Bitcoin marker set", "Its Bitcoin coin, which its jobs' transactions spend in turn");
     case "protocol.open_job":
-      return user("Job opened", `An application asked for an operator, ${a.confirmations} Bitcoin confirmations`);
+      return user("Checkpoint requested", `A job for an operator to prove a recent Bitcoin block, ${a.confirmations} confirmations`);
     case "protocol.bid":
-      return op("Bid on a job", `${fmt(big(a.amount), 9)} SOL`);
+      return op("Operator took a job", `Bid ${fmt(big(a.amount), 9)} SOL to do it`);
     case "protocol.anchor_job":
-      return op("Job anchored to Bitcoin", "The operator's Bitcoin transaction must follow it");
+      return op("Job started", "Anchored at a Bitcoin block: the operator now writes a Bitcoin transaction after it");
     case "protocol.prove_job":
-      return op("Job proven", "Its Bitcoin transaction shown in a stored block");
+      return op("Job proven", "Its Bitcoin transaction shown in a real block; anyone can challenge it for 36 hours");
     case "protocol.settle":
       return op("Job settled", "The operator was paid");
     case "protocol.expire":
@@ -212,10 +236,18 @@ async function say(connection: Connection, f: { role: Program; name: string; dat
       return user("Conversion refunded", "");
     case "betaBasket.create_basket":
       return user(`Index ${String(a.symbol) || "token"} created`, `"${String(a.name)}"`);
+    // An index's own actions, named by the index (its first account).
     case "betaBasket.mint":
-      return user("Index tokens minted", `${fmt(big(a.amount), 9)}`);
     case "betaBasket.burn":
-      return user("Index tokens burned", `${fmt(big(a.amount), 9)}`);
+    case "betaBasket.collect_fees":
+    case "betaBasket.collect_owed": {
+      const index = await indexOf(connection, f.first);
+      const sym = index?.symbol ?? "index";
+      if (f.name === "mint") return user(`${fmt(big(a.amount), 9)} ${sym} minted`, "Its parts deposited into the index");
+      if (f.name === "burn") return user(`${fmt(big(a.amount), 9)} ${sym} burned`, "Its parts paid back from the index");
+      const part = `Part ${Number(a.index) + 1}${index ? ` of ${index.parts}` : ""}`;
+      return f.name === "collect_fees" ? user(`${sym} creator fees collected`, part) : user(`${sym} owed part collected`, part);
+    }
     default:
       return { role: "operator", title: f.name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), detail: cap(String(f.role)) };
   }

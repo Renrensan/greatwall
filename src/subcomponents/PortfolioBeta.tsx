@@ -13,6 +13,7 @@ import { PublicKey } from "@solana/web3.js";
 import { getBasket } from "@ipow/sdk";
 import QRCode from "qrcode";
 import toast from "react-hot-toast";
+import { trackTx } from "@/components/ui/txToast";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
 import { useTranslations } from "next-intl";
@@ -24,13 +25,15 @@ import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { readMetadata, within } from "@/components/integrator/ipow/indexMetadata";
-import { deploymentOf, isEvmChain, readProvider, solanaBeta, solanaConnection, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { deploymentOf, isBasketChain, readProvider, solanaBeta, solanaConnection, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
 import { knownBaskets } from "@/components/integrator/ipow/basketList";
 import { fromUnits } from "@/components/integrator/ipow/tunnel";
 import { AnimatedModal } from "./AnimatedModal";
 import Button from "./Button";
+import { SettlementPanel } from "./ipow/SettlementPanel";
 import ButtonContrast from "./ButtonContrast";
 
 type Held = {
@@ -59,6 +62,7 @@ const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 
 
 export default function PortfolioBeta() {
   const t = useTranslations("All");
+  const tb = useTranslations("Beta");
   const { network, locale } = useParams<{ network: SupportedChain; locale: string }>();
   const wallets: Record<string, any> = {
     ethereum: useEthereumWallet(),
@@ -66,10 +70,11 @@ export default function PortfolioBeta() {
     robinhood: useRobinhoodWallet(),
     hyperliquid: useHyperliquidWallet(),
     arbitrum: useArbitrumWallet(),
+    tempo: useTempoWallet(),
     solana: useSolanaWallet(),
   };
   const wallet = wallets[network];
-  const supported = isEvmChain(network) || network === "solana";
+  const supported = isBasketChain(network) || network === "solana";
   const address: string | null = wallet?.address ?? null;
 
   const [held, setHeld] = useState<Held[] | null>(null);
@@ -93,7 +98,7 @@ export default function PortfolioBeta() {
           keys = index.baskets.map((b: { key: string }) => b.key);
           if (!index.complete) setNote("Still reading the baskets' history; more may appear.");
         } else {
-          keys = knownBaskets(deploymentOf(network as EvmChain)!.betaBaskets);
+          keys = knownBaskets(deploymentOf(network as BasketChain)!.betaBaskets);
         }
       }
       const owner = wallet.address;
@@ -109,8 +114,8 @@ export default function PortfolioBeta() {
               const meta = await within(readMetadata(b.uri), 6_000, null);
               return { key, beta: b.beta, name: b.name, symbol: b.symbol, decimals: SOLANA_BETA_DECIMALS, balance, mine, image: meta?.image ?? null, description: meta?.description ?? "", parts: b.parts.length };
             }
-            const b = await getBasket(readProvider(network as EvmChain), deploymentOf(network as EvmChain)!, key);
-            const balance = fromUnits(await balanceOf(network as EvmChain, b.beta, owner), BETA_DECIMALS);
+            const b = await getBasket(readProvider(network as BasketChain), deploymentOf(network as BasketChain)!, key);
+            const balance = fromUnits(await balanceOf(network as BasketChain, b.beta, owner), BETA_DECIMALS);
             const mine = b.creator.toLowerCase() === owner.toLowerCase();
             if (!(balance > 0) && !mine) return null;
             const meta = await within(readMetadata(b.uri), 6_000, null);
@@ -185,18 +190,20 @@ export default function PortfolioBeta() {
     setShowModal(false);
     setIsProcessing(true);
     setMsg(null);
-    try {
-      const to = sendAddress.trim();
-      const hash = isEvmChain(network)
+    const to = sendAddress.trim();
+    const send = async (): Promise<string> => {
+      const hash = isBasketChain(network)
         ? await wallet.sendTokenTo(to, amountNum, undefined, { address: selected.beta, decimals: selected.decimals })
         : await wallet.sendTokenTo(to, amountNum, undefined, selected.beta, selected.decimals);
       if (!hash) throw new Error("The wallet did not send it");
-      toast.success(t("text32"));
+      return hash;
+    };
+    try {
+      const r = await trackTx(network, `Send ${amountNum} ${selected.symbol}`, send, (h) => h);
+      if (!r.ok) return;
       setSendAmount("");
       setSendAddress("");
       await load();
-    } catch (e: any) {
-      toast.error(e?.shortMessage ?? e?.message ?? t("text34"), { duration: 8000 });
     } finally {
       setIsProcessing(false);
     }
@@ -216,6 +223,7 @@ export default function PortfolioBeta() {
     );
   };
 
+  if (network === "bitcoin") return <SettlementPanel feature={tb("settlementIndexes")} hrefOn={(n) => `/${locale}/${n}/vault/beta`} />;
   if (!supported) return <p className="text-sm text-stone">{"No index tokens on this network yet."}</p>;
 
   if (!wallet?.connected || !address) {

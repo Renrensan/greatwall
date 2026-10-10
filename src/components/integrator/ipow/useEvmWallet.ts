@@ -8,17 +8,19 @@ import { useBaseWallet } from "@/components/base/base-provider";
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provider";
 import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 
-import type { EvmChain } from "./sdk";
+import type { BasketChain } from "./sdk";
 
-export function useEvmWallet(chain: EvmChain | null) {
+export function useEvmWallet(chain: BasketChain | null) {
   const wallets = {
     ethereum: useEthereumWallet(),
     base: useBaseWallet(),
     robinhood: useRobinhoodWallet(),
     hyperliquid: useHyperliquidWallet(),
     arbitrum: useArbitrumWallet(),
+    tempo: useTempoWallet(),
   };
   const bitcoin = useBitcoinWallet();
   const w = chain ? wallets[chain] : null;

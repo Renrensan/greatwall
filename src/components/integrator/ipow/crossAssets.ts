@@ -11,10 +11,10 @@
 // Solana: not offered here (`pairedWith`).
 
 import { SolanaVault, homeAssets, receiptTokens, type HomeAsset, type SolanaAsset } from "@ipow/sdk";
-import { JsonRpcProvider, ZeroAddress } from "ethers";
+import { ZeroAddress } from "ethers";
 
 import type { SupportedChain } from "@/app/network-provider";
-import { EVM_CHAINS, TICKER, deploymentOf, readProvider, solanaConnection, type EvmChain } from "./sdk";
+import { BASKET_CHAINS, EVM_CHAINS, PATH_USD, TICKER, deploymentOf, readProvider, solanaConnection, type BasketChain, type EvmChain } from "./sdk";
 import { rwaTokensOf } from "./rwaTokens";
 import { tokenInfo } from "./tokens";
 import { PublicKey } from "@solana/web3.js";
@@ -57,22 +57,15 @@ function solanaPeers(): SupportedChain[] {
   return deploymentOf("tempo") ? [...EVM_CHAINS, "tempo"] : [...EVM_CHAINS];
 }
 
-let tempoReader: JsonRpcProvider | null = null;
 /** A read-only connection to an EVM network, Tempo included, through the app's proxy. */
-function readerOf(chain: SupportedChain): JsonRpcProvider {
-  if (chain !== "tempo") return readProvider(chain as EvmChain);
-  if (!tempoReader) {
-    const path = "/api/rpc/tempo/testnet";
-    tempoReader = new JsonRpcProvider(typeof window !== "undefined" ? window.location.origin + path : path, deploymentOf("tempo")!.chainId, { staticNetwork: true });
-  }
-  return tempoReader;
-}
+const readerOf = (chain: SupportedChain) => readProvider(chain as BasketChain);
 
 /** The networks whose assets can be parts on `chain`: its vault pairs, as
- *  deployed (Solana for each EVM network; EVM pairs where they exist). */
+ *  deployed (Solana for each EVM network and for Tempo; EVM pairs where
+ *  they exist). */
 export function pairedWith(chain: SupportedChain): SupportedChain[] {
   if (chain === "solana") return solanaPeers();
-  if (!(EVM_CHAINS as readonly string[]).includes(chain)) return [];
+  if (!(BASKET_CHAINS as readonly string[]).includes(chain)) return [];
   const d = deploymentOf(chain);
   if (!d) return [];
   const out: SupportedChain[] = [];
@@ -87,7 +80,7 @@ export function pairedWith(chain: SupportedChain): SupportedChain[] {
 }
 
 /** Another EVM network's assets as receipts on `chain`, through their vault pair. */
-async function evmAssetsOn(chain: EvmChain, peer: EvmChain): Promise<CrossChoice[]> {
+async function evmAssetsOn(chain: BasketChain, peer: EvmChain): Promise<CrossChoice[]> {
   const d = deploymentOf(chain)!;
   const dp = deploymentOf(peer)!;
   // The generated deployments type each `peer` as the literal it was written
@@ -115,7 +108,7 @@ async function evmAssetsOn(chain: EvmChain, peer: EvmChain): Promise<CrossChoice
 }
 
 /** Solana's assets as receipts on `chain`. */
-async function solanaAssetsOn(chain: EvmChain): Promise<CrossChoice[]> {
+async function solanaAssetsOn(chain: BasketChain): Promise<CrossChoice[]> {
   const d = deploymentOf(chain)!;
   const pair = vaultsOf(d).findIndex((v) => v.peer === 2);
   if (pair < 0) return [];
@@ -159,7 +152,9 @@ async function evmAssetsOnSolana(peer: SupportedChain): Promise<CrossChoice[]> {
   const assets: HomeAsset[] = await homeAssets(readerOf(peer), d, pair);
   const vault = new SolanaVault(solanaConnection(), d.number);
   const known = rwaTokensOf(peer);
-  const named = assets.filter((a) => a.token === ZeroAddress || known.some((r) => r.token.toLowerCase() === a.token.toLowerCase()));
+  // Tempo's coin is a token, PathUSD: its vault's asset 0, named as a coin.
+  const isCoin = (token: string) => token === ZeroAddress || (peer === "tempo" && token.toLowerCase() === PATH_USD.toLowerCase());
+  const named = assets.filter((a) => isCoin(a.token) || known.some((r) => r.token.toLowerCase() === a.token.toLowerCase()));
   // Every receipt mint read at once: whether the vault made it yet, and its
   // decimals (a mint's byte 44, Token and Token-2022 alike). One request per
   // network, not two per asset, so a busy RPC still answers in time.
@@ -170,12 +165,13 @@ async function evmAssetsOnSolana(peer: SupportedChain): Promise<CrossChoice[]> {
       const mint = mints[i].toBase58();
       const account = accounts[i];
       const exists = account !== null;
-      const coin = a.token === ZeroAddress;
+      const coin = isCoin(a.token);
       const rwa = coin ? null : known.find((r) => r.token.toLowerCase() === a.token.toLowerCase());
-      const symbol = coin ? TICKER[peer as EvmChain] : rwa!.symbol;
-      const name = coin ? nameOf(peer) : rwa!.name;
+      const symbol = coin ? TICKER[peer as BasketChain] : rwa!.symbol;
+      const name = coin ? (peer === "tempo" ? "PathUSD" : nameOf(peer)) : rwa!.name;
       const decimals = account && account.length > 44 ? account[44] : a.recordDecimals;
-      return { token: mint, symbol, name, decimals, logo: coin ? `/assets/networks/${peer}.png` : rwa?.logo ?? null, from: peer, exists, asset: a.number, receipts: null, home: coin ? null : a.token };
+      // `home` is the token on its own network; null only for a real coin (PathUSD is a token).
+      return { token: mint, symbol, name, decimals, logo: coin ? `/assets/networks/${peer}.png` : rwa?.logo ?? null, from: peer, exists, asset: a.number, receipts: null, home: a.token === ZeroAddress ? null : a.token };
     })
   );
 }
@@ -216,8 +212,8 @@ async function readCrossChoices(chain: SupportedChain): Promise<{ list: CrossCho
   if (chain === "solana") {
     const lists = await Promise.all(solanaPeers().map((peer) => settle(evmAssetsOnSolana(peer))));
     all = lists.flat();
-  } else if ((EVM_CHAINS as readonly string[]).includes(chain)) {
-    const lists = await Promise.all(pairedWith(chain).map((peer) => settle(peer === "solana" ? solanaAssetsOn(chain as EvmChain) : evmAssetsOn(chain as EvmChain, peer as EvmChain))));
+  } else if ((BASKET_CHAINS as readonly string[]).includes(chain)) {
+    const lists = await Promise.all(pairedWith(chain).map((peer) => settle(peer === "solana" ? solanaAssetsOn(chain as BasketChain) : evmAssetsOn(chain as BasketChain, peer as EvmChain))));
     all = lists.flat();
   }
   return { list: all.sort((a, b) => Number(b.exists) - Number(a.exists)), complete };

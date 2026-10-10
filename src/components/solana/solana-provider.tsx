@@ -1,5 +1,6 @@
 "use client";
 
+import { SOLANA_WS } from "@/components/integrator/ipow/sdk";
 import {
   getWallets,
   Wallet,
@@ -188,7 +189,7 @@ const checkAtaRequired = async (
       // when re-checking this right after a stake transaction (see SolanaStake.tsx's
       // post-transaction re-check), causing a freshly-created ATA to still read as
       // "not found" and needlessly reserve rent for an account that already exists.
-      const conn = new Connection(fullRpcUrl, "confirmed");
+      const conn = new Connection(fullRpcUrl, { commitment: "confirmed", wsEndpoint: SOLANA_WS });
       const destPubkey = new PublicKey(destinationAddress);
       const mintPubkey = new PublicKey(mintAddress);
 
@@ -331,7 +332,7 @@ const checkAtaRequired = async (
       if (signal?.aborted) return;
 
       try {
-        const conn = new Connection(fullRpcUrl, "confirmed");
+        const conn = new Connection(fullRpcUrl, { commitment: "confirmed", wsEndpoint: SOLANA_WS });
         const publicKey = new PublicKey(address);
 
         const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
@@ -465,7 +466,7 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
     if (!address) return;
 
     try {
-      const conn = new Connection(fullRpcUrl);
+      const conn = new Connection(fullRpcUrl, { wsEndpoint: SOLANA_WS });
 
 
       const recentFees = await conn.getRecentPrioritizationFees();
@@ -530,7 +531,7 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
     if (!txHash) return null;
 
     try {
-      const conn = new Connection(fullRpcUrl);
+      const conn = new Connection(fullRpcUrl, { wsEndpoint: SOLANA_WS });
 
       const { value } = await conn.getSignatureStatuses([txHash]);
       const status = value[0];
@@ -601,7 +602,7 @@ const sendTokenTo = async (
   };
 
   try {
-    const conn = new Connection(fullRpcUrl);
+    const conn = new Connection(fullRpcUrl, { wsEndpoint: SOLANA_WS });
     const from = new PublicKey(address);
     const to = new PublicKey(toAddress);
     const latest = await conn.getLatestBlockhash();
@@ -963,7 +964,7 @@ useEffect(() => {
       }
     }, 15000);
 
-    const conn = new Connection(fullRpcUrl, "confirmed");
+    const conn = new Connection(fullRpcUrl, { commitment: "confirmed", wsEndpoint: SOLANA_WS });
     const publicKey = new PublicKey(address);
 
     const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");

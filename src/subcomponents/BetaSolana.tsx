@@ -4,6 +4,7 @@
 // is an SPL token: SOL (wrapped as it is minted), a vault receipt of an EVM
 // network's coin (vETH…), or any token by its mint.
 
+import { trackTx } from "@/components/ui/txToast";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -207,14 +208,14 @@ export function SolanaBetaCreate() {
     if (problem || !wallet) return;
     setBusy(true);
     setError(null);
-    try {
+    const send = async () => {
       // The metadata and image, hosted here; Token Metadata keeps the URL
       // (E4; 200 bytes at most, which the site's URLs are well within).
       const { uri } = await storeMetadata(meta).catch((e) => {
         throw new Error(`${t("uploadFailed")}: ${errorText(e)}`);
       });
       // An id of the creator's own; the time keeps it new for each basket.
-      const { basket } = await solanaBeta(wallet).createBasket({
+      return solanaBeta(wallet).createBasket({
         id: BigInt(Date.now()),
         name: meta.name.trim(),
         symbol: meta.symbol.trim(),
@@ -227,12 +228,18 @@ export function SolanaBetaCreate() {
         mintFeeBps: feeBps,
         burnFeeBps: feeBps,
       });
-      rememberBasket(PROGRAM, basket);
-      router.push(`/${locale}/solana/index/${basket}`);
-    } catch (e) {
-      setError(errorText(e));
+    };
+    const r = await trackTx("solana", `Create ${meta.symbol.trim() || "index"}`, send, (x) => x.signature);
+    // A creation Solana confirmed after the client stopped waiting gives no
+    // basket address here: the Explore page lists it.
+    if (r.ok && !r.result) return router.push(`/${locale}/solana/index`);
+    if (!r.ok || !r.result) {
+      setError(r.ok ? null : r.error);
       setBusy(false);
+      return;
     }
+    rememberBasket(PROGRAM, r.result.basket);
+    router.push(`/${locale}/solana/index/${r.result.basket}`);
   }
 
   const nameOfChain = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);

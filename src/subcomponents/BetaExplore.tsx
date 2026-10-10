@@ -5,8 +5,8 @@
 // events (where it has one), else the indexes this browser knows. A card
 // shows the token's image and name (its metadata, E4), its creator, the
 // networks its assets live on, the assets behind it, what one token holds
-// is worth today and its market cap. An index earns no yield, so there is
-// no APY: the value per token is what its assets are worth now.
+// is worth today, its market cap, its past year and its yield
+// (performance.ts).
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -18,10 +18,11 @@ import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
 import { ZeroAddress } from "ethers";
 import { getBasket } from "@ipow/sdk";
+import { loadPerformance, returnText, yieldText } from "@/components/integrator/ipow/performance";
 
 import { Notice, errorText, shortHash } from "./ipow/common";
 import { useUsdValue } from "./ipow/useUsdValue";
-import { deploymentOf, isEvmChain, readProvider, solanaBeta, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { deploymentOf, isBasketChain, readProvider, solanaBeta, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { tokenInfo } from "@/components/integrator/ipow/tokens";
 import { solanaToken } from "@/components/integrator/ipow/solanaTokens";
 import { knownBaskets } from "@/components/integrator/ipow/basketList";
@@ -52,7 +53,7 @@ const usd = (n: number) =>
 const imageOf = async (uri: string) => (await readMetadata(uri)).image;
 
 /** An EVM index as a card (also read by the Portfolio's summary). */
-export async function evmCard(chain: EvmChain, key: string, cross: CrossChoice[]): Promise<Card> {
+export async function evmCard(chain: BasketChain, key: string, cross: CrossChoice[]): Promise<Card> {
   const b = await getBasket(readProvider(chain), deploymentOf(chain)!, key);
   const parts = await Promise.all(
     b.parts.map(async (p): Promise<Part> => {
@@ -113,6 +114,10 @@ export default function BetaExplore() {
   const [cross, setCross] = useState<CrossChoice[]>([]);
   const [page, setPage] = useState(0);
   const [cards, setCards] = useState<Card[] | null>(null);
+  // Indexes made with assets Greatwall can no longer name (e.g. receipts of
+  // a retired vault): still on chain, and reachable by their own page, but
+  // not listed, since nothing about them can be shown or priced.
+  const [retired, setRetired] = useState(0);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,7 +132,7 @@ export default function BetaExplore() {
       let found: string[];
       if (network === "solana") {
         found = await solanaBeta(null).allBaskets();
-      } else if (isEvmChain(network)) {
+      } else if (isBasketChain(network)) {
         // The app's index reads history in steps: ask again until it has all.
         let index: any = null;
         for (let i = 0; i < 20; i++) {
@@ -164,14 +169,34 @@ export default function BetaExplore() {
     if (!keys) return;
     let live = true;
     setCards(null);
+    setRetired(0);
     const shown = keys.slice(page * PAGE, page * PAGE + PAGE);
-    Promise.all(shown.map((k) => (network === "solana" ? solanaCard(k, cross) : evmCard(network as EvmChain, k, cross)).catch(() => null))).then(
-      (found) => live && setCards(found.filter((c): c is Card => c !== null))
-    );
+    Promise.all(shown.map((k) => (network === "solana" ? solanaCard(k, cross) : evmCard(network as BasketChain, k, cross)).catch(() => null))).then((found) => {
+      if (!live) return;
+      const read = found.filter((c): c is Card => c !== null);
+      const listed = read.filter((c) => c.parts.every((p) => p.known));
+      setCards(listed);
+      setRetired(read.length - listed.length);
+    });
     return () => {
       live = false;
     };
   }, [keys, page, cross, network]);
+
+  // Each card's past year and yield (performance.ts), from its mix.
+  const [yearOf, setYearOf] = useState<Record<string, { y1: number | null; apy: number | null }>>({});
+  useEffect(() => {
+    let live = true;
+    for (const c of cards ?? []) {
+      if (c.parts.some((p) => !p.known)) continue;
+      loadPerformance(c.parts.map((p) => ({ symbol: p.symbol, amount: p.amount })))
+        .then((perf) => live && setYearOf((y) => ({ ...y, [c.key]: { y1: perf?.growth.y1 ?? null, apy: perf?.apy ?? null } })))
+        .catch(() => {});
+    }
+    return () => {
+      live = false;
+    };
+  }, [cards]);
 
   const pages = keys ? Math.max(1, Math.ceil(keys.length / PAGE)) : 1;
   /** What one token's assets are worth now, when every part has a price. */
@@ -192,6 +217,7 @@ export default function BetaExplore() {
 
       {error && <Notice text={error} error />}
       {note && <p className="text-xs sm:text-sm text-stone">{note}</p>}
+      {retired > 0 && <p className="text-xs sm:text-sm text-stone">{t("exploreRetired", { count: retired })}</p>}
 
       {!error && (!keys || !cards) ? (
         // Skeleton cards while reading, not an empty page.
@@ -218,6 +244,8 @@ export default function BetaExplore() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {cards.map((c) => {
               const value = valueOf(c);
+              const y1 = yearOf[c.key]?.y1 ?? null;
+              const apy = yearOf[c.key]?.apy ?? null;
               const networks = [...new Set(c.parts.map((p) => p.network))];
               const named = c.name && c.name !== "BETA";
               return (
@@ -230,6 +258,21 @@ export default function BetaExplore() {
                     <div className="flex flex-col min-w-0">
                       <span className="text-[11px] font-medium opacity-70 truncate">${named ? c.symbol : "BETA"}</span>
                       <span className="text-xl font-bold leading-tight truncate">{named ? c.name : t("basketName", { id: shortHash(c.key) })}</span>
+                      <span className="mt-1.5 flex flex-wrap gap-1.5">
+                        {y1 !== null && (
+                          <span
+                            className={`w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${y1 >= 0 ? "bg-green-600/10 text-green-700" : "bg-red-600/10 text-red-700"}`}
+                            title="Growth over the past year: the change in one token's value. Past performance is not a promise."
+                          >
+                            1Y {returnText(y1)}
+                          </span>
+                        )}
+                        {apy !== null && apy > 0 && (
+                          <span className="w-fit rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold tabular-nums" title={t("apyHint")}>
+                            {t("apyChip", { apy: yieldText(apy) })}
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <span className="w-16 h-16 rounded-full overflow-hidden border border-ink/10 bg-black/5 flex items-center justify-center shrink-0">
                       {c.image ? (

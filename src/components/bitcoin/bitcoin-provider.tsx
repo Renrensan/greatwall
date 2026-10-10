@@ -638,15 +638,29 @@ const estimateFee = useCallback(async (signal?: AbortSignal) => {
 
       const finalPsbt = bitcoin.Psbt.fromBase64(signedPsbtB64);
       finalPsbt.finalizeAllInputs();
-      const rawTx = finalPsbt.extractTransaction().toHex();
+      const signedTx = finalPsbt.extractTransaction();
+      const rawTx = signedTx.toHex();
+      const txid = signedTx.getId();
 
-      const broadcastRes = await fetch(`${currentNetworkConfig.jsonRpcUrl}/tx`, {
-        method: "POST",
-        body: rawTx,
-      });
-
-      const txid = await broadcastRes.text();
-      if (!broadcastRes.ok) throw new Error(`Broadcast failed: ${txid}`);
+      // A broadcast that got no clear answer (the server or anything in
+      // front of it timed out, or the connection dropped) may still have
+      // gone: it is followed by its txid, never reported failed, so the
+      // payment isn't made again from other coins. Only an explorer's
+      // refusal is a failure.
+      let broadcastRes: Response;
+      try {
+        broadcastRes = await fetch(`${currentNetworkConfig.jsonRpcUrl}/tx`, { method: "POST", body: rawTx });
+      } catch {
+        console.warn(`Broadcast of ${txid} got no answer; it may still have gone through.`);
+        fetchBalance();
+        return txid;
+      }
+      if (broadcastRes.status >= 500) {
+        console.warn(`Broadcast of ${txid} unconfirmed (${broadcastRes.status}); it may still have gone through.`);
+        fetchBalance();
+        return txid;
+      }
+      if (!broadcastRes.ok) throw new Error(`Broadcast failed: ${await broadcastRes.text()}`);
 
       fetchBalance();
       return txid;
@@ -766,11 +780,15 @@ useEffect(() => {
     let ws: WebSocket;
     let reconnectTimeout: NodeJS.Timeout;
     let isMounted = true;
+    // Where mempool.space's WebSocket is blocked, stop after a few tries:
+    // the minute poll below keeps the balance current without it.
+    let failures = 0;
 
     const connectWebSocket = () => {
       ws = new WebSocket(networkConfig.mainnet.websocketUrl);
 
       ws.onopen = () => {
+        failures = 0;
         ws.send(JSON.stringify({ action: "track-address", address: selectedAccount.address }));
       };
 
@@ -787,20 +805,22 @@ useEffect(() => {
       };
 
       ws.onerror = (error) => {
-        console.error("WebSocket Error:", error);
+        if (failures === 0) console.warn("Bitcoin WebSocket unavailable; balances refresh every minute instead.", error);
         ws.close(); 
       };
 
       ws.onclose = (event) => {
-        if (isMounted && !event.wasClean) {
-          reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        if (isMounted && !event.wasClean && ++failures <= 5) {
+          reconnectTimeout = setTimeout(connectWebSocket, 5000 * failures);
         }
       };
     };
 
     connectWebSocket();
 
+    // Every minute as well, for when the WebSocket is blocked or dropped.
     const feeInterval = setInterval(() => {
+      fetchBalance();
       estimateFee(); 
     }, 60000);
 

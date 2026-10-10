@@ -14,10 +14,13 @@ export const runtime = "nodejs";
 type Source = { env: string; from: number; chunk: number };
 
 /** The networks indexed: their RPC, the block BetaBaskets was deployed in
- *  (read on 2026-10-03), and the most blocks one log query may span there. */
+ *  (read on 2026-10-03; Tempo's on 2026-10-09), and the most blocks one log
+ *  query may span there. */
 const SOURCES: Record<string, Source> = {
   ethereum: { env: "ETH_TESTNET_RPC_URL", from: 11_829_553, chunk: 10_000 },
   base: { env: "BASE_TESTNET_RPC_URL", from: 47_591_492, chunk: 500 },
+  // BetaBaskets redeployed on 2026-10-09: the first block with its code.
+  tempo: { env: "TEMPO_TESTNET_RPC_URL", from: 38_860_595, chunk: 10_000 },
 };
 
 /** Log queries one request may make, so it answers in a few seconds. */

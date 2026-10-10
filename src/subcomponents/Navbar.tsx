@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   useParams,
   usePathname,
@@ -147,7 +147,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
     { key: "portfolio", label: t("navPortfolio"), href: `/${locale}/${chain}/vault/assets`, active: app === "vault" || (app === "bridge" && !["lock", "unlock", "send"].includes(section ?? "")), icon: "solar:wallet-bold" },
     { key: "lock", label: t("navLock"), href: lockPath(locale, chain), active: app === "bridge" && ["lock", "unlock", "send"].includes(section ?? ""), icon: "solar:lock-keyhole-bold" },
     { key: "convert", label: t("navConvert"), href: `/${locale}/${chain}/convert/create`, active: app === "convert", icon: "solar:transfer-horizontal-bold" },
-    { key: "protocol", label: t("navProtocol"), href: `/${locale}/${chain}/protocol`, active: pathname?.endsWith("/protocol") ?? false, icon: "solar:shield-network-bold" },
+    { key: "protocol", label: t("navProtocol"), href: `/${locale}/${chain}/explorer`, active: pathname?.endsWith("/explorer") ?? false, icon: "solar:shield-network-bold" },
   ];
 
   const navLink = (item: (typeof navItems)[number]) => (
@@ -159,7 +159,18 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
         item.active ? "font-semibold text-ink" : "font-normal text-ink/80 hover:text-ink"
       }`}
     >
-      {item.label}
+      {item.key === "protocol" ? (
+        // Live: the Explorer, read from the chains as they move.
+        <span className="inline-flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2" aria-hidden>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+          </span>
+          {item.label}
+        </span>
+      ) : (
+        item.label
+      )}
     </Link>
   );
 
@@ -241,13 +252,18 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
           {filteredNetworkOptions.length === 0 && (
             <p className="text-center text-sm opacity-60 py-4">{t("text349")}</p>
           )}
-          {filteredNetworkOptions.map((network) => {
+          {filteredNetworkOptions.map((network, i) => {
             const networkKey = network.key;
             const isSelected = selectedChain === networkKey;
+            // Bitcoin apart from the networks that run programs (shown when
+            // not searching): it's the record they all check, not a place
+            // apps live, and Greatwall's pages differ there.
+            const heading = !networkSearchQuery && (networkKey === "bitcoin" ? t("networkGroupSettlement") : i > 0 && filteredNetworkOptions[i - 1].key === "bitcoin" ? t("networkGroupProgrammable") : null);
 
             return (
+              <Fragment key={networkKey}>
+              {heading && <p className={`text-[11px] font-semibold uppercase tracking-[0.1em] opacity-60 ${networkKey === "bitcoin" ? "" : "pt-2"}`}>{heading}</p>}
               <button
-                key={networkKey}
                 type="button"
                 onClick={() => {
                   handleNetworkChange(networkKey);
@@ -270,6 +286,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
                   <FaCheckCircle className="text-[18px] text-snow shrink-0" />
                 )}
               </button>
+              </Fragment>
             );
           })}
         </div>

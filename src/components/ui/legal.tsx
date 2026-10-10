@@ -1,6 +1,6 @@
 // The legal pages' shared look (Privacy Policy, Cookies Policy, Terms of
-// Use): a large title with its date, a contents list beside the text on
-// wide screens, and a readable column.
+// Use), also used by the Docs page: a large title with its date, a contents
+// list beside the text on wide screens, and a readable column.
 
 import Link from "next/link";
 
@@ -20,10 +20,11 @@ export function LegalShell({
   toc: { id: string; title: string }[];
   /** `/{locale}/{network}`: where the sibling pages live. */
   base: string;
-  current: "privacy" | "cookies" | "terms";
+  current: "privacy" | "cookies" | "terms" | "docs";
   children: React.ReactNode;
 }) {
   const pages = [
+    { id: "docs", label: "Documentation" },
     { id: "terms", label: "Terms of Use" },
     { id: "privacy", label: "Privacy Policy" },
     { id: "cookies", label: "Cookies Policy" },

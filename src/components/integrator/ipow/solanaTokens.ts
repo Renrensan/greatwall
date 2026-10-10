@@ -5,19 +5,26 @@
 import { PublicKey } from "@solana/web3.js";
 import { WRAPPED_SOL } from "@ipow/sdk";
 
-import { EVM_CHAINS, TICKER, solanaConnection, solanaVaultWith, type EvmChain } from "./sdk";
+import { SolanaVault } from "@ipow/sdk";
+
+import { EVM_CHAINS, TICKER, deploymentOf, solanaConnection, solanaVaultWith, type BasketChain } from "./sdk";
 import { rwaTokensOf } from "./rwaTokens";
 
 export type SolanaToken = { mint: string; symbol: string; decimals: number };
 
-/** The receipts made here of each EVM network's coin (its asset 0). */
-export function receiptMints(): { peer: EvmChain; mint: string; symbol: string }[] {
-  return EVM_CHAINS.map((peer) => ({
-    peer,
-    mint: solanaVaultWith(peer, null).receiptMint(0).toBase58(),
-    // The source coin's name, not the receipt's vETH: ETH locked on Ethereum.
-    symbol: `${TICKER[peer]} · ${peer.charAt(0).toUpperCase() + peer.slice(1)}`,
-  }));
+/** The receipts made here of each EVM network's coin (its asset 0), and
+ *  of Tempo's PathUSD (its vault's asset 0). */
+export function receiptMints(): { peer: BasketChain; mint: string; symbol: string }[] {
+  const tempo = deploymentOf("tempo");
+  return [
+    ...EVM_CHAINS.map((peer) => ({
+      peer: peer as BasketChain,
+      mint: solanaVaultWith(peer, null).receiptMint(0).toBase58(),
+      // The source coin's name, not the receipt's vETH: ETH locked on Ethereum.
+      symbol: `${TICKER[peer]} · ${peer.charAt(0).toUpperCase() + peer.slice(1)}`,
+    })),
+    ...(tempo ? [{ peer: "tempo" as const, mint: new SolanaVault(solanaConnection(), tempo.number).receiptMint(0).toBase58(), symbol: `${TICKER.tempo} · Tempo` }] : []),
+  ];
 }
 
 export function solanaSymbol(mint: string): string {

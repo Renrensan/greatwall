@@ -17,6 +17,8 @@ export const runtime = "nodejs";
 const SOURCES: Record<string, { env: string; from: number; chunk: number }> = {
   ethereum: { env: "ETH_TESTNET_RPC_URL", from: 11_829_553, chunk: 10_000 },
   base: { env: "BASE_TESTNET_RPC_URL", from: 47_591_492, chunk: 500 },
+  // BetaBaskets redeployed on 2026-10-09: the first block with its code.
+  tempo: { env: "TEMPO_TESTNET_RPC_URL", from: 38_860_595, chunk: 10_000 },
 };
 const MAX_QUERIES = 40;
 

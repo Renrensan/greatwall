@@ -5,17 +5,17 @@
 // wrapped from the wallet's SOL as it is minted; what a burn pays of it
 // arrives as wrapped SOL, unwrapped here in one step.
 
+import { trackTx } from "@/components/ui/txToast";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import toast from "react-hot-toast";
-import { parseUnits } from "ethers";
+import { parseUnits, formatUnits } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 import { SOLANA, WRAPPED_SOL, type SolanaBasket, type SolanaMintQuote } from "@ipow/sdk";
 
 import { SolanaConnectButton } from "@/subcomponents/SolanaConnectButton";
 import { Notice, coin, errorText } from "@/subcomponents/ipow/common";
-import { IndexDetail, IndexDetailSkeleton, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
+import { IndexDetail, IndexDetailSkeleton, type CollectItem, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
 import { ActivityCharts } from "@/subcomponents/ipow/ActivityCharts";
 import { solanaActivity, type Activity } from "@/components/integrator/ipow/indexActivity";
 import { useUsdValue } from "@/subcomponents/ipow/useUsdValue";
@@ -63,14 +63,14 @@ export default function SolanaBasketPage() {
   const [history, setHistory] = useState<{ status: "loading" | "ready" | "unsupported" | "error"; events: Activity[] }>({ status: "loading", events: [] });
   const prices = useUsdValue();
   const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
+  /** Collect all's progress: transactions confirmed of how many. */
+  const [allProgress, setAllProgress] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [side, setSide] = useState<"mint" | "burn">("mint");
   const [amount, setAmount] = useState("");
   const [quote, setQuote] = useState<SolanaMintQuote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
 
   const reader = useMemo(() => solanaBeta(null), []);
 
@@ -205,21 +205,28 @@ export default function SolanaBasketPage() {
             ? t("burnTooSmall", { symbol: sym })
             : null;
 
-  async function act(name: string, run: (beta: ReturnType<typeof solanaBeta>) => Promise<{ signature: string }>) {
+  /** One transaction with its toast; whether it went through. `hold` keeps
+   *  the page busy afterwards (collecting all, one after another). */
+  async function act(name: string, run: (beta: ReturnType<typeof solanaBeta>) => Promise<{ signature: string }>, busyAs = name, hold = false): Promise<boolean> {
     const wallet = sol.getAnchorWallet();
-    if (!wallet) return;
-    setBusy(name);
-    setError(null);
-    setDone(null);
+    if (!wallet) return false;
+    setBusy(busyAs);
+    // What the toast calls it: "Mint 1 GREAT", "Collect VTIon fees".
+    const part = Number(name.split("-")[1]);
+    const label =
+      name === "mint" || name === "burn"
+        ? `${name === "mint" ? "Mint" : "Burn"} ${amount} ${sym}`
+        : name === "unwrap"
+          ? "Unwrap SOL"
+          : `Collect ${views[part]?.symbol ?? "part"} ${name.startsWith("fees") ? "fees" : "owed"}`;
     try {
-      const { signature } = await run(solanaBeta(wallet));
-      setDone(signature);
-      setAmount("");
+      const r = await trackTx("solana", label, () => run(solanaBeta(wallet)), (x) => x.signature);
+      if (!r.ok) return false;
+      if (name === "mint" || name === "burn") setAmount("");
       await load();
-    } catch (e) {
-      setError(errorText(e));
+      return true;
     } finally {
-      setBusy(null);
+      if (!hold) setBusy(null);
     }
   }
 
@@ -272,6 +279,7 @@ export default function SolanaBasketPage() {
       logo: v.logo,
       network: v.network,
       perToken: coin(perBeta[i], infos[i].decimals),
+      perTokenExact: Number(formatUnits(perBeta[i], infos[i].decimals)),
       valueUsd: worth[i],
       need: need !== null ? coin(need, infos[i].decimals) : null,
       have: have !== null ? coin(have, infos[i].decimals) : null,
@@ -287,42 +295,61 @@ export default function SolanaBasketPage() {
     if (!sol.address) return;
     setFaucetBusy(mint);
     try {
-      const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: sol.address, mint }) });
-      const body = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
-      toast.success(t("faucetSent", { symbol }));
-      await load();
-    } catch (e) {
-      toast.error(errorText(e));
+      const send = async (): Promise<string | null> => {
+        const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: sol.address, mint }) });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
+        return body?.signature ?? null;
+      };
+      const r = await trackTx("solana", `Faucet: ${symbol}`, send, (h) => h, { pending: "Greatwall's faucet is sending it." });
+      if (r.ok) await load();
     } finally {
       setFaucetBusy(null);
     }
   }
 
-  const black = "w-full rounded-lg bg-ink text-snow py-3 text-sm font-medium hover:bg-pitch disabled:opacity-40 transition-colors";
   const named = basket.name && basket.name !== "BETA";
-  const extras =
-    collectable.length > 0 || (mine && mine.wrapped > ZERO) ? (
-      <div className="glass-card rounded-2xl p-5 flex flex-col gap-3">
-        <p className="font-semibold text-sm">{t("toCollect")}</p>
-        {collectable.map((c) => (
-          <button
-            key={`${c.kind}-${c.i}`}
-            type="button"
-            className={black}
-            disabled={!!busy}
-            onClick={() => act(`${c.kind}-${c.i}`, (b) => (c.kind === "owed" ? b.collectOwed(address, c.i) : b.collectFees(address, c.i)))}
-          >
-            {busy === `${c.kind}-${c.i}` ? t("confirming") : t(c.kind === "owed" ? "collectOwed" : "collectFees", { amount: coin(c.amount, infos[c.i].decimals), symbol: views[c.i].symbol })}
-          </button>
-        ))}
-        {mine && mine.wrapped > ZERO && (
-          <button type="button" className={black} disabled={!!busy} onClick={() => act("unwrap", (b) => b.unwrapSol())}>
-            {busy === "unwrap" ? t("confirming") : t("unwrap", { amount: coin(mine.wrapped, 9) })}
-          </button>
-        )}
-      </div>
-    ) : null;
+  const collectItems: CollectItem[] = [
+    ...collectable.map((c) => ({
+      id: `${c.kind}-${c.i}`,
+      kind: c.kind,
+      part: c.i,
+      symbol: views[c.i].symbol,
+      amount: coin(c.amount, infos[c.i].decimals),
+    })),
+    ...(mine && mine.wrapped > ZERO ? [{ id: "unwrap", kind: "unwrap" as const, part: null, symbol: "SOL", amount: coin(mine.wrapped, 9) }] : []),
+  ];
+  const collectRun = (id: string) => (b: ReturnType<typeof solanaBeta>) => {
+    if (id === "unwrap") return b.unwrapSol();
+    const [kind, i] = [id.split("-")[0], Number(id.split("-")[1])];
+    return kind === "owed" ? b.collectOwed(address, i) : b.collectFees(address, i);
+  };
+  const collect = (item: CollectItem, busyAs = item.id, hold = false) => act(item.id, collectRun(item.id), busyAs, hold);
+  /** Every amount: all the fees in one approval (as few transactions as fit,
+   *  the SDK's collectAllFees), then what is owed one after another; stops at
+   *  the first not done. */
+  async function collectAll() {
+    const wallet = sol.getAnchorWallet();
+    if (!wallet) return;
+    const fees = collectItems.filter((it) => it.id.startsWith("fees-")).map((it) => Number(it.id.split("-")[1]));
+    setBusy("all");
+    try {
+      if (fees.length) {
+        const r = await trackTx(
+          "solana",
+          `Collect ${sym} fees from ${fees.length} part${fees.length > 1 ? "s" : ""}`,
+          () => solanaBeta(wallet).collectAllFees(address, fees, (done, of) => setAllProgress(`${done}/${of}`)),
+          (x) => x.signatures.at(-1),
+        );
+        await load();
+        if (!r.ok) return;
+      }
+      for (const item of collectItems.filter((it) => !it.id.startsWith("fees-"))) if (!(await collect(item, "all", true))) break;
+    } finally {
+      setAllProgress(null);
+      setBusy(null);
+    }
+  }
 
   return (
     <IndexDetail
@@ -361,14 +388,12 @@ export default function SolanaBasketPage() {
       compositionNote={firstMint ? t("compositionWillHold", { symbol: named ? basket.symbol : "BETA" }) : t("compositionHoldsOf", { symbol: named ? basket.symbol : "BETA" })}
       backHref={`/${locale}/solana/index`}
       history={<ActivityCharts events={history.events} supply={supply} symbol={named ? basket.symbol : "BETA"} status={history.status} />}
-      error={error}
-      doneHref={done ? solanaExplorer("tx", done) : null}
       connected={sol.connected}
       connectButton={<SolanaConnectButton />}
       onSubmit={() => act(side, (b) => (side === "mint" ? b.mint(address, amountUnits!) : b.burn(address, amountUnits!)))}
       // SOL for the fees and the new accounts a mint opens.
       feeWarning={side === "mint" && mine && mine.sol < SOL_RESERVE ? { text: t("lowCoinForFees", { symbol: "SOL" }), action: { label: t("faucetNow"), href: `/${locale}/solana/vault/assets` } } : null}
-      extras={extras}
+      collect={{ items: collectItems, busy, onCollect: (item) => collect(item), onCollectAll: collectAll, progress: allProgress }}
     />
   );
 }

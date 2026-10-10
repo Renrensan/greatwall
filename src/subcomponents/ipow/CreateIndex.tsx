@@ -310,6 +310,7 @@ export function CreateIndex({
                 />
               </span>
             </label>
+            <p className="text-[11px] opacity-60 px-1">{t("sharesDrift")}</p>
             {ingredients.map((ing) => {
               const id = rowId(ing);
               const units = unitsOf(ing);

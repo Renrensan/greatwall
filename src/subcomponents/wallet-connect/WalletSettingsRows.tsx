@@ -5,11 +5,10 @@ import { IoPulseOutline } from "react-icons/io5";
 
 export function NetworkStatusCard({
   label,
-  testnet = true,
   pulse = true,
 }: {
   label: string;
-  /** Orange for a test network; green for Bitcoin, the one real network. */
+  /** Unused: the dot is green on every network, test networks included. Kept so callers need no change. */
   testnet?: boolean;
   /** Bitcoin's status dot is static; everyone else pulses. */
   pulse?: boolean;
@@ -20,22 +19,22 @@ export function NetworkStatusCard({
     >
       <div className="flex items-center gap-2">
         <IoPulseOutline
-          className={`text-[16px] ${testnet ? "text-orange-500" : "text-green-500"}`}
+          className={`text-[16px] ${"text-green-500"}`}
         />
         <p className="font-bold text-sm">{label}</p>
       </div>
       {pulse ? (
         <span className="relative flex h-2 w-2 ml-1">
           <span
-            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${testnet ? "bg-orange-400" : "bg-green-400"}`}
+            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${"bg-green-400"}`}
           ></span>
           <span
-            className={`relative inline-flex rounded-full h-2 w-2 ${testnet ? "bg-orange-500" : "bg-green-500"}`}
+            className={`relative inline-flex rounded-full h-2 w-2 ${"bg-green-500"}`}
           ></span>
         </span>
       ) : (
         <span
-          className={`h-2 w-2 rounded-full ${testnet ? "bg-orange-500" : "bg-green-500"}`}
+          className={`h-2 w-2 rounded-full ${"bg-green-500"}`}
         />
       )}
     </div>

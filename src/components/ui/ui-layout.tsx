@@ -12,7 +12,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
   return (
       <div className="min-h-screen flex flex-col">
       <div className="grow mx-4 z-10">
-          <Navbar />
+          <Navbar forceShow />
             {/* Room for the fixed navbar. */}
             <div className="h-24"></div>
         <Suspense

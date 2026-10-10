@@ -11,13 +11,13 @@ import { getBasket, type Basket } from "@ipow/sdk";
 
 import Button from "./Button";
 import { Notice, accentText, coin, errorText, shortHash } from "./ipow/common";
-import { deploymentOf, readProvider, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { deploymentOf, readProvider, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { tokenInfo, type TokenInfo } from "@/components/integrator/ipow/tokens";
 import { isBasketKey, knownBaskets } from "@/components/integrator/ipow/basketList";
 
 type Row = { key: string; basket: Basket | null; parts: TokenInfo[]; error?: string };
 
-export default function BetaBaskets({ chain }: { chain: EvmChain }) {
+export default function BetaBaskets({ chain }: { chain: BasketChain }) {
   const t = useTranslations("Beta");
   const router = useRouter();
   const { locale } = useParams<{ locale: string }>();

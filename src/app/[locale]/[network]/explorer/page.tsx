@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import ProtocolExplorer from "@/subcomponents/ProtocolExplorer";
 
 export const metadata: Metadata = {
-  title: "Protocol · Greatwall",
+  title: "Explorer · Greatwall",
   description: "The iPoW protocol under Greatwall, live: Bitcoin blocks each network verified, operators and jobs, vaults and claims.",
 };
 

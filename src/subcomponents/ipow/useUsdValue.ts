@@ -32,7 +32,8 @@ export function useUsdValue() {
   /** One whole `symbol` in dollars, or null. */
   const priceOf = (symbol: string | undefined | null): number | null => {
     if (!symbol) return null;
-    const p = market[symbol] ?? REFERENCE_USD[symbol];
+    // cbBTC is Bitcoin: its live price, not a fixed reference.
+    const p = market[symbol] ?? (symbol === "cbBTC" ? market.BTC : undefined) ?? REFERENCE_USD[symbol];
     return p > 0 ? p : null;
   };
   /** `amount` (a decimal string) of `symbol` in dollars, or null. */

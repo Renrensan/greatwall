@@ -11,12 +11,17 @@ import BetaCreate from "./BetaCreate";
 import BetaExplore from "./BetaExplore";
 import { SolanaBaskets, SolanaBetaCreate } from "./BetaSolana";
 import { ComingSoon } from "./ipow/common";
-import { appRunsOn, isEvmChain } from "@/components/integrator/ipow/sdk";
+import { SettlementPanel } from "./ipow/SettlementPanel";
+import { useTranslations } from "next-intl";
+import { appRunsOn, isBasketChain } from "@/components/integrator/ipow/sdk";
 
 // The navbar (Explore, Create, Portfolio) chooses the section; there is no
 // heading or tab row of this page's own.
 export default function Beta() {
-  const { network, section } = useParams<{ network: string; section?: string }>();
+  const { locale, network, section } = useParams<{ locale: string; network: string; section?: string }>();
+  const t = useTranslations("Beta");
+  // Bitcoin runs no programs: the page on a programmable network instead.
+  if (network === "bitcoin") return <SettlementPanel feature={t("settlementIndexes")} hrefOn={(n) => `/${locale}/${n}/index${section === "create" ? "/create" : ""}`} />;
   if (!appRunsOn("beta", network)) return <ComingSoon network={network} app="beta" />;
   const create = section === "create";
   const explore = section === "explore";
@@ -24,7 +29,7 @@ export default function Beta() {
     <div className="flex flex-col gap-8">
       {explore ? (
         <BetaExplore />
-      ) : isEvmChain(network) ? (
+      ) : isBasketChain(network) ? (
         create ? <BetaCreate chain={network} /> : <BetaBaskets chain={network} />
       ) : create ? (
         <SolanaBetaCreate />

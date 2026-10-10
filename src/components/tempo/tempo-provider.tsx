@@ -863,6 +863,7 @@ useEffect(() => {
         signMessage,
         sendTokenTo,
         faucet,
+        getSigner: getActiveSigner,
         checkAddress,
         isValidAddress,
         fetchETA,

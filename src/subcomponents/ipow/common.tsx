@@ -9,21 +9,23 @@ import { ABIS } from "@ipow/sdk";
 import { useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 
-import type { EvmChain } from "@/components/integrator/ipow/sdk";
+import type { BasketChain } from "@/components/integrator/ipow/sdk";
 import { EthereumConnectButton } from "../EthereumConnectButton";
 import { BaseConnectButton } from "../BaseConnectButton";
 import { ArbitrumConnectButton } from "../ArbitrumConnectButton";
 import { RobinhoodConnectButton } from "../RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "../HyperliquidConnectButton";
+import { TempoConnectButton } from "../TempoConnectButton";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 export { TICKER } from "@/components/integrator/ipow/sdk";
 
-export function ConnectNetworkButton({ chain }: { chain: EvmChain }) {
+export function ConnectNetworkButton({ chain }: { chain: BasketChain }) {
   if (chain === "ethereum") return <EthereumConnectButton />;
   if (chain === "base") return <BaseConnectButton />;
   if (chain === "robinhood") return <RobinhoodConnectButton />;
   if (chain === "arbitrum") return <ArbitrumConnectButton />;
+  if (chain === "tempo") return <TempoConnectButton />;
   return <HyperliquidConnectButton />;
 }
 
@@ -32,10 +34,16 @@ export const accentText = (_chain: string) => "text-ink";
 /** A faint wash of the accent. */
 export const accentSoft = (_chain: string) => "bg-sand";
 
-/** A coin amount for people: at most 6 decimals, no trailing zeros. */
+/** A coin amount for people: at most 6 decimals, no trailing zeros. An
+ *  amount under 1 that 6 decimals would show as 0 (a fee of 0.000000025
+ *  cbBTC) keeps its leading zeros and 4 significant digits instead. */
 export function coin(amount: bigint, decimals: number): string {
   const [whole, frac = ""] = formatUnits(amount, decimals).split(".");
   const cut = frac.slice(0, 6).replace(/0+$/, "");
+  if (!cut && whole === "0" && amount > BigInt(0)) {
+    const zeros = frac.length - frac.replace(/^0+/, "").length;
+    return `0.${frac.slice(0, zeros + 4).replace(/0+$/, "")}`;
+  }
   return cut ? `${whole}.${cut}` : whole;
 }
 
@@ -166,6 +174,7 @@ export function evmTxLink(chain: string, hash: string): string | null {
     robinhood: "https://explorer.testnet.chain.robinhood.com/tx/",
     hyperliquid: "https://testnet.purrsec.com/tx/",
     arbitrum: "https://sepolia.arbiscan.io/tx/",
+    tempo: "https://explore-testnet.tempo.xyz/tx/",
   };
   return base[chain] ? base[chain] + hash : null;
 }

@@ -18,11 +18,15 @@ import LockedHoldings from "./LockedHoldings";
 import BridgeHistory from "./BridgeHistory";
 import { BridgeHistorySolana } from "./BridgeSolana";
 import { ComingSoon, SectionTabs } from "./ipow/common";
+import { SettlementPanel } from "./ipow/SettlementPanel";
+import { lockPath } from "@/components/integrator/ipow/lockPaths";
 import { appRunsOn, isEvmChain, type EvmChain } from "@/components/integrator/ipow/sdk";
 
 export default function Bridge() {
   const t = useTranslations("Bridge");
-  const { network, section } = useParams<{ network: string; section?: string }>();
+  const { locale, network, section } = useParams<{ locale: string; network: string; section?: string }>();
+  // Bitcoin runs no programs: the page on a programmable network instead.
+  if (network === "bitcoin") return <SettlementPanel feature={t("settlementLock")} hrefOn={(n) => lockPath(locale, n, section ?? "lock")} />;
   if (!appRunsOn("bridge", network)) return <ComingSoon network={network} app="bridge" />;
   const locking = section === "lock";
   const unlocking = section === "unlock" || section === "send";

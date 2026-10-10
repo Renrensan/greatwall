@@ -2,8 +2,10 @@
 
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { tunnelAssets } from "@/components/integrator/ipow/tunnel";
+import { coinPrices } from "@/components/integrator/ipow/coinPrices";
 import { useState, useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
+import { trackTx } from "@/components/ui/txToast";
 import QRCode from "qrcode";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 import ButtonContrast from "./ButtonContrast";
@@ -506,7 +508,7 @@ const baseTokens = useMemo(() => {
       try {
         const [assets, btc] = await Promise.all([
           tunnelAssets(),
-          fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd").then((r) => r.json()).then((j) => Number(j?.bitcoin?.usd ?? 0)).catch(() => 0),
+          coinPrices().then((p) => Number(p?.BTC ?? 0)),
         ]);
         const prices: Record<string, number> = {};
         for (const a of assets.byChain[network as SupportedChain] ?? []) prices[a.token.toLowerCase()] = (Number(a.paySats) / 1e8) * btc;
@@ -539,49 +541,26 @@ const baseTokens = useMemo(() => {
     if (typeof ex === "string") return `${ex.replace(/\/$/, "")}/tx/${hash}`;
     return null;
   };
-  /** A transaction's outcome: a toast, bottom right, with the hash linked
-   *  to the explorer. */
-  const txToast = (message: string, hash?: string | null) => {
-    const url = hash ? txUrl(hash) : null;
-    toast.success(
-      <span>
-        {message}
-        {hash ? (
-          <>
-            {" · "}
-            {url ? (
-              <a href={url} target="_blank" rel="noreferrer" className="underline font-semibold">
-                {"View transaction"}
-              </a>
-            ) : (
-              <span className="font-mono">{hash.slice(0, 10)}…</span>
-            )}
-          </>
-        ) : null}
-      </span>,
-      { duration: 8000 },
-    );
-  };
-  const txError = (e: any, fallback: string) => toast.error(e?.shortMessage ?? e?.message ?? fallback, { duration: 8000 });
   /** An amount as people read it: up to six decimals, no trailing zeros. */
   const fmtAmount = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
   const claimFaucet = async (token: any) => {
     setFaucetBusy(true);
-    try {
+    const send = async (): Promise<string | null> => {
       if (!connected || !address) throw new Error("Connect your wallet first");
-      let hash: string | null = null;
       if (network === "solana") {
         const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, mint: token.mint }) });
         const body = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
-        hash = body?.signature ?? null;
-      } else {
-        if (!faucet) throw new Error("No faucet on this network");
-        hash = await faucet(token.mint);
+        return body?.signature ?? null;
       }
-      txToast(`${token.rwa.faucet} ${token.symbol} sent to your wallet.`, hash);
-    } catch (e: any) {
-      txError(e, "The faucet failed");
+      if (!faucet) throw new Error("No faucet on this network");
+      return faucet(token.mint);
+    };
+    try {
+      await trackTx(network, `Faucet: ${token.rwa.faucet} ${token.symbol}`, send, (h) => h, {
+        linkOf: txUrl,
+        ...(network === "solana" ? { pending: "Greatwall's faucet is sending it." } : {}),
+      });
     } finally {
       setFaucetBusy(false);
     }
@@ -826,72 +805,71 @@ const handleCloseModal = () => {
     if (!connected) return;
 
     setShowModal(false);
+    setIsProcessing(true);
+    const amount = parseFloat(sendAmount);
+    // The send, as one step for its toast: it resolves with its hash.
+    const send = async (): Promise<string> => {
+      let resultTxid;
+
+        if (network === "solana") {
+          // Signed by the wallet; a token by its mint and decimals.
+          resultTxid = await (sendTokenTo as any)(
+            sendAddress,
+            amount,
+            undefined,
+            selectedToken && selectedToken.isNative === false ? selectedToken.mint : undefined,
+            selectedToken?.decimals,
+          );
+        } else if (network === "ethereum" && selectedToken && selectedToken.isNative === false) {
+          // Verified ERC-20 balances (see fetchErc20Balances) carry their contract address in
+          // `mint` and their own decimals, unlike the native entry — sendTokenTo needs both to
+          // build a transfer() call instead of a plain value transfer.
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
+            address: selectedToken.mint,
+            decimals: selectedToken.decimals,
+          });
+        } else if (network === "tempo" && selectedToken && selectedToken.isNative === false) {
+          // Held TRC-20 balances carry the contract address in `mint` — sendTokenTo needs it
+          // plus decimals to build a transfer() call instead of a plain TRX transfer.
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
+            address: selectedToken.mint,
+            decimals: selectedToken.decimals,
+          });
+        } else if (network === "hyperliquid" && selectedToken && selectedToken.isNative === false) {
+          // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
+          // it plus decimals to build a transfer() call instead of a plain value transfer.
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
+            address: selectedToken.mint,
+            decimals: selectedToken.decimals,
+          });
+        } else if (network === "robinhood" && selectedToken && selectedToken.isNative === false) {
+          // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
+          // it plus decimals to build a transfer() call instead of a plain value transfer.
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
+            address: selectedToken.mint,
+            decimals: selectedToken.decimals,
+          });
+        } else if ((network === "base" || network === "arbitrum") && selectedToken && selectedToken.isNative === false) {
+          // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
+          // it plus decimals to build a transfer() call instead of a plain value transfer.
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
+            address: selectedToken.mint,
+            decimals: selectedToken.decimals,
+          });
+        } else {
+
+          resultTxid = await (sendTokenTo as any)(sendAddress, amount);
+        }
+      if (!resultTxid) throw new Error(t("text34"));
+      return resultTxid as string;
+    };
     try {
-      setIsProcessing(true);
-      const amount = parseFloat(sendAmount);
-
-  let resultTxid;
-
-      if (network === "solana") {
-        // Signed by the wallet; a token by its mint and decimals.
-        resultTxid = await (sendTokenTo as any)(
-          sendAddress,
-          amount,
-          undefined,
-          selectedToken && selectedToken.isNative === false ? selectedToken.mint : undefined,
-          selectedToken?.decimals,
-        );
-      } else if (network === "ethereum" && selectedToken && selectedToken.isNative === false) {
-        // Verified ERC-20 balances (see fetchErc20Balances) carry their contract address in
-        // `mint` and their own decimals, unlike the native entry — sendTokenTo needs both to
-        // build a transfer() call instead of a plain value transfer.
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
-          address: selectedToken.mint,
-          decimals: selectedToken.decimals,
-        });
-      } else if (network === "tempo" && selectedToken && selectedToken.isNative === false) {
-        // Held TRC-20 balances carry the contract address in `mint` — sendTokenTo needs it
-        // plus decimals to build a transfer() call instead of a plain TRX transfer.
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
-          address: selectedToken.mint,
-          decimals: selectedToken.decimals,
-        });
-      } else if (network === "hyperliquid" && selectedToken && selectedToken.isNative === false) {
-        // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
-        // it plus decimals to build a transfer() call instead of a plain value transfer.
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
-          address: selectedToken.mint,
-          decimals: selectedToken.decimals,
-        });
-      } else if (network === "robinhood" && selectedToken && selectedToken.isNative === false) {
-        // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
-        // it plus decimals to build a transfer() call instead of a plain value transfer.
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
-          address: selectedToken.mint,
-          decimals: selectedToken.decimals,
-        });
-      } else if ((network === "base" || network === "arbitrum") && selectedToken && selectedToken.isNative === false) {
-        // Verified ERC-20 balances carry their contract address in `mint` — sendTokenTo needs
-        // it plus decimals to build a transfer() call instead of a plain value transfer.
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount, undefined, {
-          address: selectedToken.mint,
-          decimals: selectedToken.decimals,
-        });
-      } else {
-
-        resultTxid = await (sendTokenTo as any)(sendAddress, amount);
-      }
-
-      if (resultTxid) {
-        txToast(t("text32"), resultTxid);
+      const symbol = selectedToken?.symbol ?? currencyTicker;
+      const r = await trackTx(network, `Send ${fmtAmount(amount)} ${symbol}`, send, (h) => h, { linkOf: txUrl });
+      if (r.ok) {
         setSendAmount("");
         setSendAddress("");
-      } else {
-        toast.error(t("text34"), { duration: 8000 });
       }
-    } catch (error: any) {
-      console.error("Transaction Error:", error);
-      txError(error, t("text34"));
     } finally {
       setIsProcessing(false);
     }

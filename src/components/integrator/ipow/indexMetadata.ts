@@ -4,7 +4,7 @@
 import { ZeroAddress } from "ethers";
 import { WRAPPED_SOL } from "@ipow/sdk";
 
-import { TICKER, type EvmChain } from "./sdk";
+import { PATH_USD, TICKER, type EvmChain } from "./sdk";
 import { rwaTokensOf } from "./rwaTokens";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
@@ -51,6 +51,12 @@ export async function readMetadata(uri: string): Promise<IndexMetadata> {
  *  whether Greatwall knows it (the coin, or a token it lists). Only a known
  *  asset is priced: any token can call itself ETH. */
 export function localAsset(network: string, token: string, fallbackSymbol: string): { symbol: string; name: string; logo: string | null; known: boolean } {
+  if (network === "tempo") {
+    // Tempo's money is PathUSD, a token; it has no coin, so a part of the
+    // zero address can't be minted there (Tempo refuses value): not known.
+    if (token.toLowerCase() === PATH_USD.toLowerCase()) return { symbol: "pathUSD", name: "PathUSD", logo: "/assets/networks/tempo.png", known: true };
+    if (token === ZeroAddress) return { symbol: "?", name: "No coin on Tempo", logo: null, known: false };
+  }
   if (token === ZeroAddress || token === WRAPPED_SOL) {
     const symbol = network === "solana" ? "SOL" : (TICKER[network as EvmChain] ?? fallbackSymbol);
     return { symbol, name: network.charAt(0).toUpperCase() + network.slice(1), logo: `/assets/networks/${network}.png`, known: true };

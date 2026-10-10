@@ -12,12 +12,13 @@
 // SDK's SolanaVault), registering a token with that pair first when it is
 // the first lock of it there (open to anyone, a little rent).
 
+import { trackTx } from "@/components/ui/txToast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
-import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+import { FaCheckCircle } from "react-icons/fa";
 import { ZeroAddress, formatUnits, isAddress, parseUnits } from "ethers";
 import { PublicKey } from "@solana/web3.js";
 import { homeAssets, lock, quoteLock, receiptTokens } from "@ipow/sdk";
@@ -31,10 +32,9 @@ import { BaseConnectButton } from "./BaseConnectButton";
 import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
-import { errorText, evmTxLink } from "./ipow/common";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, FaucetButton, rwaOf, useNotEnoughText, useRwaFaucet } from "./ipow/Faucet";
-import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaExplorer, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -131,9 +131,6 @@ export default function LockToken({ initial }: { initial: Net }) {
   const [infoFailed, setInfoFailed] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [lockError, setLockError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ text: string; link: string | null } | null>(null);
   const [chainModalOpen, setChainModalOpen] = useState(false);
   const [chainModalSide, setChainModalSide] = useState<Side>("from");
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
@@ -327,7 +324,6 @@ export default function LockToken({ initial }: { initial: Net }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
   const pickChain = (n: Net) => {
-    setShowErrorModal(false);
     if (chainModalSide === "from") {
       chooseSrc(n);
     } else {
@@ -348,10 +344,9 @@ export default function LockToken({ initial }: { initial: Net }) {
 
   const handleLock = async () => {
     if (!canLock || !amountUnits) return;
-    try {
-      setIsProcessing(true);
-      setShowErrorModal(false);
-      let link: string | null;
+    setIsProcessing(true);
+    // The send, as one step for its toast: it resolves with its hash.
+    const send = async (): Promise<string> => {
       if (src === "solana") {
         const anchor = solanaWallet.getAnchorWallet();
         if (!anchor) throw new Error(tb("lockConnect", { network: nameOf("solana") }));
@@ -360,26 +355,24 @@ export default function LockToken({ initial }: { initial: Net }) {
         // Registered since the page read the pair (by this page or anyone): use it.
         if (number === null) number = (await v.assetOfMint(asset.token))?.number ?? null;
         if (number === null) number = (await v.registerToken(asset.token)).asset;
-        const r = await v.lock({ asset: number, recipient: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee });
-        link = solanaExplorer("tx", r.signature);
-      } else {
-        if (!srcEvm.getSigner) throw new Error(tb("lockConnect", { network: nameOf(src) }));
-        const d = deploymentOf(src)!;
-        const signer = await srcEvm.getSigner();
-        const onChain = (await signer.provider?.getNetwork())?.chainId;
-        if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(tb("wrongNetwork"));
-        const pair = vaultsOf(src).findIndex((v) => v.peer === numberOf(dst));
-        const q = await quoteLock(readProvider(src), d, { asset: info!.number!, amount: amountUnits, fee: ZERO, fastFee, pair });
-        const r = await lock(signer, d, q, recipient.trim());
-        link = evmTxLink(src, r.txHash);
+        return (await v.lock({ asset: number, recipient: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee })).signature;
       }
-      setDone({ text: tb("lockDone", { amount, symbol: asset.symbol, network: nameOf(dst) }), link });
+      if (!srcEvm.getSigner) throw new Error(tb("lockConnect", { network: nameOf(src) }));
+      const d = deploymentOf(src)!;
+      const signer = await srcEvm.getSigner();
+      const onChain = (await signer.provider?.getNetwork())?.chainId;
+      if (onChain !== undefined && onChain !== BigInt(d.chainId)) throw new Error(tb("wrongNetwork"));
+      const pair = vaultsOf(src).findIndex((v) => v.peer === numberOf(dst));
+      const q = await quoteLock(readProvider(src), d, { asset: info!.number!, amount: amountUnits, fee: ZERO, fastFee, pair });
+      return (await lock(signer, d, q, recipient.trim())).txHash;
+    };
+    try {
+      const r = await trackTx(src, `Lock ${amount} ${asset.symbol} for ${nameOf(dst)}`, send, (h) => h, {
+        done: `${tb("lockDone", { amount, symbol: asset.symbol, network: nameOf(dst) })}. ${tb("timing")}`,
+      });
+      if (!r.ok) return;
       setAmount("");
       setRefresh((n) => n + 1);
-    } catch (e) {
-      console.error(e);
-      setLockError(errorText(e));
-      setShowErrorModal(true);
     } finally {
       setIsProcessing(false);
     }
@@ -577,45 +570,7 @@ export default function LockToken({ initial }: { initial: Net }) {
       </div>
 
 
-      <AnimatedModal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} maxWidthClass="lg:w-100">
-        <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-          <div className="p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full text-red-500 mb-5">
-            <FaExclamationCircle className="text-6xl" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">{t("text33")}</h2>
-          <p className="text-sm mb-4">{t("text34")}</p>
-          {lockError && <p className="text-xs break-words mb-4 opacity-80">{lockError}</p>}
-        </div>
-        <div className="px-6 py-6 border-t border-black/5 bg-white">
-          <div className="flex flex-col-reverse justify-center gap-3 w-full">
-            <div className="w-full sm:flex-1">
-              <ButtonContrast onClick={() => setShowErrorModal(false)} buttonText={t("text128")} />
-            </div>
-          </div>
-        </div>
-      </AnimatedModal>
 
-      <AnimatedModal isOpen={done !== null} onClose={() => setDone(null)} maxWidthClass="lg:w-100">
-        <div className="flex flex-col justify-center text-center p-6 overflow-y-auto custom-scrollbar">
-          <div className="p-5 glass-card shadow-sm flex justify-center items-center mx-auto w-24 h-24 rounded-full text-ink mb-5">
-            <FaCheckCircle className="text-6xl" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">{done?.text}</h2>
-          <p className="text-sm mb-4">{tb("timing")}</p>
-          {done?.link && (
-            <a href={done.link} target="_blank" rel="noreferrer" className="text-xs underline font-semibold mb-4">
-              {tb("viewTx")}
-            </a>
-          )}
-        </div>
-        <div className="px-6 py-6 border-t border-black/5 bg-white">
-          <div className="flex flex-col-reverse justify-center gap-3 w-full">
-            <div className="w-full sm:flex-1">
-              <ButtonContrast onClick={() => setDone(null)} buttonText={t("text128")} />
-            </div>
-          </div>
-        </div>
-      </AnimatedModal>
 
       {/* NETWORK SELECTION MODAL */}
       <AnimatedModal isOpen={chainModalOpen} onClose={() => setChainModalOpen(false)} maxWidthClass="lg:w-150">

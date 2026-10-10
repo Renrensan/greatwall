@@ -13,6 +13,7 @@ networks put up stake that is slashed if they lie.
 
 - **Live:** [greatwall.finance](https://greatwall.finance)
 - **Protocol:** [github.com/kelwinshen/ipow](https://github.com/kelwinshen/ipow)
+- **Docs:** [greatwall.finance/en/ethereum/docs](https://greatwall.finance/en/ethereum/docs), how to use every page
 - **Follow:** [X](https://x.com/greatwallfi) · [Telegram](https://t.me/greatwallfinance) · [YouTube](https://www.youtube.com/@greatwallfinance)
 
 > [!NOTE]
@@ -25,12 +26,16 @@ networks put up stake that is slashed if they lie.
 
 | Page | What it does |
 |---|---|
-| **Explore** | Every index token on a network: what backs it, on which networks, and what one token is worth now |
+| **Explore** | Every index token on a network: what backs it, on which networks, what one token is worth now, its supply over time, and its past performance: growth, yield (APY) and total return over 1, 3, 6 and 12 months, from the real assets' market data |
 | **Create** | Launch an index token from assets on any network: pick the parts, set how much of each one token holds, name it and give it an image |
-| **Lock / Unlock** | Lock an asset on its own network and receive it on a paired network, paid in about two minutes on the fast path; unlock it back the same way |
+| **Lock / Unlock** | Lock any listed asset on its own network and receive it on a paired network, paid on the fast path in about 1–2 minutes from Solana or about 15 from Ethereum; unlock it back the same way |
 | **Convert** | Move value between networks, or to and from Bitcoin, through an operator's quote |
 | **Portfolio** | Everything your wallets hold, by network and in dollars, plus your index tokens |
-| **Protocol** | A live explorer of iPoW itself: every protocol transaction on every network, who made it (an operator, a user, a guardian) and what it did |
+| **Live** | The Explorer: a live view of iPoW itself: every protocol transaction on every network, who made it (an operator, a user, a guardian) and what it did. Open any row for what it means and why the protocol does it |
+
+Index tokens run on all seven networks, Tempo included; Lock and Convert on
+six (Tempo's are coming). Every on-chain action shows its progress in a toast,
+with a link to the transaction.
 
 ### Try it in three minutes
 
@@ -38,7 +43,7 @@ networks put up stake that is slashed if they lie.
 2. In **Portfolio** or **Lock**, use **Faucet** to get test tokens (you need a little test ETH or SOL for fees).
 3. **Lock** a token on Ethereum for use on Solana, and watch it arrive.
 4. **Create** an index token from a few assets, then find it in **Explore** and mint some.
-5. Open **Protocol** to see the transactions you just made, next to the operators' work behind them.
+5. Open **Live** to see the transactions you just made, next to the operators' work behind them.
 
 ## How it fits together
 
@@ -64,7 +69,7 @@ networks put up stake that is slashed if they lie.
   burned to take it back.
 - **Convert** uses the **Conversion** application, and the operator node's
   tunnel for conversions between two networks.
-- **Protocol** reads the iPoW contracts' events (EVM) and the programs'
+- **Explorer** reads the iPoW contracts' events (EVM) and the programs'
   transactions (Solana) directly from each network: nothing comes from a
   database of ours.
 
@@ -116,9 +121,11 @@ pnpm build   # type-checks and builds
 ```
 src/
   app/
-    [locale]/[network]/...   pages (Explore, Create, Lock, Convert, Portfolio, Protocol, legal)
+    [locale]/[network]/...   pages (Explore, Create, Lock, Convert, Portfolio, Live (/explorer), Docs, legal)
     api/rpc/*                RPC proxies, rate-limited, keys kept server-side
-    api/explorer/*           the protocol explorer's readers (EVM events, Solana programs, Bitcoin tip)
+    api/bitcoin/*            Bitcoin's explorer API through this server, for networks that block mempool.space
+    api/prices, api/history  coin prices now, and a year of the real assets' prices for past performance
+    api/explorer/*           the Explorer's readers (EVM events, Solana programs, Bitcoin tip)
     api/baskets, api/beta    index-token listings and metadata
     api/faucet, api/tunnel   test-token faucet, operator tunnel
   components/

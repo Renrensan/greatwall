@@ -11,6 +11,8 @@ import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
+import { yieldText } from "@/components/integrator/ipow/performance";
+import { PerformanceBlock, usePerformance } from "./PerformanceBlock";
 
 export type DetailPart = {
   key: string;
@@ -21,6 +23,9 @@ export type DetailPart = {
   network: string;
   /** What one token holds of it, formatted. */
   perToken: string;
+  /** The same, exact (not rounded for display), in whole units: for past
+   *  performance and yield, whose weights it sets. */
+  perTokenExact?: number;
   /** What that is worth now, when a price is known. */
   valueUsd: number | null;
   /** Minting: what the amount asked takes of it (fee included), and what
@@ -33,6 +38,19 @@ export type DetailPart = {
   /** What is missing to mint, and its one action: lock it on its network
    *  (a link), or claim it from the faucet (a click). */
   warning?: { text: string; action?: RowAction } | null;
+};
+
+/** Something the wallet can collect from the index: a part's fees, a part
+ *  owed from a burn, or (Solana) wrapped SOL to unwrap. */
+export type CollectItem = {
+  id: string;
+  kind: "fees" | "owed" | "unwrap";
+  /** The index of the part it is of (in `parts`), for its logo and network;
+   *  none for unwrapping SOL. */
+  part: number | null;
+  symbol: string;
+  /** Formatted. */
+  amount: string;
 };
 
 export type RowAction =
@@ -95,21 +113,23 @@ export function IndexDetail(props: {
   busy: boolean;
   /** Any action of the page under way: nothing else starts meanwhile. */
   anyBusy: boolean;
-  error: string | null;
-  doneHref: string | null;
   connected: boolean;
   connectButton: ReactNode;
   onSubmit: () => void;
   /** Network fees: when the wallet's coin runs low. */
   feeWarning: { text: string; action?: { label: string; href: string } } | null;
   /** What the wallet can collect (owed parts, creator's fees, wrapped SOL). */
-  extras: ReactNode;
+  /** What the wallet can collect: each on its own, or all one after another. */
+  collect?: { items: CollectItem[]; busy: string | null; onCollect: (item: CollectItem) => void; onCollectAll: () => void; progress?: string | null } | null;
+  extras?: ReactNode;
   /** "What one token holds now", or before any mint "the mix it starts with". */
   compositionNote: string;
   backHref: string;
   /** The charts of its history. */
   history: ReactNode;
 }) {
+  // Its past year and yield, from its mix (performance.ts).
+  const perf = usePerformance(props.parts.map((p) => ({ symbol: p.symbol, amount: p.perTokenExact ?? Number(p.perToken.replace(/,/g, "")) })));
   const t = useTranslations("Beta");
   const [shared, setShared] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -201,18 +221,25 @@ export function IndexDetail(props: {
         </section>
 
         {/* Its figures now. */}
-        <dl className="grid grid-cols-3 divide-x divide-ink/10 rounded-2xl bg-cream border border-ink/10">
-          {[
-            [t("valuePerToken"), props.valuePerToken === null ? "—" : money(props.valuePerToken)],
-            [t("marketCap"), props.marketCap === null ? "—" : money(props.marketCap)],
-            [t("creatorFeeLabel"), `${props.feePct}%`],
-          ].map(([label, value]) => (
-            <div key={label} className="px-4 py-3 flex flex-col gap-1 min-w-0">
-              <dt className="text-xs opacity-60 truncate">{label}</dt>
-              <dd className="text-base font-semibold tabular-nums truncate">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="flex flex-col gap-1.5">
+          <dl className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl bg-cream border border-ink/10 [&>div]:border-ink/10 [&>div:nth-child(even)]:border-l [&>div:nth-child(n+3)]:border-t sm:[&>div:nth-child(n+3)]:border-t-0 sm:[&>div:not(:first-child)]:border-l">
+            {[
+              [t("valuePerToken"), props.valuePerToken === null ? "—" : money(props.valuePerToken)],
+              [t("marketCap"), props.marketCap === null ? "—" : money(props.marketCap)],
+              [t("apy"), perf === undefined ? "…" : perf?.apy == null ? "—" : yieldText(perf.apy)],
+              [t("creatorFeeLabel"), `${props.feePct}%`],
+            ].map(([label, value]) => (
+              <div key={label} className="px-4 py-3 flex flex-col gap-1 min-w-0">
+                <dt className="text-xs opacity-60 truncate">{label}</dt>
+                <dd className="text-base font-semibold tabular-nums truncate">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-[11px] text-stone px-1">{t("apyHint")}</p>
+        </div>
+
+        {/* What its mix would have done over the past year. */}
+        <PerformanceBlock perf={perf} />
 
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -397,12 +424,6 @@ export function IndexDetail(props: {
           {props.side === "mint" && props.feeWarning && warning(props.feeWarning)}
           {props.side === "mint" && props.includesFee && <span className="text-[11px] opacity-60">{props.includesFee}</span>}
 
-          {props.error && <p className="text-xs text-red-600 break-words">{props.error}</p>}
-          {props.doneHref && (
-            <a href={props.doneHref} target="_blank" rel="noreferrer" className="text-xs underline opacity-80">
-              {t("doneTx")}
-            </a>
-          )}
           {!props.connected ? (
             <div className="flex flex-col gap-2">
               <span className="text-xs opacity-70">{t("connectFirst")}</span>
@@ -415,6 +436,7 @@ export function IndexDetail(props: {
           )}
         </div>
 
+        {props.collect && props.collect.items.length > 0 && <CollectCard {...props.collect} parts={props.parts} />}
         {props.extras}
 
         <div className="glass-card rounded-2xl px-5 py-4 flex items-center justify-between gap-3">
@@ -489,6 +511,59 @@ export function IndexDetailSkeleton() {
           <div className="h-48 rounded-xl bg-black/5 animate-pulse" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** What the wallet can collect, one row per amount: the part, what kind of
+ *  amount it is, how much, and its own Collect. */
+function CollectCard({ items, busy, onCollect, onCollectAll, progress, parts }: NonNullable<Parameters<typeof IndexDetail>[0]["collect"]> & { parts: DetailPart[] }) {
+  const t = useTranslations("Beta");
+  const kindLabel = { fees: t("collectKindFees"), owed: t("collectKindOwed"), unwrap: t("collectKindUnwrap") };
+  return (
+    <div className="glass-card rounded-2xl p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-display text-2xl">{t("toCollect")}</span>
+          <span className="text-xs text-stone">{t("toCollectHint", { count: items.length })}</span>
+        </div>
+        {items.length > 1 && (
+          <button type="button" onClick={onCollectAll} disabled={!!busy} className="gw-wallet-btn shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+            {busy === "all" ? `${t("collectingAll")}${progress ? ` ${progress}` : ""}` : t("collectAll")}
+          </button>
+        )}
+      </div>
+
+      <ul className="flex flex-col divide-y divide-sand rounded-xl border border-sand bg-snow">
+        {items.map((item) => {
+          const mine = busy === item.id;
+          const part = item.part !== null ? parts[item.part] ?? null : null;
+          return (
+            <li key={item.id} className="flex items-center gap-3 px-3 py-2.5">
+              {part ? (
+                <PartLogoBadged part={part} size={32} />
+              ) : (
+                <span className="w-8 h-8 shrink-0 rounded-full bg-sand flex items-center justify-center">
+                  <Icon icon="solar:refresh-circle-linear" className="text-lg text-stone" />
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-semibold">{item.symbol}</span>
+                <span className="truncate text-[11px] text-stone">{kindLabel[item.kind]}</span>
+              </div>
+              <span className="shrink-0 text-right font-mono text-sm tabular-nums">{item.amount}</span>
+              <button
+                type="button"
+                onClick={() => onCollect(item)}
+                disabled={!!busy}
+                className="shrink-0 rounded-md border border-ink px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-ink hover:text-snow disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {mine ? t("collecting") : item.kind === "unwrap" ? t("unwrapAction") : t("collectAction")}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

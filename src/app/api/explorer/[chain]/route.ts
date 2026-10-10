@@ -14,7 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { Contract, Interface, JsonRpcProvider, type Log } from "ethers";
-import { ABIS, network, type NetworkName } from "@ipow/sdk";
+import { ABIS, getBasket, network, type NetworkName } from "@ipow/sdk";
 
 import { SOURCES, assetsOf, cap, nameOf } from "@/components/integrator/ipow/explorer";
 
@@ -60,6 +60,11 @@ export type ExplorerTx = {
   detail: string;
   /** The other things the same transaction did, in plain words. */
   also: string[];
+  /** What its main action is, as `<contract or program>.<event or instruction>`:
+   *  the key the page explains it by (explorerGlossary.ts). */
+  kind: string;
+  /** The same for each of `also`. */
+  alsoKinds: string[];
 };
 
 const ROLE_OF: Record<string, Role> = {
@@ -130,6 +135,22 @@ const fmt = (raw: bigint, decimals: number) => {
   const s = (Number(raw) / 10 ** decimals).toLocaleString("en-US", { maximumFractionDigits: 6 });
   return s;
 };
+/** Each index's symbol, by network and key, read once. */
+const indexSymbols = new Map<string, Promise<string>>();
+
+/** A Bitcoin hash as Bitcoin shows it: the contracts keep a block hash or a
+ *  txid in Bitcoin's internal byte order, which reads backwards (a block's
+ *  zeros last); shown reversed, without 0x, a block hash starts with its zeros. */
+const btcHash = (x: string) => {
+  const hex = x.replace(/^0x/, "");
+  return /^[0-9a-fA-F]{64}$/.test(hex) ? (hex.match(/../g) ?? []).reverse().join("") : hex;
+};
+/** The same, shortened: its first 8 and last 6 characters. */
+const btcShort = (x: string) => {
+  const h = btcHash(x);
+  return h.length > 16 ? `${h.slice(0, 8)}…${h.slice(-6)}` : h;
+};
+
 const short = (x: string) => (x && x.length > 12 ? `${x.slice(0, 6)}…${x.slice(-4)}` : x);
 
 export async function GET(_req: Request, { params }: { params: Promise<{ chain: string }> }) {
@@ -266,8 +287,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ chain: 
     const newestStored = h.logs.find((l) => l.address.toLowerCase() === d.lightClient.toLowerCase() && l.topics[0] === lcIface.getEvent("BlockStored")!.topicHash);
     if (newestStored) {
       const a = lcIface.parseLog(newestStored)!.args;
-      lightClient = { height: Number(a.height), hash: String(a.blockHash), at: blockTimes.get(`${chain}:${newestStored.blockNumber}`) ?? null };
+      lightClient = { height: Number(a.height), hash: btcHash(String(a.blockHash)), at: blockTimes.get(`${chain}:${newestStored.blockNumber}`) ?? null };
     }
+    // An index's own events, named by the index once its symbol is read.
+    const indexEvents: { i: number; key: string; name: string; a: Record<string, any> }[] = [];
     for (const log of shown) {
       const r = byAddress.get(log.address.toLowerCase());
       if (!r) continue;
@@ -294,7 +317,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ chain: 
         at: times.get(log.blockNumber) ?? null,
         ...(r.peer !== undefined ? { peer: nameOf(r.peer) } : {}),
       });
+      if (r.role === "betaBaskets" && a.key && parsed.name !== "BasketCreated") indexEvents.push({ i: events.length - 1, key: String(a.key), name: parsed.name, a });
     }
+    await Promise.all(
+      indexEvents.map(async ({ i, key, name, a }) => {
+        const id = `${chain}:${key}`;
+        if (!indexSymbols.has(id)) indexSymbols.set(id, getBasket(provider, d, key).then((b) => b.symbol || "BETA").catch(() => "index"));
+        const sym = await indexSymbols.get(id)!;
+        const by = short(String(a.user ?? a.receiver ?? ""));
+        if (name === "Minted") events[i].title = `${fmt(BigInt(a.amount), 9)} ${sym} minted`;
+        else if (name === "Burned") events[i].title = `${fmt(BigInt(a.amount), 9)} ${sym} burned`;
+        else if (name === "FeesCollected") [events[i].title, events[i].detail] = [`${sym} creator fees collected`, `Part ${Number(a.index) + 1}, by ${by}`];
+        else if (name === "Collected") [events[i].title, events[i].detail] = [`${sym} owed part collected`, `Part ${Number(a.index) + 1}, by ${by}`];
+      }),
+    );
 
     // One row per transaction: its main action first, and who sent it.
     const byTx = new Map<string, ExplorerEvent[]>();
@@ -319,6 +355,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ chain: 
         title: main.title,
         detail: main.detail,
         also: ranked.slice(1).map((e) => e.title),
+        kind: main.kind,
+        alsoKinds: ranked.slice(1).map((e) => e.kind),
       };
     });
     txs.sort((a, b) => b.block - a.block);
@@ -344,11 +382,11 @@ function describe(role: string, name: string, a: Record<string, any>, c: Ctx): [
   switch (`${role}.${name}`) {
     // Bitcoin, as the light client keeps it.
     case "lightClient.BlockStored":
-      return [`Bitcoin block ${Number(a.height).toLocaleString("en-US")} stored`, `Its proof of work checked on ${c.here}: hash ${short(String(a.blockHash))}`];
+      return [`Bitcoin block ${Number(a.height).toLocaleString("en-US")} added`, `${c.here} checked its proof of work and saved it: hash ${btcShort(String(a.blockHash))}`];
     case "lightClient.EpochStartRecorded":
-      return [`Bitcoin difficulty epoch recorded`, `Starts at block ${Number(a.height).toLocaleString("en-US")}: every block of the epoch must meet its difficulty`];
+      return [`Bitcoin difficulty period recorded`, `Starting at block ${Number(a.height).toLocaleString("en-US")}: every block of the period must meet its difficulty`];
     case "lightClient.Jumped":
-      return [`Light client jumped ahead`, `${short(String(a.by))} linked a recent Bitcoin block to a known epoch start`];
+      return [`Caught up with Bitcoin`, `${c.here}'s copy of Bitcoin starts again from a recent block, linked to a known difficulty period`];
     // The protocol: operators and jobs.
     case "protocol.ApplicationRegistered":
       return [`Application registered`, `${short(String(a.application))} can now open jobs`];
@@ -357,15 +395,15 @@ function describe(role: string, name: string, a: Record<string, any>, c: Ctx): [
     case "protocol.BondWithdrawn":
       return [`Operator bond withdrawn`, `${short(String(a.operator))} withdrew ${coin(a.amount)}`];
     case "protocol.ChainHeadSet":
-      return [`Operator chain head set`, `${short(String(a.operator))} registered Bitcoin coin ${short(String(a.txid))}:${a.vout}`];
+      return [`Operator's Bitcoin marker set`, `${short(String(a.operator))} named its Bitcoin coin ${btcShort(String(a.txid))}:${a.vout}, which its jobs' transactions spend in turn`];
     case "protocol.JobOpened":
-      return [`Job #${a.jobId} opened`, `An application asked for an operator: escrow ${coin(a.escrow)}, ${a.confirmations} Bitcoin confirmations`];
+      return [`Checkpoint #${a.jobId} requested`, `A job for an operator to prove a recent Bitcoin block: stake ${coin(a.escrow)}, ${a.confirmations} confirmations`];
     case "protocol.BidPlaced":
-      return [`Bid on job #${a.jobId}`, `${short(String(a.operator))} offered ${coin(a.amount)}`];
+      return [`Operator took job #${a.jobId}`, `${short(String(a.operator))} bid ${coin(a.amount)} to do it`];
     case "protocol.JobAnchored":
-      return [`Job #${a.jobId} anchored to Bitcoin`, `To block ${Number(a.height).toLocaleString("en-US")}: the operator's Bitcoin transaction must follow it`];
+      return [`Job #${a.jobId} started`, `Anchored at Bitcoin block ${Number(a.height).toLocaleString("en-US")}: the operator now writes a Bitcoin transaction after it`];
     case "protocol.JobProven":
-      return [`Job #${a.jobId} proven`, `Bitcoin transaction ${short(String(a.txid))} shown in a stored block`];
+      return [`Job #${a.jobId} proven`, `Its Bitcoin transaction ${btcShort(String(a.txid))} shown in a real block; anyone can challenge it for 36 hours`];
     case "protocol.JobSettled":
       return [`Job #${a.jobId} settled`, `${short(String(a.operator))} was paid ${coin(a.paid)}`];
     case "protocol.JobExpired":
@@ -414,7 +452,7 @@ function describe(role: string, name: string, a: Record<string, any>, c: Ctx): [
     case "vault.MessageBatch":
       return [`Message batch ${a.index} carried`, `Operator ${short(String(a.operator))} brought records from ${c.peer}`];
     case "vault.MessageProcessed":
-      return [a.truthful ? `Message ${a.index} judged true` : `Message ${a.index} judged false`, `Bitcoin transaction ${short(String(a.txid))} checked against ${c.peer}'s records`];
+      return [a.truthful ? `Message ${a.index} judged true` : `Message ${a.index} judged false`, `Bitcoin transaction ${btcShort(String(a.txid))} checked against ${c.peer}'s records`];
     case "vault.ClaimOpened":
       return [`Claim #${a.claimId} opened`, `Operator ${short(String(a.operator))} states a fact about ${c.peer}`];
     case "vault.ClaimDecided":
@@ -432,7 +470,7 @@ function describe(role: string, name: string, a: Record<string, any>, c: Ctx): [
     case "vault.DepositsChanged":
       return [`Vault deposits changed`, `${short(String(a.operator))}: ${coin(a.deposits)}`];
     case "vault.RealBlock":
-      return [`Bitcoin block confirmed real`, `Marked for the pair with ${c.peer}`];
+      return [`Bitcoin block certified`, `Counts as real for the pair with ${c.peer}: messages below it can be accepted`];
     // Applications on top.
     case "conversion.Sold":
       return [`Conversion: sell #${a.swapId}`, `${short(String(a.user))} sells for ${Number(a.sats).toLocaleString("en-US")} sats on Bitcoin (job #${a.jobId})`];

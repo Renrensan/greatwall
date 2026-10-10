@@ -5,15 +5,20 @@
 // it did, who did it (an operator, a user, a guardian), and a link to it on
 // the network's own explorer. So anyone can watch the operators work.
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 
 import { evmTxLink } from "./ipow/common";
+import { explain } from "@/components/integrator/ipow/explorerGlossary";
 import { EmptyPanel, IconPicture, ListSkeleton } from "./ipow/EmptyPanel";
+import { Poster } from "./ipow/Poster";
+import poster from "@/assets/background-explorer.jpg";
 import type { ExplorerTx, ExplorerView, Role } from "@/app/api/explorer/[chain]/route";
 
 const CHAINS = ["ethereum", "solana", "base", "robinhood", "hyperliquid", "arbitrum", "tempo"] as const;
 const REFRESH_MS = 30_000;
+/** Rows on one page of the table. */
+const PAGE_SIZE = 25;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const short = (x: string) => `${x.slice(0, 6)}…${x.slice(-4)}`;
@@ -46,6 +51,11 @@ export default function ProtocolExplorer() {
   const [chain, setChain] = useState<string>("all");
   const [role, setRole] = useState<Role | "all">("all");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
+  /** The row whose details are open, by network and transaction. */
+  const [opened, setOpened] = useState<string | null>(null);
+  // A new filter or search starts again from the first page; a refresh keeps the page.
+  useEffect(() => setPage(0), [chain, role, query]);
 
   useEffect(() => {
     let live = true;
@@ -81,41 +91,46 @@ export default function ProtocolExplorer() {
   const rows = all.filter(
     (t) => (chain === "all" || t.chain === chain) && (role === "all" || t.role === role) && (!q || t.tx.toLowerCase().includes(q) || (t.from ?? "").toLowerCase().includes(q)),
   );
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  // Rows can shrink under the page (a filter, a refresh): the last page then.
+  const at = Math.min(page, pages - 1);
+  const shown = rows.slice(at * PAGE_SIZE, (at + 1) * PAGE_SIZE);
   const loading = CHAINS.some((c) => !views[c]);
   const failed = CHAINS.filter((c) => views[c]?.error);
   const operatorTxs = all.filter((t) => t.role === "operator").length;
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="rounded-2xl bg-ink text-snow p-6 sm:p-8 flex flex-col gap-4">
-        <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-snow/70">
-          <span className="w-2 h-2 rounded-full bg-[#3ddc84] animate-pulse" aria-hidden />
-          Live from the chains
+      <Poster
+        image={poster}
+        title="Explorer"
+        text="Every iPoW transaction behind Greatwall, read straight from each network: what the operators did, what users did, and who checked them."
+        corner={
+          <span className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+            <span className="w-2 h-2 rounded-full bg-[#3ddc84] animate-pulse" aria-hidden />
+            Live from the chains
+          </span>
+        }
+      />
+
+      {/* The Bitcoin tip every network checks against, and what was read. */}
+      <div className="rounded-2xl bg-paper border border-ink/10 px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <span className="inline-flex items-center gap-2">
+          <Icon icon="cryptocurrency:btc" className="text-xl text-[#f7931a]" />
+          <span className="opacity-70">Bitcoin tip</span>
+          {tip ? (
+            <a href={`https://mempool.space/block/${tip.hash}`} target="_blank" rel="noreferrer" className="font-bold tabular-nums underline underline-offset-2 decoration-ink/20 hover:decoration-ink">
+              {tip.height.toLocaleString("en-US")}
+            </a>
+          ) : (
+            <span className="inline-block h-4 w-16 rounded bg-black/10 animate-pulse" aria-label="Loading" />
+          )}
         </span>
-        <h1 className="font-display text-4xl sm:text-6xl leading-[1.08] pb-[0.08em]" style={{ textWrap: "balance" }}>
-          Protocol explorer
-        </h1>
-        <p className="text-sm sm:text-base text-snow/80 max-w-2xl leading-relaxed">
-          Every iPoW transaction behind Greatwall, read straight from each network: what the operators did, what users did, and who checked
-          them. Open any row to see it on the network&rsquo;s own explorer.
-        </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-          <span className="inline-flex items-center gap-2">
-            <Icon icon="cryptocurrency:btc" className="text-xl text-[#f7931a]" />
-            <span className="text-snow/70">Bitcoin tip</span>
-            {tip ? (
-              <a href={`https://mempool.space/block/${tip.hash}`} target="_blank" rel="noreferrer" className="font-bold tabular-nums underline underline-offset-2 decoration-snow/30 hover:decoration-snow">
-                {tip.height.toLocaleString("en-US")}
-              </a>
-            ) : (
-              <span className="inline-block h-4 w-16 rounded bg-snow/20 animate-pulse" aria-label="Loading" />
-            )}
-          </span>
-          <span className="text-snow/70">
-            <span className="font-bold text-snow tabular-nums">{all.length}</span> transactions read · <span className="font-bold text-snow tabular-nums">{operatorTxs}</span> by operators
-          </span>
-        </div>
-      </header>
+        <span className="opacity-70">
+          <span className="font-bold opacity-100 tabular-nums">{all.length}</span> transactions read · <span className="font-bold tabular-nums">{operatorTxs}</span> by operators
+        </span>
+        <span className="text-xs opacity-60 sm:ml-auto">Open any row to see it on the network&rsquo;s own explorer.</span>
+      </div>
 
       <section aria-labelledby="txs-title" className="rounded-2xl bg-paper border border-ink/10 p-4 sm:p-5 flex flex-col gap-4">
         <h2 id="txs-title" className="sr-only">
@@ -188,13 +203,32 @@ export default function ProtocolExplorer() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink/5 align-top">
-                {rows.map((t) => {
+                {shown.map((t) => {
                   const link = t.chain === "solana" ? `https://explorer.solana.com/tx/${t.tx}?cluster=devnet` : evmTxLink(t.chain, t.tx);
                   const r = roleOf(t.role);
+                  const id = `${t.chain}:${t.tx}`;
+                  const isOpen = opened === id;
                   return (
-                    <tr key={`${t.chain}:${t.tx}`} className="hover:bg-black/[0.02]">
+                    <Fragment key={id}>
+                    <tr
+                      className={`cursor-pointer transition-colors ${isOpen ? "bg-ink/[0.035] !border-b-0" : "hover:bg-ink/[0.02]"}`}
+                      onClick={(e) => {
+                        // Links and buttons inside the row keep their own action.
+                        if ((e.target as HTMLElement).closest("a,button")) return;
+                        setOpened(isOpen ? null : id);
+                      }}
+                    >
                       <td className="px-2 py-3 max-w-md">
-                        <span className="font-semibold block">{t.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => setOpened(isOpen ? null : id)}
+                          aria-expanded={isOpen}
+                          aria-controls={`details-${id}`}
+                          className="font-semibold text-left inline-flex items-start gap-1.5 hover:underline underline-offset-2"
+                        >
+                          <Icon icon="solar:alt-arrow-right-linear" className={`mt-1 shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden />
+                          {t.title}
+                        </button>
                         {t.detail && <span className="text-xs opacity-70 block break-words">{t.detail}</span>}
                         {t.also.length > 0 && <span className="text-[11px] opacity-50 block pt-0.5">Also: {t.also.join(" · ")}</span>}
                       </td>
@@ -228,13 +262,118 @@ export default function ProtocolExplorer() {
                         )}
                       </td>
                     </tr>
+                    {isOpen && (
+                      // The same block as its row: one background, no line between.
+                      <tr id={`details-${id}`} className="bg-ink/[0.035] !border-t-0">
+                        <td colSpan={5} className="pl-7 pr-2 pt-0 pb-4">
+                          <Details t={t} link={link} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
         )}
+
+        {rows.length > PAGE_SIZE && <Pager at={at} pages={pages} total={rows.length} onPage={setPage} />}
       </section>
+    </div>
+  );
+}
+
+/** Page numbers around the current one, with the first and last, and gaps between. */
+function pageList(at: number, pages: number): (number | "gap")[] {
+  const keep = new Set([0, pages - 1, at - 1, at, at + 1].filter((n) => n >= 0 && n < pages));
+  const out: (number | "gap")[] = [];
+  [...keep].sort((a, b) => a - b).forEach((n, i, all) => {
+    if (i > 0 && n - all[i - 1] > 1) out.push("gap");
+    out.push(n);
+  });
+  return out;
+}
+
+function Pager({ at, pages, total, onPage }: { at: number; pages: number; total: number; onPage: (n: number) => void }) {
+  const step = "inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-30 disabled:pointer-events-none";
+  return (
+    <nav aria-label="Pages" className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+      <span className="text-xs opacity-60 tabular-nums">
+        {(at * PAGE_SIZE + 1).toLocaleString("en-US")}–{Math.min(total, (at + 1) * PAGE_SIZE).toLocaleString("en-US")} of {total.toLocaleString("en-US")}
+      </span>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onPage(at - 1)} disabled={at === 0} aria-label="Previous page" className={`${step} bg-black/5 hover:bg-black/10`}>
+          <Icon icon="solar:alt-arrow-left-linear" aria-hidden />
+        </button>
+        {pageList(at, pages).map((n, i) =>
+          n === "gap" ? (
+            <span key={`gap-${i}`} className="px-1 text-xs opacity-40" aria-hidden>
+              …
+            </span>
+          ) : (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onPage(n)}
+              aria-current={n === at ? "page" : undefined}
+              className={`${step} tabular-nums ${n === at ? "bg-ink text-snow" : "bg-black/5 hover:bg-black/10"}`}
+            >
+              {n + 1}
+            </button>
+          ),
+        )}
+        <button type="button" onClick={() => onPage(at + 1)} disabled={at === pages - 1} aria-label="Next page" className={`${step} bg-black/5 hover:bg-black/10`}>
+          <Icon icon="solar:alt-arrow-right-linear" aria-hidden />
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/** A transaction's details, beyond what its row shows: what it means, why
+ *  the protocol does it, and its full facts. */
+function Details({ t, link }: { t: Row; link: string | null }) {
+  const e = explain(t.kind);
+  const label = "text-[11px] font-semibold uppercase tracking-[0.08em] opacity-55";
+  const facts: [string, React.ReactNode][] = [
+    ["Time", t.at ? new Date(t.at * 1000).toLocaleString() : "Unknown"],
+    [t.chain === "solana" ? "Slot" : "Block", t.block.toLocaleString("en-US")],
+    ["From", <span key="from" className="font-mono break-all">{t.from ?? "Unknown"}</span>],
+    [
+      "Transaction",
+      link ? (
+        <a key="tx" href={link} target="_blank" rel="noreferrer" className="font-mono break-all underline underline-offset-2 decoration-ink/20 hover:decoration-ink">
+          {t.tx}
+        </a>
+      ) : (
+        <span key="tx" className="font-mono break-all">{t.tx}</span>
+      ),
+    ],
+  ];
+  return (
+    <div className="border-t border-ink/10 pt-3 grid gap-x-10 gap-y-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] text-[13px] leading-relaxed">
+      <div className="flex flex-col gap-2.5 min-w-0">
+        {e ? (
+          <>
+            <p>{e.what}</p>
+            <p className="opacity-75">
+              <span className={label}>Why · </span>
+              {e.why}
+            </p>
+          </>
+        ) : (
+          <p className="opacity-75">No further explanation for this action yet.</p>
+        )}
+      </div>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 self-start text-xs">
+        {facts.map(([k, v]) => (
+          <Fragment key={k}>
+            <dt className="opacity-55">{k}</dt>
+            <dd className="min-w-0">{v}</dd>
+          </Fragment>
+        ))}
+      </dl>
     </div>
   );
 }
