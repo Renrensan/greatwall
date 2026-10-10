@@ -22,11 +22,13 @@ const SECTIONS = [
   { id: "indexes", title: "Index tokens" },
   { id: "explorer", title: "Explorer" },
   { id: "how", title: "How it works" },
+  { id: "node", title: "Run a node" },
   { id: "status", title: "Status and safety" },
   { id: "help", title: "Help" },
 ];
 
 const IPOW = "https://github.com/kelwinshen/ipow";
+const NODE_GUIDE = `${IPOW}/blob/master/node/README.md`;
 
 export default async function Docs({ params }: { params: Promise<{ locale: string; network: string }> }) {
   const { locale, network } = await params;
@@ -263,6 +265,59 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
           </a>
           .
         </p>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <H2 id="node">Run a node</H2>
+        <p>
+          The people who keep iPoW running are paid for it, and anyone can join. One program, the iPoW node, runs any mix of three roles on any
+          of the networks. Each role puts up stake that it loses if it lies, which is what lets everyone else trust the result without trusting
+          the person.
+        </p>
+        <Table
+          head={["Role", "What it does", "What it earns", "What it risks", "What it needs"]}
+          rows={[
+            [
+              <strong key="o">Operator</strong>,
+              "Proves Bitcoin blocks to each network (checkpoint jobs), carries locks and unlocks between networks through Bitcoin, and gives users their tokens at once on the fast path.",
+              "Job fees, relay fees on locks and unlocks, and fast fees.",
+              "Its stake and bonds, if it lies or misses a deadline.",
+              "A stake on each network, bonds in the tokens it carries, a Bitcoin wallet with a little BTC, and coin for gas.",
+            ],
+            [
+              <strong key="a">Attester</strong>,
+              "Vouches for an operator's proven job by locking stake behind it, so applications can rely on it sooner.",
+              "40% of the job's escrow fee: about 0.2% of what it locks per week, about 10% a year.",
+              "What it locks, if it vouches for a false proof.",
+              "A stake, and coin for gas.",
+            ],
+            [
+              <strong key="g">Guardian</strong>,
+              "Watches every proof and every claim, and objects to anything false: a fake Bitcoin block, a lock that never happened, a missed deadline.",
+              "20% of what a liar is slashed.",
+              "Small deposits, if it objects to something true.",
+              "Coin for deposits and gas. No stake.",
+            ],
+          ]}
+        />
+        <p>
+          The more independent guardians watch, the safer everyone is: one honest guardian is enough to catch a lie. Today the deployer runs the
+          only operator, and the protocol is open for anyone to join.
+        </p>
+        <H3>Getting started</H3>
+        <List
+          items={[
+            <>
+              Read the{" "}
+              <a href={NODE_GUIDE} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2">
+                node guide
+              </a>
+              : each role&rsquo;s duties every round, its settings, and how to run it.
+            </>,
+            "Start as a guardian: it needs no stake, only a little coin for deposits and gas.",
+            "An operator also locks a stake on each network, registers once on each pair of networks it serves (one Bitcoin transaction, counted after a 36-hour challenge window), and keeps bonds in the tokens it carries.",
+          ]}
+        />
       </section>
 
       <section className="flex flex-col gap-4">
