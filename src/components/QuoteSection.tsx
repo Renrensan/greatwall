@@ -6,17 +6,19 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
-import { CustomEase } from "gsap/CustomEase";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
 import quoteBg from "@/assets/quote/quote-bg.jpg";
 import quoteLine from "@/assets/quote/quote-line.svg";
 
-gsap.registerPlugin(ScrollTrigger, CustomEase);
+gsap.registerPlugin(ScrollTrigger);
 
 const TIMELINE_SECONDS = 5;
-// Pixels of scroll the whole timeline plays over.
-const SCROLL_DISTANCE = "+=300%";
+// Scroll the whole timeline plays over, then one more viewport where the section stays pinned while the next
+// section slides up over it (the wrapper's negative bottom margin lets that section start one viewport early).
+const TIMELINE_SCROLL = 300;
+const CLOSING_SCROLL = 100;
+const SCROLL_DISTANCE = `+=${TIMELINE_SCROLL + CLOSING_SCROLL}%`;
 
 // Layout of the background: the parallax wrapper is the section plus 20% above; the image layer is 125% of that.
 const WRAPPER_RATIO = 1.2;
@@ -28,8 +30,6 @@ const BG_SHIFT = (px: number) =>
 // Parallax drift while entering or leaving, as yPercent of the wrapper (stays under the 20% overhang).
 const PARALLAX = 15;
 
-const ease = (name: string, bezier: string) => CustomEase.create(name, bezier);
-
 export default function QuoteSection() {
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -38,22 +38,64 @@ export default function QuoteSection() {
       const mm = gsap.matchMedia();
 
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const bgOut1 = ease("qBg1", "0,0,0,0.987");
-        const bgOut2 = ease("qBg2", "0,0,0,0.994");
-        const headIn = ease("qHeadIn", "0.206,-0.016,0,1.024");
-        const headOut = ease("qHeadOut", "1,0.003,0.645,1.017");
-        const quoteIn = ease("qQuote", "0.153,-0.004,0,0.998");
-        const authorIn = ease("qAuthor", "0.42,0,0,0.991");
-
         const section = sectionRef.current;
-        const pinTrigger = ScrollTrigger.create({
-          trigger: section,
-          start: "top top",
-          end: SCROLL_DISTANCE,
+        const tl = gsap.timeline({
+          defaults: { ease: "none" },
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: SCROLL_DISTANCE,
+            pin: true,
+            anticipatePin: 1,
+            scrub: true,
+          },
         });
 
-        // Parallax while the section scrolls in and out (the pinned stretch is Figma's own motion).
-        // The wrapper reaches above and below the section so it never shows an edge.
+        // Scroll-scrubbed, so the eases are gentle: Figma's near-vertical curves (0,0,0,0.99) are made for time and
+        // turn a few pixels of scroll into a visible jump. The background drifts linearly (0 → -110px → -180px
+        // in Figma's own key times), which also matches the linear parallax before and after the pin.
+        tl.fromTo(
+          ".q-bg",
+          { yPercent: 0 },
+          { yPercent: -BG_SHIFT(180), duration: 2.717, ease: "none" },
+          0,
+        )
+          // "Build With Diversification": rises in, then lifts further and fades out.
+          .fromTo(
+            ".q-head",
+            { opacity: 0, y: 0 },
+            { opacity: 1, y: -100, duration: 0.879, ease: "power1.out" },
+            0,
+          )
+          .to(
+            ".q-head",
+            { opacity: 0, y: -140, duration: 1.2695, ease: "power1.in" },
+            1.197,
+          )
+          // Quote, then its author.
+          .fromTo(
+            ".q-quote",
+            { opacity: 0, y: 50 },
+            { opacity: 1, y: 0, duration: 1.0096, ease: "power1.out" },
+            2.385,
+          )
+          .fromTo(
+            ".q-author",
+            { opacity: 0, y: 30 },
+            { opacity: 1, y: 0, duration: 0.7483, ease: "power1.out" },
+            2.883,
+          )
+          // Pad so the timeline spans Figma's full 5s, then holds the finished frame for the closing scroll.
+          .to(
+            {},
+            { duration: 0 },
+            (TIMELINE_SECONDS * (TIMELINE_SCROLL + CLOSING_SCROLL)) /
+              TIMELINE_SCROLL,
+          );
+
+        // Parallax while the section scrolls in. It is created after the pinned timeline so its refresh already
+        // counts the pin spacing. The wrapper reaches above the section so it never shows an edge. There is no exit
+        // parallax: the background stays fixed and the next section covers it.
         gsap.fromTo(
           ".q-bg-parallax",
           { yPercent: -PARALLAX },
@@ -68,67 +110,6 @@ export default function QuoteSection() {
             },
           },
         );
-        gsap.to(".q-bg-parallax", {
-          yPercent: PARALLAX,
-          ease: "none",
-          scrollTrigger: {
-            trigger: section,
-            start: () => pinTrigger.end,
-            end: () => pinTrigger.end + window.innerHeight,
-            scrub: true,
-          },
-        });
-
-        const tl = gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top top",
-            end: SCROLL_DISTANCE,
-            pin: true,
-            scrub: 0.5,
-          },
-        });
-
-        // Background: 0 → -110px → -180px, as a share of the 1260px frame.
-        tl.fromTo(
-          ".q-bg",
-          { yPercent: 0 },
-          { yPercent: -BG_SHIFT(110), duration: 1.3204, ease: bgOut1 },
-          0,
-        )
-          .to(
-            ".q-bg",
-            { yPercent: -BG_SHIFT(180), duration: 0.913, ease: bgOut2 },
-            1.804,
-          )
-          // "Build With Diversification": rises in, then lifts further and fades out.
-          .fromTo(
-            ".q-head",
-            { opacity: 0, y: 0 },
-            { opacity: 1, y: -100, duration: 0.879, ease: headIn },
-            0,
-          )
-          .to(
-            ".q-head",
-            { opacity: 0, y: -140, duration: 1.2695, ease: headOut },
-            1.197,
-          )
-          // Quote, then its author.
-          .fromTo(
-            ".q-quote",
-            { opacity: 0, y: 50 },
-            { opacity: 1, y: 0, duration: 1.0096, ease: quoteIn },
-            2.385,
-          )
-          .fromTo(
-            ".q-author",
-            { opacity: 0, y: 30 },
-            { opacity: 1, y: 0, duration: 0.7483, ease: authorIn },
-            2.883,
-          )
-          // Pad so the timeline spans Figma's full 5s.
-          .to({}, { duration: 0 }, TIMELINE_SECONDS);
       });
 
       mm.add("(prefers-reduced-motion: reduce)", () => {
@@ -143,7 +124,7 @@ export default function QuoteSection() {
   return (
     // The -mx-4 (cancelling UiLayout's side margin) sits on an unpinned wrapper: pinning a section that carries
     // negative margins fixes it to the narrower content width and leaves a cream strip on the right.
-    <div className="-mx-4">
+    <div className="-mx-4 -mb-[max(100svh,600px)]">
       <section
         ref={sectionRef}
         className="relative h-[100svh] min-h-[600px] w-full overflow-hidden bg-cream"
