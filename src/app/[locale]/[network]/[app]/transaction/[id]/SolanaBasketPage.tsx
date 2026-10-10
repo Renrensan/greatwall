@@ -26,6 +26,7 @@ import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/sola
 import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { isSolanaBasket, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
+import { serverFaucet } from "@/subcomponents/ipow/Faucet";
 
 const ZERO = BigInt(0);
 const ONE = BigInt(1_000_000_000);
@@ -295,13 +296,19 @@ export default function SolanaBasketPage() {
     if (!sol.address) return;
     setFaucetBusy(mint);
     try {
+      const who = sol.address;
+      let done: string | undefined;
       const send = async (): Promise<string | null> => {
-        const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address: sol.address, mint }) });
-        const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
-        return body?.signature ?? null;
+        const sent = await serverFaucet("solana", who, mint);
+        done = sent.text;
+        return sent.hash;
       };
-      const r = await trackTx("solana", `Faucet: ${symbol}`, send, (h) => h, { pending: "Greatwall's faucet is sending it." });
+      const r = await trackTx("solana", `Faucet: ${symbol}`, send, (h) => h, {
+        pending: "Greatwall's faucet is sending it.",
+        get done() {
+          return done;
+        },
+      });
       if (r.ok) await load();
     } finally {
       setFaucetBusy(null);

@@ -104,7 +104,7 @@ Set in `.env.local` (never commit it):
 | `ETH_TESTNET_RPC_URL`, `BASE_TESTNET_RPC_URL`, `ARBITRUM_TESTNET_RPC_URL`, `ROBINHOOD_TESTNET_RPC_URL`, `HYPERLIQUID_TESTNET_RPC_URL`, `TEMPO_TESTNET_RPC_URL` | Each EVM test network's RPC. The browser reaches them through this app's `/api/rpc/*` routes, so the URLs (and their API keys) stay on the server |
 | `SOLANA_DEVNET_RPC_URL` | Solana devnet RPC, also proxied |
 | `TUNNEL_API_URL`, `TUNNEL_API_KEY` | The iPoW operator node's tunnel API, for conversions between two networks. Called only from this app's server |
-| `SOLANA_MOCK_RWA_MINT_AUTHORITY` | The test tokens' mint authority on Solana devnet, for the Solana faucet |
+| `FAUCET_EVM_KEY`, `FAUCET_SOLANA_KEY` | The server faucet's own test keys (`/api/faucet/*`): it sends test tokens and a little gas, paying the fee. The EVM key holds each network's gas coin and a stock of the tokens; the Solana key is the test mints' authority and holds devnet SOL. Never the deployer's or the operator's keys |
 | `PINATA_JWT`, `IPFS_GATEWAY` | Where index-token images and metadata are pinned (IPFS). Without them, files are kept in `GREATWALL_DATA_DIR` |
 | `PUBLIC_ORIGIN` | This site's public address, written into index metadata (set it in production) |
 | `NEXT_PUBLIC_GA_ID` | Optional: Google Analytics |

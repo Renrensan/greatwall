@@ -24,6 +24,7 @@ import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/c
 import { isBasketKey, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import SolanaBasketPage from "./SolanaBasketPage";
+import { serverFaucet } from "@/subcomponents/ipow/Faucet";
 
 const ZERO = BigInt(0);
 /** One whole BETA in its smallest units (BetaBaskets.ONE). */
@@ -306,7 +307,7 @@ function BasketView({ chain }: { chain: BasketChain }) {
       const lock = lockHref ? { kind: "lock" as const, label: t("lockNow"), href: lockHref } : undefined;
       // A test token of this network: its faucet, one click.
       const testToken = !v.cross && rwaTokensOf(chain).some((r) => r.token.toLowerCase() === p.token.toLowerCase());
-      const faucet = testToken && wallet.faucet ? { kind: "faucet" as const, label: t("faucetClaim"), busyLabel: t("faucetBusy"), busy: faucetBusy === p.token, onClick: () => claim(p.token, v.symbol) } : undefined;
+      const faucet = testToken && wallet.address ? { kind: "faucet" as const, label: t("faucetClaim"), busyLabel: t("faucetBusy"), busy: faucetBusy === p.token, onClick: () => claim(p.token, v.symbol) } : undefined;
       const held = mine && p.made ? mine.parts[i] : ZERO;
       // Short: less than the amount asks, or none at all before one is asked.
       const short = !p.made || enough === false || (need === null && held === ZERO);
@@ -335,10 +336,29 @@ function BasketView({ chain }: { chain: BasketChain }) {
   });
 
   async function claim(token: string, symbol: string) {
-    if (!wallet.faucet) return;
+    const who = wallet.address;
+    if (!who) return;
     setFaucetBusy(token);
     try {
-      const r = await trackTx(chain, `Faucet: ${symbol}`, () => wallet.faucet!(token), (h) => h);
+      let done: string | undefined;
+      // Greatwall's server faucet, which pays the fee; the token's own faucet
+      // (signed by the wallet) when the server is out of it.
+      const send = async (): Promise<string | null> => {
+        try {
+          const sent = await serverFaucet(chain, who, token);
+          done = sent.text;
+          return sent.hash;
+        } catch (e: any) {
+          if (e?.dry === "token" && wallet.faucet) return wallet.faucet(token);
+          throw e;
+        }
+      };
+      const r = await trackTx(chain, `Faucet: ${symbol}`, send, (h) => h, {
+        pending: "Greatwall's faucet is sending it. If it is out of this token, your wallet asks you to confirm the token's own faucet.",
+        get done() {
+          return done;
+        },
+      });
       if (r.ok) await load();
     } finally {
       setFaucetBusy(null);

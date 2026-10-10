@@ -20,26 +20,59 @@ export function rwaOf(chain: string, token: string | null | undefined): RwaToken
   return rwaTokensOf(chain as never).find((r) => r.token.toLowerCase() === token.toLowerCase()) ?? null;
 }
 
-/** Claims a test RWA token: on EVM the token's own faucet, signed by the
- *  wallet (`evmFaucet`); on Solana Greatwall's server, which holds the mint. */
+/** What Greatwall's server faucet sent: the main send's hash, and what it
+ *  says in the toast ("1 XAUT and 0.002 ETH for fees"). */
+export type FaucetSent = { hash: string | null; text: string };
+
+/** Asks Greatwall's server faucet for `token` (an RWA token, or "gas" for the
+ *  network's gas coin) on `chain`: it sends from its own wallet and pays the
+ *  fee, adding a little gas when the address is low. Throws its refusal; a
+ *  refusal because it is out of the token says so in `dry`. */
+export async function serverFaucet(chain: string, address: string, token: string): Promise<FaucetSent> {
+  const r = await fetch(`/api/faucet/${chain}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(chain === "solana" ? { address, mint: token } : { address, token }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const e: Error & { dry?: string } = new Error(body?.faucet ? `${body.error} ${body.faucet}` : body?.error ?? `The faucet refused (${r.status})`);
+    e.dry = body?.dry;
+    throw e;
+  }
+  const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  const text = `${fmt(body.amount)} ${body.symbol}${body.gas ? ` and ${fmt(body.gas.amount)} ${body.gas.symbol} for fees` : ""} sent to your wallet.`;
+  return { hash: body?.hash ?? body?.signature ?? null, text };
+}
+
+/** Claims a test RWA token from Greatwall's server faucet, which pays the
+ *  fee; on EVM, when the server is out of the token, the token's own faucet
+ *  signed by the wallet (`evmFaucet`) instead. */
 export function useRwaFaucet(chain: string, address: string | null | undefined, evmFaucet: ((token: string) => Promise<string>) | undefined, onClaimed?: () => void) {
   const [busy, setBusy] = useState<string | null>(null);
-  const available = (rwa: RwaToken | null) => !!rwa && !!address && (chain === "solana" || !!evmFaucet);
+  const available = (rwa: RwaToken | null) => !!rwa && !!address;
   async function claim(rwa: RwaToken) {
     if (!address) return;
     setBusy(rwa.token);
+    let done: string | undefined;
     // The claim, as one step for its toast: it resolves with its hash.
     const send = async (): Promise<string | null> => {
-      if (chain === "solana") {
-        const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, mint: rwa.token }) });
-        const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
-        return body?.signature ?? null;
+      try {
+        const sent = await serverFaucet(chain, address, rwa.token);
+        done = sent.text;
+        return sent.hash;
+      } catch (e: any) {
+        if (e?.dry === "token" && chain !== "solana" && evmFaucet) return evmFaucet(rwa.token);
+        throw e;
       }
-      return evmFaucet ? evmFaucet(rwa.token) : null;
     };
     try {
-      const r = await trackTx(chain, `Faucet: ${rwa.symbol}`, send, (h) => h);
+      const r = await trackTx(chain, `Faucet: ${rwa.symbol}`, send, (h) => h, {
+        pending: "Greatwall's faucet is sending it. If it is out of this token, your wallet asks you to confirm the token's own faucet.",
+        get done() {
+          return done;
+        },
+      });
       // The app reads through its own RPC, which can trail the wallet's by a
       // block or two: read again now, and a few times over the next half
       // minute, so the new balance shows once that RPC has it.

@@ -90,7 +90,7 @@ export default async function PrivacyPolicy({ params }: { params: Promise<{ loca
 
             <H3>Test token faucet</H3>
             <p>
-              When you claim test tokens, we receive your wallet address and the token you asked for, and remember them for six hours so the
+              When you claim test tokens, we receive your wallet address and the token you asked for, and remember them for a day so the
               same address cannot claim the same token again in that time.
             </p>
 
@@ -162,7 +162,7 @@ export default async function PrivacyPolicy({ params }: { params: Promise<{ loca
           <section className="flex flex-col gap-4">
             <H2 id="retention">How long it is kept</H2>
             <p>
-              Faucet claims are kept for six hours, and upload limits for one hour. Request details on our server are kept only as long as needed
+              Faucet claims are kept for a day, and upload limits for one hour. Request details on our server are kept only as long as needed
               to answer and protect it. Index metadata you publish stays public. Records on blockchains are permanent and outside anyone&rsquo;s
               control. Information in your browser stays until you clear it.
             </p>

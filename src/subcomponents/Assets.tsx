@@ -6,6 +6,7 @@ import { coinPrices } from "@/components/integrator/ipow/coinPrices";
 import { useState, useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import { trackTx } from "@/components/ui/txToast";
+import { serverFaucet } from "@/subcomponents/ipow/Faucet";
 import QRCode from "qrcode";
 import { useBitcoinWallet } from "@/components/bitcoin/bitcoin-provider";
 import ButtonContrast from "./ButtonContrast";
@@ -531,8 +532,9 @@ const baseTokens = useMemo(() => {
     return [...priced, ...missing];
   }, [baseTokens, network, rwaPrices]);
 
-  // The faucet of a mock RWA token: the token's own on EVM (signed by the
-  // wallet), this app's server on Solana (SPL mints have no code).
+  // Greatwall's server faucet: a mock RWA token, or the network's gas coin
+  // ("gas"), sent by the server, which pays the fee. On EVM, when the server
+  // is out of a token, the token's own faucet, signed by the wallet.
   const [faucetBusy, setFaucetBusy] = useState(false);
   /** Where a transaction is seen on this network's explorer. */
   const txUrl = (hash: string): string | null => {
@@ -545,21 +547,26 @@ const baseTokens = useMemo(() => {
   const fmtAmount = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
   const claimFaucet = async (token: any) => {
     setFaucetBusy(true);
+    const gas = !token.rwa;
+    let done: string | undefined;
     const send = async (): Promise<string | null> => {
       if (!connected || !address) throw new Error("Connect your wallet first");
-      if (network === "solana") {
-        const r = await fetch("/api/faucet/solana", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, mint: token.mint }) });
-        const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body?.error ?? `The faucet refused (${r.status})`);
-        return body?.signature ?? null;
+      try {
+        const sent = await serverFaucet(network, address, gas ? "gas" : token.mint);
+        done = sent.text;
+        return sent.hash;
+      } catch (e: any) {
+        if (e?.dry === "token" && network !== "solana" && faucet) return faucet(token.mint);
+        throw e;
       }
-      if (!faucet) throw new Error("No faucet on this network");
-      return faucet(token.mint);
     };
     try {
-      await trackTx(network, `Faucet: ${token.rwa.faucet} ${token.symbol}`, send, (h) => h, {
+      await trackTx(network, gas ? `Faucet: ${network === "tempo" ? "PathUSD" : token.symbol} for fees` : `Faucet: ${token.rwa.faucet} ${token.symbol}`, send, (h) => h, {
         linkOf: txUrl,
-        ...(network === "solana" ? { pending: "Greatwall's faucet is sending it." } : {}),
+        pending: "Greatwall's faucet is sending it. If it is out of this token, your wallet asks you to confirm the token's own faucet.",
+        get done() {
+          return done;
+        },
       });
     } finally {
       setFaucetBusy(false);
@@ -1177,21 +1184,23 @@ const handleCloseModal = () => {
                       </div>
                     </div>
                     {/* 2. From the faucet, for the test RWA tokens. */}
-                    {selectedToken?.rwa && (
+                    {(selectedToken?.rwa || (selectedToken?.isNative && network !== "bitcoin")) && (
                       <div className="flex flex-col gap-3">
                         <span className="text-[10px] font-black opacity-30 uppercase tracking-[0.2em]">
                           {"From the faucet"}
                         </span>
                         <div className="bgBox glass-card p-4 border border-black/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <p className="text-xs opacity-70">
-                            {`${selectedToken.rwa.faucet} ${selectedToken.symbol} a claim, every six hours; a test token with no value.`}
+                            {selectedToken.rwa
+                              ? `${selectedToken.rwa.faucet} ${selectedToken.symbol} a claim, once a day, sent by Greatwall with the fee paid; a test token with no value.`
+                              : `A little ${network === "tempo" ? "PathUSD" : selectedToken.symbol} for network fees, once a day while your balance is low, sent by Greatwall.`}
                           </p>
                           <div className="sm:w-48 shrink-0">
                             <Button
                               chain={network}
                               disabled={faucetBusy}
                               onClick={() => claimFaucet(selectedToken)}
-                              buttonText={faucetBusy ? "…" : `Faucet: ${selectedToken.rwa.faucet} ${selectedToken.symbol}`}
+                              buttonText={faucetBusy ? "…" : selectedToken.rwa ? `Faucet: ${selectedToken.rwa.faucet} ${selectedToken.symbol}` : `Get ${network === "tempo" ? "PathUSD" : selectedToken.symbol} for fees`}
                             />
                           </div>
                         </div>

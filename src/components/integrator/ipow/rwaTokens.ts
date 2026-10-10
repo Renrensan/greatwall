@@ -3,8 +3,9 @@
 // solana/testnet-rwa.json, 2026-10-05): stand-ins for
 // real tokenized assets (rwa.xyz), named "<asset> (<test network> Greatwall)"
 // or, on Solana, "(GW Devnet)" (Solana's Token Metadata allows 32 bytes), with no backing, for converting and for locking
-// into BETA. Each has a faucet: on EVM the token's own (`faucet()`, every
-// six hours); on Solana this app's server mints with the mint authority
+// into BETA. Greatwall's server faucet sends them, paying the fee: on EVM
+// from its faucet wallet's stock (/api/faucet/[chain]), falling back to the
+// token's own `faucet()`; on Solana it mints as the mint authority
 // (/api/faucet/solana). The logos are served from public/assets/rwa; an
 // ERC-20 has no image on chain (see /api/tokenlist and "Add to wallet"),
 // a Solana mint's Token Metadata points at public/assets/rwa/solana/<symbol>.json.
