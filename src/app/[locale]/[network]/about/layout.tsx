@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import StaggeredMenu from "@/components/StaggeredMenu";
+import SmoothScroll from "@/components/SmoothScroll";
 import greatwallLogo from "@/assets/logo/greatwall-logo-with-name.svg";
 
 const SOCIAL_ITEMS = [
@@ -26,6 +27,7 @@ export default function AboutLayout({ children }: { children: React.ReactNode })
 
   return (
     <>
+      <SmoothScroll />
       <StaggeredMenu
         isFixed
         position="right"
@@ -34,7 +36,9 @@ export default function AboutLayout({ children }: { children: React.ReactNode })
         displayItemNumbering={false}
         logoUrl={greatwallLogo.src}
         colors={["#EFECE5", "#FBF9F1"]}
-        menuButtonColor="#181818"
+        menuButtonColor="#ffffff"
+        blendDifference
+        introAnimation
         openMenuButtonColor="#181818"
         accentColor="#2F2C25"
       />

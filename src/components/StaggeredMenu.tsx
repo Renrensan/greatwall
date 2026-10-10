@@ -27,6 +27,10 @@ export interface StaggeredMenuProps {
   isFixed: boolean;
   changeMenuColorOnOpen?: boolean;
   closeOnClickAway?: boolean;
+  // Header (logo + toggle) inverts against whatever is behind it while the menu is closed. Pair with white colors.
+  blendDifference?: boolean;
+  // Header slides in from above on first load.
+  introAnimation?: boolean;
   onMenuOpen?: () => void;
   onMenuClose?: () => void;
 }
@@ -46,15 +50,20 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
   accentColor = '#5227FF',
   isFixed = false,
   closeOnClickAway = true,
+  blendDifference = false,
+  introAnimation = false,
   onMenuOpen,
   onMenuClose
 }: StaggeredMenuProps) => {
   const [open, setOpen] = useState(false);
+  // Off while the panel is open or sliding away, so only the logo and toggle ever blend, never the panel.
+  const [blendActive, setBlendActive] = useState(true);
   const openRef = useRef(false);
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const preLayersRef = useRef<HTMLDivElement | null>(null);
   const preLayerElsRef = useRef<HTMLElement[]>([]);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const plusHRef = useRef<HTMLSpanElement | null>(null);
   const plusVRef = useRef<HTMLSpanElement | null>(null);
@@ -234,6 +243,7 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
       ease: 'power3.in',
       overwrite: 'auto',
       onComplete: () => {
+        setBlendActive(true);
         const itemEls = Array.from(panel.querySelectorAll('.sm-panel-itemLabel')) as HTMLElement[];
         if (itemEls.length) gsap.set(itemEls, { yPercent: 140, rotate: 10 });
 
@@ -334,6 +344,21 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
     });
   }, []);
 
+  useLayoutEffect(() => {
+    if (!introAnimation) return;
+    const header = headerRef.current;
+    if (!header) return;
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(header, { yPercent: -100, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 1, ease: 'power4.out', delay: 0.2 });
+    });
+    return () => mm.revert();
+  }, [introAnimation]);
+
+  React.useEffect(() => {
+    if (open) setBlendActive(false);
+  }, [open]);
+
   const toggleMenu = useCallback(() => {
     const target = !openRef.current;
     openRef.current = target;
@@ -386,7 +411,7 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
 
   return (
     <div
-      className={`sm-scope z-40 ${isFixed ? 'fixed top-0 left-0 w-screen h-screen overflow-hidden pointer-events-none' : 'w-full h-full'}`}
+      className={`sm-scope z-40 ${blendDifference && blendActive ? 'mix-blend-difference' : ''} ${isFixed ? 'fixed top-0 left-0 w-screen h-screen overflow-hidden pointer-events-none' : 'w-full h-full'}`}
     >
       <div
         className={
@@ -419,6 +444,7 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
         </div>
 
         <header
+          ref={headerRef}
           className="staggered-menu-header absolute top-0 left-0 w-full flex items-center justify-between p-[2em] bg-transparent pointer-events-none z-20"
           aria-label="Main navigation header"
         >
@@ -426,7 +452,7 @@ export const StaggeredMenu: React.FC<StaggeredMenuProps> = ({
             <img
               src={logoUrl || '/src/assets/logos/reactbits-gh-white.svg'}
               alt="Logo"
-              className="sm-logo-img block h-4 w-auto object-contain"
+              className={`sm-logo-img block h-4 w-auto object-contain ${blendDifference && blendActive ? 'brightness-0 invert' : ''}`}
               draggable={false}
               width={114}
               height={16}
