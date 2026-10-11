@@ -37,7 +37,7 @@ import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
 import { TempoConnectButton } from "./TempoConnectButton";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, useNotEnoughText } from "./ipow/Faucet";
-import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain } from "@/components/integrator/ipow/sdk";
+import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain, PATH_USD } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -165,8 +165,10 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     const o = optionOf(n);
     const coin: Asset = { token: NATIVE, symbol: o?.currencyTicker ?? "", name: o?.tokenName ?? o?.name ?? n, icon: o?.tokenLogo ?? o?.logo ?? null, decimals: o?.decimals ?? (n === "solana" ? 9 : 18) };
     const tokens = rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }));
-    // Tempo has no coin of its own (its fees are PathUSD): its tokens only.
-    return n === "tempo" ? tokens : [coin, ...tokens];
+    // Tempo has no coin of its own: PathUSD, the token its fees are paid
+    // in, stands where a coin would (the vault's asset 0 there).
+    const pathUsd: Asset = { token: PATH_USD, symbol: "PathUSD", name: "PathUSD", icon: o?.logo ?? null, decimals: 6 };
+    return n === "tempo" ? [pathUsd, ...tokens] : [coin, ...tokens];
   };
   const assets = useMemo(() => getAssetsForChain(home), [home, networkOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const asset = assets.find((a) => a.token === token) ?? assets[0];

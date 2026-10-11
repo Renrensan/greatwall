@@ -568,6 +568,10 @@
       }
     },
     "solana|tempo": {
+      "tempo:0": {
+        "max": "1000000000",
+        "minFee": "1"
+      },
       "solana:0": {
         "max": "10000000000000",
         "minFee": "1"

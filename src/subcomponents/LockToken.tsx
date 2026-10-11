@@ -35,7 +35,7 @@ import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
 import { TempoConnectButton } from "./TempoConnectButton";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, FaucetButton, rwaOf, useNotEnoughText, useRwaFaucet } from "./ipow/Faucet";
-import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain, type EvmChain, PATH_USD } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -67,6 +67,8 @@ const ZERO = BigInt(0);
 const SOL_RESERVE = BigInt(10_000_000);
 /** An EVM coin kept back by Max for the lock's gas. */
 const GAS_RESERVE = BigInt(1_000_000_000_000_000);
+/** PathUSD kept back by Max on Tempo, whose fees are paid in it: 1 PathUSD. */
+const PATHUSD_RESERVE = BigInt(1_000_000);
 const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 const SOLANA_NUMBER = 2;
 /** The fast fee every lock pays by default, in basis points of the amount:
@@ -154,8 +156,10 @@ export default function LockToken({ initial }: { initial: Net }) {
     const o = optionOf(n);
     const coin: Asset = { token: NATIVE, symbol: o?.currencyTicker ?? "", name: o?.tokenName ?? o?.name ?? n, icon: o?.tokenLogo ?? o?.logo ?? null, decimals: o?.decimals ?? (n === "solana" ? 9 : 18) };
     const tokens = rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }));
-    // Tempo has no coin of its own (its fees are PathUSD): its tokens only.
-    return n === "tempo" ? tokens : [coin, ...tokens];
+    // Tempo has no coin of its own: PathUSD, the token its fees are paid
+    // in, stands where a coin would (the vault's asset 0 there).
+    const pathUsd: Asset = { token: PATH_USD, symbol: "PathUSD", name: "PathUSD", icon: o?.logo ?? null, decimals: 6 };
+    return n === "tempo" ? [pathUsd, ...tokens] : [coin, ...tokens];
   };
   const assets = useMemo(() => getAssetsForChain(src), [src, networkOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const asset = assets.find((a) => a.token === token) ?? assets[0];
@@ -287,7 +291,9 @@ export default function LockToken({ initial }: { initial: Net }) {
    *  EVM coin, in whole record units. */
   const maxLock = (() => {
     if (spendable === null) return null;
-    const left = spendable - (src !== "solana" && asset.token === NATIVE ? GAS_RESERVE : ZERO);
+    // Kept back for the lock's fee: an EVM coin's gas, or on Tempo, PathUSD (its fees' token).
+    const reserve = src !== "solana" && asset.token === NATIVE ? GAS_RESERVE : src === "tempo" && asset.token.toLowerCase() === PATH_USD.toLowerCase() ? PATHUSD_RESERVE : ZERO;
+    const left = spendable - reserve;
     if (left <= ZERO) return ZERO;
     // Room for the fast fee on top: amount + amount × FAST_BPS / 10000 ≤ left.
     let most = ((left * BigInt(10_000)) / (BigInt(10_000) + FAST_BPS) / unit) * unit;
