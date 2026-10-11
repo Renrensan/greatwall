@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import heroImage from "@/assets/hero/hero-great-wall.jpg";
+import { whenIntroDone } from "./introGate";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,18 +27,25 @@ export default function Hero() {
     const ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // Background: eases in from a slight zoom, then drifts down slower than the page on scroll.
-        gsap.fromTo(".hero-bg-zoom", { scale: 1.15 }, { scale: 1, duration: 2.2, ease: "power3.out" });
+        // Background: eases in from a slight zoom, then drifts down slower than the page on scroll. The entrance is
+        // built here, paused, and played once the opening scene (Intro) opens onto the hero. It must be built in
+        // this context: Intro releases it from its own timeline, and GSAP runs that callback in Intro's context.
+        const entrance = gsap
+          .timeline({ paused: true })
+          .fromTo(".hero-bg-zoom", { scale: 1.15 }, { scale: 1, duration: 2.2, ease: "power3.out" }, 0)
+          .fromTo(
+            ".hero-reveal",
+            { yPercent: 140, rotate: 10, opacity: 1 },
+            { yPercent: 0, rotate: 0, duration: 1, ease: "power4.out", stagger: 0.1 },
+            0.2,
+          );
+        const stopWaiting = whenIntroDone(() => entrance.play());
         gsap.to(".hero-bg-parallax", {
           yPercent: 15,
           ease: "none",
           scrollTrigger: { trigger: sectionRef.current, start: "top top", end: "bottom top", scrub: true },
         });
-        gsap.fromTo(
-          ".hero-reveal",
-          { yPercent: 140, rotate: 10, opacity: 1 },
-          { yPercent: 0, rotate: 0, duration: 1, ease: "power4.out", stagger: 0.1, delay: 0.2 },
-        );
+        return stopWaiting;
       });
       mm.add("(prefers-reduced-motion: reduce)", () => {
         gsap.set(".hero-reveal", { opacity: 1 });

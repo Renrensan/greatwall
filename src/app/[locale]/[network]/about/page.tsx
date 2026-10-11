@@ -1,6 +1,7 @@
 // About Greatwall: what it is and how it works, in plain language.
 
 import type { Metadata } from "next";
+import Intro from "@/components/Intro";
 import Hero from "@/components/Hero";
 import QuoteSection from "@/components/QuoteSection";
 import DiversificationSection from "@/components/DiversificationSection";
@@ -37,6 +38,7 @@ const POINTS = [
 export default function About() {
   return (
     <>
+      <Intro />
       <Hero />
       <QuoteSection />
       {/* Opaque and above the pinned quote section, so it slides up and closes over it. */}
