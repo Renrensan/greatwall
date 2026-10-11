@@ -6,6 +6,7 @@ import QuoteSection from "@/components/QuoteSection";
 import DiversificationSection from "@/components/DiversificationSection";
 import NetworksSection from "@/components/NetworksSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
+import ClosingCtaSection from "@/components/ClosingCtaSection";
 import AboutFooter from "@/components/AboutFooter";
 
 export const metadata: Metadata = {
@@ -43,6 +44,7 @@ export default function About() {
         <DiversificationSection />
         <NetworksSection />
         <HowItWorksSection />
+        <ClosingCtaSection />
       </div>
       <AboutFooter />
     </>
