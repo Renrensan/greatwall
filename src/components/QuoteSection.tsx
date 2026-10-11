@@ -152,7 +152,7 @@ export default function QuoteSection() {
         <div className="q-author absolute left-5 top-[60%] flex items-center gap-[9px] opacity-0 md:left-[8.96%] md:top-[77.8%]">
           <Image src={quoteLine} alt="" width={36} height={1} aria-hidden />
           <cite className="font-serif text-[26px] not-italic leading-[1.2] text-cream md:text-[32px]">
-            Ecclesiastes 11:2
+            King Solomon
           </cite>
         </div>
 
