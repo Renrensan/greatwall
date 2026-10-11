@@ -63,7 +63,7 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
       <Summary
         items={[
           <>Connect a wallet: MetaMask for the EVM networks, Phantom for Solana.</>,
-          <>In {page("vault/assets", "Portfolio")} or {page("lock", "Lock")}, use Faucet to get test tokens. You also need a little of the network&rsquo;s own coin (test ETH, SOL, HYPE) for fees.</>,
+          <>In {page("vault/assets", "Portfolio")} or {page("lock", "Lock")}, use Faucet to get test tokens. Greatwall sends them and pays the fee, with a little of the network&rsquo;s own coin for fees when your wallet has none.</>,
           <>{page("lock", "Lock")} a token on one network for use on another, and watch it arrive.</>,
           <>{page("index/create", "Create")} an index token from a few assets, then find it in {page("index", "Explore")} and mint some.</>,
           <>Open {page("explorer", "Live")} to see your transactions next to the operators&rsquo; work behind them.</>,
@@ -87,7 +87,10 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
         <H3>Test tokens</H3>
         <p>
           Greatwall runs on test networks. The Faucet button sends you test versions of real-world-asset tokens (tokenized stocks, funds, gold,
-          stablecoins). They are stand-ins with no value. For each network&rsquo;s own coin, use that network&rsquo;s public faucet.
+          stablecoins). They are stand-ins with no value. Greatwall&rsquo;s server sends them and pays the fee; when your wallet is low on the
+          network&rsquo;s own coin (test ETH, SOL, HYPE, or PathUSD on Tempo), the same claim adds a little for fees, and Portfolio has a
+          &ldquo;Get &hellip; for fees&rdquo; button on that coin. Each wallet can claim each token once a day. If Greatwall&rsquo;s faucet runs
+          dry, it links you to the network&rsquo;s public faucet.
         </p>
       </section>
 

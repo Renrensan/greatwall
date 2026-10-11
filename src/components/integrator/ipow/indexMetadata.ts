@@ -7,17 +7,23 @@ import { WRAPPED_SOL } from "@ipow/sdk";
 import { PATH_USD, TICKER, type EvmChain } from "./sdk";
 import { rwaTokensOf } from "./rwaTokens";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
+import { BUILT_IN } from "./builtInIndexes";
 
 export type IndexMetadata = { image: string | null; description: string; website: string | null; twitter: string | null; telegram: string | null };
 
-/** A link to metadata or an image Greatwall hosts (/api/beta/…), read from
- *  this site whatever origin it was written with: a link written while the
- *  server had no public origin (http://0.0.0.0:3001/…, 2026-10-07) cannot be
- *  fetched as it stands, but the files are this server's. */
+/** A link to metadata or an image Greatwall hosts (/api/beta/…, or an
+ *  index's files in public/assets/index/), read from this site whatever
+ *  origin it was written with: a link written while the server had no
+ *  public origin (http://0.0.0.0:3001/…, 2026-10-07) cannot be fetched as it
+ *  stands, but the files are this site's. A built-in index's link goes to
+ *  its copy in public/. */
 export function ownHosted(url: string): string | null {
   try {
     const u = new URL(url);
-    return /^\/api\/beta\/(metadata|image)\//.test(u.pathname) ? u.pathname : null;
+    const m = u.pathname.match(/^\/api\/beta\/(metadata|image)\/([0-9a-f]{24})/);
+    if (m && BUILT_IN[m[2]]) return m[1] === "metadata" ? BUILT_IN[m[2]].metadata : BUILT_IN[m[2]].image;
+    if (/^\/api\/beta\/(metadata|image)\//.test(u.pathname) || /^\/assets\/index\//.test(u.pathname)) return u.pathname;
+    return null;
   } catch {
     return null;
   }

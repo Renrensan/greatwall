@@ -41,7 +41,7 @@ with a link to the transaction.
 ### Try it in three minutes
 
 1. Open [greatwall.finance](https://greatwall.finance), press **Launch App**, choose a network, and connect a wallet (MetaMask for the EVM networks, Phantom for Solana).
-2. In **Portfolio** or **Lock**, use **Faucet** to get test tokens (you need a little test ETH or SOL for fees).
+2. In **Portfolio** or **Lock**, use **Faucet** to get test tokens. Greatwall sends them and pays the fee, adding a little of the network's coin for fees when your wallet has none, so a new wallet needs nothing to start.
 3. **Lock** a token on Ethereum for use on Solana, and watch it arrive.
 4. **Create** an index token from a few assets, then find it in **Explore** and mint some.
 5. Open **Live** to see the transactions you just made, next to the operators' work behind them.

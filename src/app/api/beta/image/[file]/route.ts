@@ -2,7 +2,9 @@
 
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
+import { BUILT_IN } from "@/components/integrator/ipow/builtInIndexes";
 import { dataDir, validId } from "../../metadata/store";
 
 export const runtime = "nodejs";
@@ -13,8 +15,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
   const { file } = await params;
   const m = file.match(/^([0-9a-f]{24})\.(png|jpg|webp)$/);
   if (!m || !validId(m[1])) return NextResponse.json({ error: "no such image" }, { status: 404 });
+  // An index whose files ship with the app (BUILT_IN): its copy in public/,
+  // asked for by its own kind only.
+  const built = BUILT_IN[m[1]];
+  if (built && !built.image.endsWith(`.${m[2]}`)) return NextResponse.json({ error: "no such image" }, { status: 404 });
   try {
-    const bytes = await readFile(`${dataDir()}/${file}`);
+    const bytes = await readFile(built ? join(process.cwd(), "public", built.image) : `${dataDir()}/${file}`);
     return new NextResponse(new Uint8Array(bytes), { headers: { "content-type": TYPES[m[2]], "cache-control": "public, max-age=31536000, immutable", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" } });
   } catch {
     return NextResponse.json({ error: "no such image" }, { status: 404 });
