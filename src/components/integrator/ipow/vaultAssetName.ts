@@ -5,7 +5,7 @@
 import { homeAssets } from "@ipow/sdk";
 import { ZeroAddress } from "ethers";
 
-import { deploymentOf, readProvider, solanaVaultWith, type EvmChain } from "./sdk";
+import { deploymentOf, readProvider, solanaVaultWith, type BasketChain } from "./sdk";
 import { TICKER } from "@/subcomponents/ipow/common";
 import { rwaTokensOf } from "./rwaTokens";
 
@@ -16,7 +16,7 @@ const solanaLists = new Map<string, ReturnType<ReturnType<typeof solanaVaultWith
 
 /** Asset `number` of `chain`'s vault in its pair `pair` (the pair with
  *  Solana is 0). Assets are only ever added, so each list is read once. */
-export async function evmAssetName(chain: EvmChain, pair: number, number: number): Promise<AssetName> {
+export async function evmAssetName(chain: BasketChain, pair: number, number: number): Promise<AssetName> {
   const key = `${chain}:${pair}`;
   if (!evmLists.has(key)) {
     const list = homeAssets(readProvider(chain), deploymentOf(chain)!, pair);
@@ -31,7 +31,7 @@ export async function evmAssetName(chain: EvmChain, pair: number, number: number
 }
 
 /** Asset `number` of Solana's vault in its pair with `peer`. */
-export async function solanaAssetName(peer: EvmChain, number: number): Promise<AssetName> {
+export async function solanaAssetName(peer: BasketChain, number: number): Promise<AssetName> {
   if (!solanaLists.has(peer)) {
     const list = solanaVaultWith(peer, null).assets();
     list.catch(() => solanaLists.delete(peer));
@@ -45,4 +45,4 @@ export async function solanaAssetName(peer: EvmChain, number: number): Promise<A
 }
 
 /** The pair index of `chain`'s vault with Solana. */
-export const solanaPairOf = (chain: EvmChain) => (deploymentOf(chain)!.vaults as readonly { peer: number }[]).findIndex((v) => v.peer === 2);
+export const solanaPairOf = (chain: BasketChain) => (deploymentOf(chain)!.vaults as readonly { peer: number }[]).findIndex((v) => v.peer === 2);

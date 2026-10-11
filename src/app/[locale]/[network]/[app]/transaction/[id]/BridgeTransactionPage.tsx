@@ -15,16 +15,16 @@ import { followLock, getBurn, getSolanaBurn, receiptMark, requestPaid } from "@i
 
 import { ComingSoon, Notice, Row, StateChip, coin, errorText, shortHash } from "@/subcomponents/ipow/common";
 import {
-  EVM_CHAINS,
+  BASKET_CHAINS,
   appRunsOn,
   deploymentOf,
-  isEvmChain,
+  isBasketChain,
   readProvider,
   solanaAddress,
   solanaExplorer,
   solanaVaultOf,
   solanaVaultWith,
-  type EvmChain,
+  type BasketChain,
 } from "@/components/integrator/ipow/sdk";
 import { evmAssetName, solanaAssetName, solanaPairOf } from "@/components/integrator/ipow/vaultAssetName";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
@@ -55,7 +55,7 @@ type View = {
 export default function BridgeTransactionPage() {
   const { network } = useParams<{ network: string }>();
   if (!appRunsOn("bridge", network)) return <ComingSoon network={network} app="bridge" />;
-  return isEvmChain(network) ? <EvmTransfer chain={network} /> : <SolanaTransfer />;
+  return isBasketChain(network) ? <EvmTransfer chain={network} /> : <SolanaTransfer />;
 }
 
 /** Reads `read` now and every 20 seconds; its last view, or its error. */
@@ -79,7 +79,7 @@ function useFollow(read: (() => Promise<View>) | null) {
   return { view, error };
 }
 
-function EvmTransfer({ chain }: { chain: EvmChain }) {
+function EvmTransfer({ chain }: { chain: BasketChain }) {
   const t = useTranslations("Bridge");
   const { id } = useParams<{ id: string }>();
 
@@ -152,8 +152,8 @@ function SolanaTransfer() {
 
   const read = useMemo(() => {
     const match = /^([a-z]+)-(lock|burn)-(\d+)$/.exec(id);
-    if (!match || !(EVM_CHAINS as readonly string[]).includes(match[1])) return null;
-    const peer = match[1] as EvmChain;
+    if (!match || !(BASKET_CHAINS as readonly string[]).includes(match[1])) return null;
+    const peer = match[1] as BasketChain;
     const kind = match[2];
     const number = BigInt(match[3]);
     const d = deploymentOf(peer)!;
@@ -274,13 +274,14 @@ function ago(at: number): string {
   return `${Math.floor(s / 86400)} days ago`;
 }
 
-function evmAddressLink(chain: EvmChain, address: string): string {
-  const base: Record<EvmChain, string> = {
+function evmAddressLink(chain: BasketChain, address: string): string {
+  const base: Record<BasketChain, string> = {
     ethereum: "https://sepolia.etherscan.io/address/",
     base: "https://sepolia.basescan.org/address/",
     robinhood: "https://explorer.testnet.chain.robinhood.com/address/",
     hyperliquid: "https://testnet.purrsec.com/address/",
     arbitrum: "https://sepolia.arbiscan.io/address/",
+    tempo: "https://explore-testnet.tempo.xyz/address/",
   };
   return base[chain] + address;
 }

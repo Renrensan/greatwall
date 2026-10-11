@@ -32,9 +32,10 @@ import { BaseConnectButton } from "./BaseConnectButton";
 import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
+import { TempoConnectButton } from "./TempoConnectButton";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, FaucetButton, rwaOf, useNotEnoughText, useRwaFaucet } from "./ipow/Faucet";
-import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain, type EvmChain } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -46,10 +47,13 @@ import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provi
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
 import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 type Side = "from" | "to";
-type Net = EvmChain | "solana";
+/** A network the page locks on or toward: an EVM network, Tempo (its one
+ *  vault pairs with Solana), or Solana. */
+type Net = BasketChain | "solana";
 /** An asset the page offers: the coin ("native") or a token address/mint. */
 type Asset = { token: string; symbol: string; name: string; icon: any; decimals: number };
 /** What the vault knows of the asset in the pair: its number, its record
@@ -70,11 +74,11 @@ const SOLANA_NUMBER = 2;
 const FAST_BPS = BigInt(10);
 
 const numberOf = (n: Net) => (n === "solana" ? SOLANA_NUMBER : deploymentOf(n)!.number);
-const vaultsOf = (n: EvmChain) => (deploymentOf(n)!.vaults as readonly { peer: number }[]) ?? [];
+const vaultsOf = (n: BasketChain) => (deploymentOf(n)!.vaults as readonly { peer: number }[]) ?? [];
 
 /** The networks an asset on `src` can be locked toward: its vault pairs. */
 function destinationsOf(src: Net): Net[] {
-  if (src === "solana") return EVM_CHAINS.filter((c) => vaultsOf(c).some((v) => v.peer === SOLANA_NUMBER));
+  if (src === "solana") return BASKET_CHAINS.filter((c) => vaultsOf(c).some((v) => v.peer === SOLANA_NUMBER));
   return vaultsOf(src).flatMap((v) => (v.peer === SOLANA_NUMBER ? ["solana" as Net] : chainOfNumber(v.peer) ? [chainOfNumber(v.peer)! as Net] : []));
 }
 
@@ -98,14 +102,15 @@ export default function LockToken({ initial }: { initial: Net }) {
   const robinhoodWallet = useRobinhoodWallet();
   const baseWallet = useBaseWallet();
   const arbitrumWallet = useArbitrumWallet();
+  const tempoWallet = useTempoWallet();
 
   // Each network's name, logo and coin, as Convert reads them.
   const networkOptions = useMemo(() => {
-    const all: Record<string, any> = { ethereum: ethereumWallet, solana: solanaWallet, hyperliquid: hyperliquidWallet, robinhood: robinhoodWallet, base: baseWallet, arbitrum: arbitrumWallet };
-    return ([...EVM_CHAINS, "solana"] as Net[])
+    const all: Record<string, any> = { ethereum: ethereumWallet, solana: solanaWallet, hyperliquid: hyperliquidWallet, robinhood: robinhoodWallet, base: baseWallet, arbitrum: arbitrumWallet, tempo: tempoWallet };
+    return ([...BASKET_CHAINS, "solana"] as Net[])
       .filter((k) => all[k])
       .map((k) => ({ key: k, name: all[k].networkName as string, logo: all[k].networkLogo, currencyTicker: all[k].currencyTicker as string, decimals: all[k].decimals as number, tokenName: all[k].tokenName as string | undefined, tokenLogo: all[k].tokenLogo }));
-  }, [ethereumWallet, solanaWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet]);
+  }, [ethereumWallet, solanaWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet, tempoWallet]);
   const optionOf = (n: Net) => networkOptions.find((o) => o.key === n);
   const nameOf = (n: Net) => optionOf(n)?.name ?? n;
 
@@ -148,7 +153,9 @@ export default function LockToken({ initial }: { initial: Net }) {
   const getAssetsForChain = (n: Net): Asset[] => {
     const o = optionOf(n);
     const coin: Asset = { token: NATIVE, symbol: o?.currencyTicker ?? "", name: o?.tokenName ?? o?.name ?? n, icon: o?.tokenLogo ?? o?.logo ?? null, decimals: o?.decimals ?? (n === "solana" ? 9 : 18) };
-    return [coin, ...rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }))];
+    const tokens = rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }));
+    // Tempo has no coin of its own (its fees are PathUSD): its tokens only.
+    return n === "tempo" ? tokens : [coin, ...tokens];
   };
   const assets = useMemo(() => getAssetsForChain(src), [src, networkOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const asset = assets.find((a) => a.token === token) ?? assets[0];
@@ -411,7 +418,7 @@ export default function LockToken({ initial }: { initial: Net }) {
   };
 
   const connectButton = (n: Net) =>
-    n === "ethereum" ? <EthereumConnectButton /> : n === "solana" ? <SolanaConnectButton /> : n === "base" ? <BaseConnectButton /> : n === "robinhood" ? <RobinhoodConnectButton /> : n === "hyperliquid" ? <HyperliquidConnectButton /> : n === "arbitrum" ? <ArbitrumConnectButton /> : null;
+    n === "ethereum" ? <EthereumConnectButton /> : n === "solana" ? <SolanaConnectButton /> : n === "base" ? <BaseConnectButton /> : n === "robinhood" ? <RobinhoodConnectButton /> : n === "hyperliquid" ? <HyperliquidConnectButton /> : n === "arbitrum" ? <ArbitrumConnectButton /> : n === "tempo" ? <TempoConnectButton /> : null;
 
   const tokenPill = (a: Asset, onClick?: () => void) => {
     const inner = (

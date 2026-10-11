@@ -20,7 +20,7 @@ import { BridgeHistorySolana } from "./BridgeSolana";
 import { ComingSoon, SectionTabs } from "./ipow/common";
 import { SettlementPanel } from "./ipow/SettlementPanel";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
-import { appRunsOn, isEvmChain, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { appRunsOn, isBasketChain, type BasketChain } from "@/components/integrator/ipow/sdk";
 
 export default function Bridge() {
   const t = useTranslations("Bridge");
@@ -47,10 +47,10 @@ export default function Bridge() {
             ]}
           />
           {locking ? (
-            <LockToken initial={network as EvmChain | "solana"} />
+            <LockToken initial={network as BasketChain | "solana"} />
           ) : unlocking ? (
-            <UnlockToken initial={network as EvmChain | "solana"} />
-          ) : isEvmChain(network) ? (
+            <UnlockToken initial={network as BasketChain | "solana"} />
+          ) : isBasketChain(network) ? (
             <BridgeHistory chain={network} />
           ) : (
             <BridgeHistorySolana />

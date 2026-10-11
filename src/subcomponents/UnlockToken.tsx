@@ -34,9 +34,10 @@ import { BaseConnectButton } from "./BaseConnectButton";
 import { RobinhoodConnectButton } from "./RobinhoodConnectButton";
 import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
+import { TempoConnectButton } from "./TempoConnectButton";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { Caution, useNotEnoughText } from "./ipow/Faucet";
-import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
@@ -49,10 +50,12 @@ import { useHyperliquidWallet } from "@/components/hyperliquid/hyperliquid-provi
 import { useRobinhoodWallet } from "@/components/robinhood/robinhood-provider";
 import { useBaseWallet } from "@/components/base/base-provider";
 import { useArbitrumWallet } from "@/components/arbitrum/arbitrum-provider";
+import { useTempoWallet } from "@/components/tempo/tempo-provider";
 import { lockPath } from "@/components/integrator/ipow/lockPaths";
 
 type Side = "home" | "held";
-type Net = EvmChain | "solana";
+/** An EVM network, Tempo (its one vault pairs with Solana), or Solana. */
+type Net = BasketChain | "solana";
 /** An asset on its own network: the coin ("native") or a token address/mint. */
 type Asset = { token: string; symbol: string; name: string; icon: any; decimals: number };
 /** The asset's receipt on the network it is held on: the asset's number in
@@ -69,11 +72,11 @@ const SOLANA_NUMBER = 2;
 const FAST_BPS = BigInt(10);
 
 const numberOf = (n: Net) => (n === "solana" ? SOLANA_NUMBER : deploymentOf(n)!.number);
-const vaultsOf = (n: EvmChain) => (deploymentOf(n)!.vaults as readonly { peer: number }[]) ?? [];
+const vaultsOf = (n: BasketChain) => (deploymentOf(n)!.vaults as readonly { peer: number }[]) ?? [];
 
 /** The networks an asset of `home` can have been locked toward: its vault pairs. */
 function pairsOf(home: Net): Net[] {
-  if (home === "solana") return EVM_CHAINS.filter((c) => vaultsOf(c).some((v) => v.peer === SOLANA_NUMBER));
+  if (home === "solana") return BASKET_CHAINS.filter((c) => vaultsOf(c).some((v) => v.peer === SOLANA_NUMBER));
   return vaultsOf(home).flatMap((v) => (v.peer === SOLANA_NUMBER ? ["solana" as Net] : chainOfNumber(v.peer) ? [chainOfNumber(v.peer)! as Net] : []));
 }
 
@@ -102,14 +105,15 @@ export default function UnlockToken({ initial }: { initial: Net }) {
   const robinhoodWallet = useRobinhoodWallet();
   const baseWallet = useBaseWallet();
   const arbitrumWallet = useArbitrumWallet();
+  const tempoWallet = useTempoWallet();
 
   // Each network's name, logo and coin, as Lock reads them.
   const networkOptions = useMemo(() => {
-    const all: Record<string, any> = { ethereum: ethereumWallet, solana: solanaWallet, hyperliquid: hyperliquidWallet, robinhood: robinhoodWallet, base: baseWallet, arbitrum: arbitrumWallet };
-    return ([...EVM_CHAINS, "solana"] as Net[])
+    const all: Record<string, any> = { ethereum: ethereumWallet, solana: solanaWallet, hyperliquid: hyperliquidWallet, robinhood: robinhoodWallet, base: baseWallet, arbitrum: arbitrumWallet, tempo: tempoWallet };
+    return ([...BASKET_CHAINS, "solana"] as Net[])
       .filter((k) => all[k])
       .map((k) => ({ key: k, name: all[k].networkName as string, logo: all[k].networkLogo, currencyTicker: all[k].currencyTicker as string, decimals: all[k].decimals as number, tokenName: all[k].tokenName as string | undefined, tokenLogo: all[k].tokenLogo }));
-  }, [ethereumWallet, solanaWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet]);
+  }, [ethereumWallet, solanaWallet, hyperliquidWallet, robinhoodWallet, baseWallet, arbitrumWallet, tempoWallet]);
   const optionOf = (n: Net) => networkOptions.find((o) => o.key === n);
   const nameOf = (n: Net) => optionOf(n)?.name ?? n;
 
@@ -160,7 +164,9 @@ export default function UnlockToken({ initial }: { initial: Net }) {
   const getAssetsForChain = (n: Net): Asset[] => {
     const o = optionOf(n);
     const coin: Asset = { token: NATIVE, symbol: o?.currencyTicker ?? "", name: o?.tokenName ?? o?.name ?? n, icon: o?.tokenLogo ?? o?.logo ?? null, decimals: o?.decimals ?? (n === "solana" ? 9 : 18) };
-    return [coin, ...rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }))];
+    const tokens = rwaTokensOf(n).map((r) => ({ token: r.token, symbol: r.symbol, name: r.name, icon: r.logo ?? null, decimals: r.decimals }));
+    // Tempo has no coin of its own (its fees are PathUSD): its tokens only.
+    return n === "tempo" ? tokens : [coin, ...tokens];
   };
   const assets = useMemo(() => getAssetsForChain(home), [home, networkOptions]); // eslint-disable-line react-hooks/exhaustive-deps
   const asset = assets.find((a) => a.token === token) ?? assets[0];
@@ -183,12 +189,12 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     (async (): Promise<ReceiptInfo> => {
       if (home === "solana") {
         // SOL or a Solana token, held on an EVM network.
-        const all = await solanaVaultWith(heldOn as EvmChain, null).assets();
+        const all = await solanaVaultWith(heldOn as BasketChain, null).assets();
         const a = asset.token === NATIVE ? all.find((x) => x.mint === null) : all.find((x) => x.mint === asset.token);
         if (!a) return { number: null, receipt: null, decimals: 9 };
-        const dd = deploymentOf(heldOn as EvmChain)!;
-        const pair = vaultsOf(heldOn as EvmChain).findIndex((v) => v.peer === SOLANA_NUMBER);
-        const receipt = (await receiptTokens(readProvider(heldOn as EvmChain), dd, pair, a.number + 1)).get(a.number) ?? null;
+        const dd = deploymentOf(heldOn as BasketChain)!;
+        const pair = vaultsOf(heldOn as BasketChain).findIndex((v) => v.peer === SOLANA_NUMBER);
+        const receipt = (await receiptTokens(readProvider(heldOn as BasketChain), dd, pair, a.number + 1)).get(a.number) ?? null;
         return { number: a.number, receipt, decimals: a.recordDecimals };
       }
       // An EVM network's asset, held on Solana or on another EVM network.
@@ -250,15 +256,15 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     const number = info.number;
     const recordDecimals = info.decimals;
     let live = true;
-    (async () => {
+    (async (): Promise<FastTerms | null> => {
       const held =
         home === "solana"
           ? asset.token === NATIVE
             ? BigInt(await solanaConnection().getBalance(new PublicKey(OPERATOR.solana)))
             : await solanaTokenBalance(OPERATOR.solana, asset.token)
           : asset.token === NATIVE
-            ? await readProvider(home as EvmChain).getBalance(OPERATOR.evm)
-            : await balanceOf(home as EvmChain, asset.token, OPERATOR.evm);
+            ? await readProvider(home as BasketChain).getBalance(OPERATOR.evm)
+            : await balanceOf(home as BasketChain, asset.token, OPERATOR.evm);
       // In record units, as the burn counts.
       const scale = BigInt(10) ** BigInt(Math.max(0, asset.decimals - recordDecimals));
       return unlockFastTerms(heldOn, home, number, held / scale);
@@ -350,7 +356,7 @@ export default function UnlockToken({ initial }: { initial: Net }) {
       if (heldOn === "solana") {
         const anchor = solanaWallet.getAnchorWallet();
         if (!anchor) throw new Error(tb("lockConnect", { network: nameOf("solana") }));
-        return (await solanaVaultWith(home as EvmChain, anchor).burn({ asset: number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee })).signature;
+        return (await solanaVaultWith(home as BasketChain, anchor).burn({ asset: number, to: recipient.trim(), amount: amountUnits, fee: ZERO, fastFee })).signature;
       }
       if (!heldEvm.getSigner) throw new Error(tb("lockConnect", { network: nameOf(heldOn) }));
       const d = deploymentOf(heldOn)!;
@@ -406,7 +412,7 @@ export default function UnlockToken({ initial }: { initial: Net }) {
   };
 
   const connectButton = (n: Net) =>
-    n === "ethereum" ? <EthereumConnectButton /> : n === "solana" ? <SolanaConnectButton /> : n === "base" ? <BaseConnectButton /> : n === "robinhood" ? <RobinhoodConnectButton /> : n === "hyperliquid" ? <HyperliquidConnectButton /> : n === "arbitrum" ? <ArbitrumConnectButton /> : null;
+    n === "ethereum" ? <EthereumConnectButton /> : n === "solana" ? <SolanaConnectButton /> : n === "base" ? <BaseConnectButton /> : n === "robinhood" ? <RobinhoodConnectButton /> : n === "hyperliquid" ? <HyperliquidConnectButton /> : n === "arbitrum" ? <ArbitrumConnectButton /> : n === "tempo" ? <TempoConnectButton /> : null;
   const short = (x: string) => (x.length > 16 ? `${x.slice(0, 6)}…${x.slice(-4)}` : x);
 
   /** An asset's logo, badged with a network. */

@@ -108,7 +108,7 @@ export function solanaConnection(): Connection {
 }
 
 /** Solana's side of a network's vault pair, for reading. */
-export const solanaVaultOf = (chain: EvmChain) => new SolanaVault(solanaConnection(), deploymentOf(chain)!.number);
+export const solanaVaultOf = (chain: BasketChain) => new SolanaVault(solanaConnection(), deploymentOf(chain)!.number);
 
 /** A Solana address from the 32 bytes a vault stores, or null if not one. */
 export function solanaAddress(bytes32: string): string | null {
@@ -135,9 +135,10 @@ export function isSolanaAddress(address: string): boolean {
 }
 
 /** Which apps run on which networks now: Convert, the Bridge and BETA on
- *  the EVM networks and on Solana, and BETA on Tempo too. */
+ *  the EVM networks and on Solana; BETA and the Bridge (its one vault, with
+ *  Solana) on Tempo too. */
 export function appRunsOn(app: "convert" | "bridge" | "beta", chain: string): boolean {
-  if (app === "beta" && isBasketChain(chain)) return true;
+  if ((app === "beta" || app === "bridge") && isBasketChain(chain)) return true;
   return isEvmChain(chain) || chain === "solana";
 }
 
@@ -154,7 +155,7 @@ export const READ_ONLY_SOLANA: SolanaWallet = {
 };
 
 /** Solana's side of the pair with EVM network `peer`, signing with `wallet`. */
-export const solanaVaultWith = (peer: EvmChain, wallet: SolanaWallet | null) =>
+export const solanaVaultWith = (peer: BasketChain, wallet: SolanaWallet | null) =>
   new SolanaVault(solanaConnection(), deploymentOf(peer)!.number, wallet ?? READ_ONLY_SOLANA);
 
 /** BETA on Solana, signing with `wallet`. */

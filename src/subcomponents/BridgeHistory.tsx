@@ -13,7 +13,7 @@ import { burnsOf, locksOf, type BurnState, type LockState } from "@ipow/sdk";
 import { ConnectNetworkButton, Notice, TICKER, coin, errorText } from "./ipow/common";
 import { EmptyPanel, IconPicture, ListSkeleton, emptyAction } from "./ipow/EmptyPanel";
 import { HistoryList } from "./ipow/HistoryList";
-import { deploymentOf, readProvider, solanaVaultOf, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { deploymentOf, readProvider, solanaVaultOf, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { evmAssetName, solanaAssetName, solanaPairOf, type AssetName } from "@/components/integrator/ipow/vaultAssetName";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import { lockPath, lockTxPath } from "@/components/integrator/ipow/lockPaths";
@@ -26,7 +26,7 @@ type Item = ({ kind: "lock"; at: number; x: LockState } | { kind: "burn"; at: nu
   received?: boolean;
 };
 
-export default function BridgeHistory({ chain }: { chain: EvmChain }) {
+export default function BridgeHistory({ chain }: { chain: BasketChain }) {
   const t = useTranslations("Bridge");
   const { locale, network } = useParams<{ locale: string; network: string }>();
   const wallet = useEvmWallet(chain);
