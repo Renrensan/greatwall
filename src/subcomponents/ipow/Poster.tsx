@@ -8,7 +8,7 @@ import Image, { type StaticImageData } from "next/image";
 export function Poster({ image, title, text, corner, wide = true }: { image: StaticImageData; title: string; text: string; corner?: React.ReactNode; wide?: boolean }) {
   return (
     <div className="relative rounded-2xl overflow-hidden h-[240px] sm:h-[340px] flex items-end">
-      <Image src={image} alt="" fill priority placeholder="blur" sizes={wide ? "(min-width: 1024px) 1152px, 100vw" : "(min-width: 1024px) 680px, 100vw"} className="object-cover" />
+      <Image src={image} alt="" fill priority placeholder="blur" quality={90} sizes={wide ? "(min-width: 1024px) 1152px, 100vw" : "(min-width: 1024px) 680px, 100vw"} className="object-cover" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
       {corner && <div className="absolute top-4 right-4">{corner}</div>}
       <div className="relative p-6 sm:p-8 max-w-xl text-white flex flex-col gap-3">

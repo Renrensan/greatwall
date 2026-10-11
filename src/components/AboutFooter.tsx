@@ -65,7 +65,8 @@ export default function AboutFooter() {
           src={footerBg}
           alt=""
           fill
-          sizes="100vw"
+          quality={90}
+          sizes="(max-width: 768px) 300vw, 100vw"
           className="af-bg pointer-events-none object-cover object-[50%_60%]"
         />
         <div className="pointer-events-none absolute inset-0 bg-ink/50" />

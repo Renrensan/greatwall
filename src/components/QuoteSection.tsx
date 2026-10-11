@@ -136,7 +136,8 @@ export default function QuoteSection() {
               src={quoteBg}
               alt=""
               fill
-              sizes="100vw"
+              quality={90}
+              sizes="(max-width: 768px) 300vw, 100vw"
               className="scale-[1.15] object-cover object-[50%_30%]"
             />
           </div>

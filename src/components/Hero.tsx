@@ -51,7 +51,7 @@ export default function Hero() {
       {/* Taller than the section (top extended) so the parallax shift never exposes an edge. */}
       <div className="hero-bg-parallax pointer-events-none absolute inset-x-0 -top-[20%] bottom-0 will-change-transform">
         <div className="hero-bg-zoom absolute inset-0 will-change-transform">
-          <Image src={heroImage} alt="" fill priority sizes="100vw" className="object-cover object-[65%_bottom]" />
+          <Image src={heroImage} alt="" fill priority quality={90} sizes="(max-width: 768px) 300vw, 100vw" className="object-cover object-[65%_bottom]" />
         </div>
       </div>
       <div ref={textRef} className="relative flex w-full max-w-[743px] flex-col items-start gap-[19px] px-5 pb-[100px] md:pl-[100px] md:pb-[150px]">

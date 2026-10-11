@@ -150,39 +150,44 @@ export default function NetworksSection() {
               {NETWORKS.map((n) => (
                 <li
                   key={n.name}
-                  className={`relative mr-[-10px] grid h-[185.521px] shrink-0 cursor-pointer place-items-center overflow-hidden rounded-[16.188px] transition-[scale,rotate] duration-300 ease-out hover:z-10 hover:rotate-3 hover:scale-110 ${
-                    n.name === "Solana" ? "w-[185.013px]" : "w-[189.142px]"
+                  className={`relative mr-[-10px] grid h-[120px] shrink-0 sm:h-[185.521px] cursor-pointer place-items-center overflow-hidden rounded-[11px] sm:rounded-[16.188px] transition-[scale,rotate] duration-300 ease-out hover:z-10 hover:rotate-3 hover:scale-110 ${
+                    n.name === "Solana"
+                      ? "w-[120px] sm:w-[185.013px]"
+                      : "w-[122px] sm:w-[189.142px]"
                   }`}
                   style={{ background: n.background }}
                   aria-label={copy === 0 ? n.name : undefined}
                 >
-                  {n.name === "Tempo" ? (
-                    // The Tempo mark is the artwork clipped by its own mask.
-                    <div
-                      className="size-[124.39px]"
-                      style={{
-                        maskImage: `url("${tempoMask.src}")`,
-                        WebkitMaskImage: `url("${tempoMask.src}")`,
-                        maskSize: "124.391px 124.391px",
-                        maskRepeat: "no-repeat",
-                      }}
-                    >
+                  {/* Icons keep their Figma size and shrink as one piece on phones. */}
+                  <div className="grid origin-center scale-[0.65] place-items-center sm:scale-100">
+                    {n.name === "Tempo" ? (
+                      // The Tempo mark is the artwork clipped by its own mask.
+                      <div
+                        className="size-[124.39px]"
+                        style={{
+                          maskImage: `url("${tempoMask.src}")`,
+                          WebkitMaskImage: `url("${tempoMask.src}")`,
+                          maskSize: "124.391px 124.391px",
+                          maskRepeat: "no-repeat",
+                        }}
+                      >
+                        <Image
+                          src={tempo}
+                          alt=""
+                          width={124.39}
+                          height={124.39}
+                          className="size-full"
+                        />
+                      </div>
+                    ) : (
                       <Image
-                        src={tempo}
+                        src={n.icon}
                         alt=""
-                        width={124.39}
-                        height={124.39}
-                        className="size-full"
+                        width={n.icon.width}
+                        height={n.icon.height}
                       />
-                    </div>
-                  ) : (
-                    <Image
-                      src={n.icon}
-                      alt=""
-                      width={n.icon.width}
-                      height={n.icon.height}
-                    />
-                  )}
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
