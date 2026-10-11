@@ -25,3 +25,6 @@ mise.local.toml
 # Greatwall's own store (basket metadata and images it hosts)
 /data/
 *.tsbuildinfo
+
+# Claude Code local config and skills
+.claude/
