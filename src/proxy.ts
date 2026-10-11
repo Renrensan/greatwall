@@ -23,6 +23,17 @@ export default function proxy(req: NextRequest) {
   // A request this proxy rewrote comes back through it: leave it be.
   if (req.headers.get(MARK) === "1") return intl(req);
 
+  // Greatwall opens on the About page; "Launch App" there asks for a network.
+  if (pathname === "/" || pathname === "/en" || pathname === "/en/") {
+    return NextResponse.redirect(new URL(`/en/about${search}`, req.url), 307);
+  }
+
+  // The pages of no network (About, docs, legal): an old /en/<network>/<page> link lands on /en/<page>.
+  const general = pathname.match(/^\/en\/[a-z]+\/(about|docs|terms|privacy|cookies)\/?$/);
+  if (general) {
+    return NextResponse.redirect(new URL(`/en/${general[1]}${search}`, req.url), 308);
+  }
+
   // Greatwall is English only; old /id/ links land on the same page in /en/.
   if (pathname === "/id" || pathname.startsWith("/id/")) {
     return NextResponse.redirect(new URL(`/en${pathname.slice(3)}${search}`, req.url), 308);

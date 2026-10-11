@@ -25,12 +25,12 @@ const SECTIONS = [
   { id: "contact", title: "Contact us" },
 ];
 
-export default async function CookiesPolicy({ params }: { params: Promise<{ locale: string; network: string }> }) {
-  const { locale, network } = await params;
+export default async function CookiesPolicy({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   return (
     <LegalShell
       title="Cookies Policy"
-      base={`/${locale}/${network}`}
+      base={`/${locale}`}
       current="cookies"
       toc={SECTIONS}
       intro={

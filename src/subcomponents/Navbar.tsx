@@ -111,7 +111,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   }, []);
 
   const handleAbout= () => {
-   router.push(`/${locale}`)
+   router.push(`/${locale}/about`)
   };
 
   const handleNetworkChange = (chain: SupportedChain) => {
@@ -215,7 +215,7 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
                   className="gw-icon-btn"
                 >
                   <Image
-                    className="h-[18px] w-[18px] rounded-full"
+                    className="h-5 w-5 rounded-[4px]"
                     src={networkOptions.find((a) => a.key === selectedChain)?.value ?? networkOptions[1].value}
                     alt={selectedChain}
                   />

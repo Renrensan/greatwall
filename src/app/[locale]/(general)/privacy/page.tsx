@@ -26,12 +26,12 @@ const SECTIONS = [
   { id: "contact", title: "Contact us" },
 ];
 
-export default async function PrivacyPolicy({ params }: { params: Promise<{ locale: string; network: string }> }) {
-  const { locale, network } = await params;
+export default async function PrivacyPolicy({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   return (
     <LegalShell
       title="Privacy Policy"
-      base={`/${locale}/${network}`}
+      base={`/${locale}`}
       current="privacy"
       toc={SECTIONS}
       intro={

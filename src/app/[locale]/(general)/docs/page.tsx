@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 
 import { Contact, H2, H3, LegalShell, List, Summary, Table } from "@/components/ui/legal";
+import { AppLink } from "@/components/NetworkChooser";
 
 export const metadata: Metadata = {
   title: "Documentation · Greatwall",
@@ -30,14 +31,22 @@ const SECTIONS = [
 const IPOW = "https://github.com/kelwinshen/ipow";
 const NODE_GUIDE = `${IPOW}/blob/master/node/README.md`;
 
-export default async function Docs({ params }: { params: Promise<{ locale: string; network: string }> }) {
-  const { locale, network } = await params;
-  const base = `/${locale}/${network}`;
-  const page = (path: string, label: string) => (
-    <a href={`${base}/${path}`} className="font-semibold underline underline-offset-2">
-      {label}
-    </a>
-  );
+export default async function Docs({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const base = `/${locale}`;
+  // A general page (terms, privacy, cookies) is a plain link; a page of the
+  // app lives under a network, so it asks which one first.
+  const GENERAL = ["terms", "privacy", "cookies", "docs"];
+  const page = (path: string, label: string) =>
+    GENERAL.includes(path) ? (
+      <a href={`${base}/${path}`} className="font-semibold underline underline-offset-2">
+        {label}
+      </a>
+    ) : (
+      <AppLink path={`/${path}`} className="font-semibold underline underline-offset-2">
+        {label}
+      </AppLink>
+    );
   return (
     <LegalShell
       title="Documentation"

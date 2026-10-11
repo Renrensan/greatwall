@@ -25,3 +25,8 @@ mise.local.toml
 # Greatwall's own store (basket metadata and images it hosts)
 /data/
 *.tsbuildinfo
+
+# Local AI/editor tooling: not part of the app
+.claude/
+.mcp.json
+.agents/

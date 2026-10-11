@@ -33,9 +33,9 @@ const SECTIONS = [
   { id: "contact", title: "Contact us" },
 ];
 
-export default async function TermsOfUse({ params }: { params: Promise<{ locale: string; network: string }> }) {
-  const { locale, network } = await params;
-  const base = `/${locale}/${network}`;
+export default async function TermsOfUse({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const base = `/${locale}`;
   return (
     <LegalShell
       title="Terms of Use"
