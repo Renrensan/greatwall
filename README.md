@@ -13,7 +13,7 @@ networks put up stake that is slashed if they lie.
 
 - **Live:** [greatwall.finance](https://greatwall.finance)
 - **Protocol:** [github.com/kelwinshen/ipow](https://github.com/kelwinshen/ipow)
-- **Docs:** [greatwall.finance/en/ethereum/docs](https://greatwall.finance/en/ethereum/docs), how to use every page
+- **Docs:** [greatwall.finance/en/docs](https://greatwall.finance/en/docs), how to use every page
 - **Follow:** [X](https://x.com/greatwallfi) · [Telegram](https://t.me/greatwallfinance) · [YouTube](https://www.youtube.com/@greatwallfinance)
 
 > [!NOTE]
@@ -26,6 +26,7 @@ networks put up stake that is slashed if they lie.
 
 | Page | What it does |
 |---|---|
+| **About** | The front page: what Greatwall is and how an index token is made. **Launch App** asks which network to start on |
 | **Explore** | Every index token on a network: what backs it, on which networks, what one token is worth now, its supply over time, and its past performance: growth, yield (APY) and total return over 1, 3, 6 and 12 months, from the real assets' market data |
 | **Create** | Launch an index token from assets on any network: pick the parts, set how much of each one token holds, name it and give it an image |
 | **Lock / Unlock** | Lock any listed asset on its own network and receive it on a paired network, paid on the fast path in about 1–2 minutes from Solana or about 15 from Ethereum; unlock it back the same way |
@@ -39,7 +40,7 @@ with a link to the transaction.
 
 ### Try it in three minutes
 
-1. Open [greatwall.finance](https://greatwall.finance) and connect a wallet (MetaMask for the EVM networks, Phantom for Solana).
+1. Open [greatwall.finance](https://greatwall.finance), press **Launch App**, choose a network, and connect a wallet (MetaMask for the EVM networks, Phantom for Solana).
 2. In **Portfolio** or **Lock**, use **Faucet** to get test tokens (you need a little test ETH or SOL for fees).
 3. **Lock** a token on Ethereum for use on Solana, and watch it arrive.
 4. **Create** an index token from a few assets, then find it in **Explore** and mint some.
@@ -121,7 +122,9 @@ pnpm build   # type-checks and builds
 ```
 src/
   app/
-    [locale]/[network]/...   pages (Explore, Create, Lock, Convert, Portfolio, Live (/explorer), Docs, legal)
+    [locale]/about           the About page, the front page (/ and /en open it)
+    [locale]/(general)/...   pages of no network: Docs and the legal pages (/en/docs, /en/terms, ...)
+    [locale]/[network]/...   the app's pages (Explore, Create, Lock, Convert, Portfolio, Live (/explorer))
     api/rpc/*                RPC proxies, rate-limited, keys kept server-side
     api/bitcoin/*            Bitcoin's explorer API through this server, for networks that block mempool.space
     api/prices, api/history  coin prices now, and a year of the real assets' prices for past performance
@@ -140,6 +143,6 @@ messages/en.json             all user-facing text
 - Test networks only, as above; the protocol is under active development and
   **has not been audited**. See the iPoW repository's `SECURITY.md` for what is
   still centralized today.
-- [Terms of Use](https://greatwall.finance/en/ethereum/terms) ·
-  [Privacy Policy](https://greatwall.finance/en/ethereum/privacy) ·
-  [Cookies Policy](https://greatwall.finance/en/ethereum/cookies)
+- [Terms of Use](https://greatwall.finance/en/terms) ·
+  [Privacy Policy](https://greatwall.finance/en/privacy) ·
+  [Cookies Policy](https://greatwall.finance/en/cookies)

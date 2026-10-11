@@ -45,7 +45,7 @@ was built during the hackathon.
 ## How to check it
 
 - `git log` on this repository: every commit above, with its date and author.
-- The [live app](https://greatwall.finance), its [Docs](https://greatwall.finance/en/ethereum/docs), and its **Live** page (the Explorer), which
+- The [live app](https://greatwall.finance), its [Docs](https://greatwall.finance/en/docs), and its **Live** page (the Explorer), which
   reads every iPoW transaction behind it straight from the chains.
 - [iPoW's HACKATHON.md](https://github.com/kelwinshen/ipow/blob/master/HACKATHON.md),
   for the protocol built first.
