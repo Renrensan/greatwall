@@ -141,8 +141,9 @@ messages/en.json             all user-facing text
 ## Status
 
 - Test networks only, as above; the protocol is under active development and
-  **has not been audited**. See the iPoW repository's `SECURITY.md` for what is
-  still centralized today.
+  **has not been audited**. iPoW is built so no one is in control; the iPoW
+  repository's `SECURITY.md` lists the development keys that exist on the test
+  networks for now, and when each ends.
 - [Terms of Use](https://greatwall.finance/en/terms) ·
   [Privacy Policy](https://greatwall.finance/en/privacy) ·
   [Cookies Policy](https://greatwall.finance/en/cookies)

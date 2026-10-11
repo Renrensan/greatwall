@@ -1,7 +1,7 @@
 // Greatwall's user guide: what each page does and how to use it. Keep it
 // true to the app as it changes, and to the protocol as it is today (test
-// networks only; see SECURITY.md in the iPoW repository for what is still
-// centralized).
+// networks only; SECURITY.md in the iPoW repository lists the development
+// keys that exist for now).
 
 import type { Metadata } from "next";
 
@@ -337,13 +337,15 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
         <List
           items={[
             "Greatwall runs on test networks only, and its tokens have no value. Bitcoin is real: only pay BTC amounts you can afford to lose.",
-            "The protocol is in active development and has not been audited.",
+            "iPoW is built so no one is in control. Its contracts on the EVM networks have no owner and can't be changed by anyone, Bitcoin is checked on chain rather than reported, and anyone can run an operator or a guardian.",
             <>
-              Some parts are still centralized today, such as one operator key per network. The iPoW repository&rsquo;s{" "}
+              It is in active development and not yet audited. While it is tested, a few development keys exist on purpose: on Solana devnet
+              the programs can still be upgraded for fixes, and new vaults have a genesis key until October 21. Once audited, before mainnet,
+              the Solana programs become unchangeable, like the EVM contracts. The iPoW repository&rsquo;s{" "}
               <a href={`${IPOW}/blob/master/SECURITY.md`} target="_blank" rel="noreferrer" className="underline underline-offset-2">
                 SECURITY.md
               </a>{" "}
-              says exactly what.
+              lists each key, what it can do and when it ends.
             </>,
             "Transactions are final once confirmed. Greatwall never holds your assets or keys, and can't reverse a transaction.",
           ]}

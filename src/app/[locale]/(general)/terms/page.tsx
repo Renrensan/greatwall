@@ -174,9 +174,11 @@ export default async function TermsOfUse({ params }: { params: Promise<{ locale:
               vulnerabilities that cause loss of assets, or make them unavailable.
             </>,
             <>
-              <strong>Centralized parts.</strong> Today, each network&rsquo;s contracts have a single operator key that approves conversions,
-              relays Bitcoin headers and manages liquidity, and the operator&rsquo;s Bitcoin payments come from a single wallet. A failure or
-              misuse of that key or wallet can affect your transactions. Some protocol settings can also be changed by the operator.
+              <strong>Development keys and operators.</strong> The protocol&rsquo;s contracts on the EVM networks cannot be changed by
+              anyone. While the protocol is tested, a few keys exist on purpose: its Solana programs can still be upgraded by their developer,
+              and new vaults have a genesis key for a limited time. Today one operator, run by the protocol&rsquo;s developer, carries
+              transactions between networks, and its Bitcoin payments come from one wallet. A failure or misuse of these keys, or of that
+              operator, can affect your transactions.
             </>,
             <>
               <strong>Blockchains.</strong> Networks can be congested, halt, fork, change their rules, or charge high fees, delaying or
