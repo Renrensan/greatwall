@@ -141,6 +141,13 @@
     @apply h-9 px-3 text-sm;
   }
 
+  /* A panel's own connect button (minting, creating): the panel's main
+   * action until a wallet is connected, so the size and shape of the button
+   * it stands in for. */
+  .gw-wallet-full .gw-wallet-btn {
+    @apply flex w-full justify-center rounded-lg py-3.5 text-sm;
+  }
+
   /* A choice in a picker (wallet, network, preference): a dark row, its
    * icon on the left. */
   .gw-row {

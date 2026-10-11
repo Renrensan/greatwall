@@ -425,8 +425,7 @@ export function IndexDetail(props: {
           {props.side === "mint" && props.includesFee && <span className="text-[11px] opacity-60">{props.includesFee}</span>}
 
           {!props.connected ? (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs opacity-70">{t("connectFirst")}</span>
+            <div className="gw-wallet-full">
               {props.connectButton}
             </div>
           ) : (

@@ -1,0 +1,1599 @@
+{
+  "source": "ipow/node/node.testnet.yml",
+  "operator": {
+    "evm": "0x9784B80BC7b95753f2a2732649F3a1136b4c2BF1",
+    "solana": "G8vkKtPzQfm8dTVnFcgFis5LgRHqwCk2bT29731sXU6D"
+  },
+  "pairs": {
+    "ethereum|solana": {
+      "ethereum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:13": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:15": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:16": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:1": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "ethereum:8": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "solana:0": {
+        "max": "16000000000",
+        "minFee": "1"
+      },
+      "solana:13": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "base|solana": {
+      "base:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:1": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "base:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:10": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:9": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "solana:0": {
+        "max": "16000000000",
+        "minFee": "1"
+      },
+      "solana:13": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "robinhood|solana": {
+      "robinhood:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:1": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "robinhood:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:9": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "solana:0": {
+        "max": "16000000000",
+        "minFee": "1"
+      },
+      "solana:13": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "hyperliquid|solana": {
+      "hyperliquid:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:1": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:0": {
+        "max": "400000000",
+        "minFee": "1"
+      },
+      "hyperliquid:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:9": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:4": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "solana:0": {
+        "max": "16000000000",
+        "minFee": "1"
+      },
+      "solana:13": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "arbitrum|solana": {
+      "arbitrum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:1": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "solana:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "arbitrum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:9": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "solana:0": {
+        "max": "16000000000",
+        "minFee": "1"
+      },
+      "solana:13": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "base|ethereum": {
+      "ethereum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:13": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:15": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:16": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "ethereum:8": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "base:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:10": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "ethereum|robinhood": {
+      "ethereum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:13": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:15": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:16": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "ethereum:8": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "robinhood:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "ethereum|hyperliquid": {
+      "ethereum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:13": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:15": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:16": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "ethereum:8": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:0": {
+        "max": "400000000",
+        "minFee": "1"
+      },
+      "hyperliquid:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "arbitrum|ethereum": {
+      "ethereum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:12": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:13": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:14": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:15": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:16": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "ethereum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "ethereum:8": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "ethereum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "arbitrum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "base|robinhood": {
+      "base:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "base:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:10": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "robinhood:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "base|hyperliquid": {
+      "base:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "base:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:10": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:0": {
+        "max": "400000000",
+        "minFee": "1"
+      },
+      "hyperliquid:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "arbitrum|base": {
+      "base:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:11": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "base:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "base:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "base:10": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "arbitrum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "hyperliquid|robinhood": {
+      "robinhood:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "robinhood:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:0": {
+        "max": "400000000",
+        "minFee": "1"
+      },
+      "hyperliquid:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "arbitrum|robinhood": {
+      "robinhood:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "robinhood:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "robinhood:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "robinhood:2": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "arbitrum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    },
+    "arbitrum|hyperliquid": {
+      "hyperliquid:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:7": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:2": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:3": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:4": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:5": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:6": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:8": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:9": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "arbitrum:10": {
+        "max": "10000000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:0": {
+        "max": "400000000",
+        "minFee": "1"
+      },
+      "hyperliquid:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:3": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "hyperliquid:5": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:0": {
+        "max": "160000000",
+        "minFee": "1"
+      },
+      "arbitrum:1": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:11": {
+        "max": "1600000000000",
+        "minFee": "1"
+      },
+      "arbitrum:7": {
+        "max": "1600000000000",
+        "minFee": "1"
+      }
+    }
+  }
+}

@@ -392,8 +392,7 @@ export function CreateIndex({
           <FeeCard id="idx-fee" title={t("feesTitle")} text={t("feesText")} label={t("creatorFee")} bps={fees.bps} onChange={fees.setBps} hint={t("feeSliderHint")} />
           {error && <p className="text-xs sm:text-sm text-red-500 break-words">{error}</p>}
           {!connected ? (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs opacity-70">{t("connectFirst")}</span>
+            <div className="gw-wallet-full">
               {connectButton}
             </div>
           ) : (

@@ -40,6 +40,7 @@ import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnecti
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
+import { OPERATOR, unlockFastTerms, type FastTerms } from "@/components/integrator/ipow/fastPath";
 import { solanaTokenBalance } from "@/components/integrator/ipow/solanaTokenBalance";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
@@ -239,6 +240,36 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     };
   }, [heldOn, heldAddress, info, refresh]);
 
+  // The most the operator pays back at once right now, in record units: its
+  // limit for the asset on this pair, and what it holds of the asset on its
+  // home network. undefined while read; null when it does not pay it fast.
+  const [fast, setFast] = useState<FastTerms | null | undefined>(undefined);
+  useEffect(() => {
+    setFast(undefined);
+    if (info?.number == null) return;
+    const number = info.number;
+    const recordDecimals = info.decimals;
+    let live = true;
+    (async () => {
+      const held =
+        home === "solana"
+          ? asset.token === NATIVE
+            ? BigInt(await solanaConnection().getBalance(new PublicKey(OPERATOR.solana)))
+            : await solanaTokenBalance(OPERATOR.solana, asset.token)
+          : asset.token === NATIVE
+            ? await readProvider(home as EvmChain).getBalance(OPERATOR.evm)
+            : await balanceOf(home as EvmChain, asset.token, OPERATOR.evm);
+      // In record units, as the burn counts.
+      const scale = BigInt(10) ** BigInt(Math.max(0, asset.decimals - recordDecimals));
+      return unlockFastTerms(heldOn, home, number, held / scale);
+    })()
+      .then((m) => live && setFast(m))
+      .catch(() => live && setFast(undefined));
+    return () => {
+      live = false;
+    };
+  }, [home, heldOn, asset.token, asset.decimals, info, refresh]);
+
   const decimals = info?.decimals ?? Math.min(asset.decimals, 9);
   useEffect(() => setAmount((a) => clean(a, decimals)), [decimals]);
   let amountUnits: bigint | null = null;
@@ -248,7 +279,12 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     amountUnits = null;
   }
   const typed = !!amountUnits && amountUnits > ZERO;
-  const fastFeeOf = (x: bigint) => (x * FAST_BPS + BigInt(9_999)) / BigInt(10_000);
+  /** The fast fee: Greatwall's share, at least the operator's least fast
+   *  fee, so the operator always pays it at once. */
+  const fastFeeOf = (x: bigint) => {
+    const share = (x * FAST_BPS + BigInt(9_999)) / BigInt(10_000);
+    return fast && fast.minFee > share ? fast.minFee : share;
+  };
   const fastFee = typed ? fastFeeOf(amountUnits!) : ZERO;
   /** The most this wallet can unlock, the fast fee on top. */
   const maxUnlock = (() => {
@@ -257,9 +293,13 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     while (most > ZERO && most + fastFeeOf(most) > balance) most -= BigInt(1);
     return most;
   })();
+  const fastCap = fast === undefined || fast === null ? null : fast.max;
+  const overFast = fastCap !== null && typed && amountUnits! > fastCap;
+  const maxUnlockFast = maxUnlock !== null && fastCap !== null && fastCap < maxUnlock ? fastCap : maxUnlock;
+  const fmtFast = (v: bigint) => formatUnits(v, decimals).replace(/\.0$/, "");
   const setFraction = (f: number) => {
-    if (maxUnlock === null) return;
-    const v = (maxUnlock * BigInt(Math.round(f * 100))) / BigInt(100);
+    if (maxUnlockFast === null) return;
+    const v = (maxUnlockFast * BigInt(Math.round(f * 100))) / BigInt(100);
     setAmount(v > ZERO ? clean(formatUnits(v, decimals).replace(/\.0$/, ""), decimals) : "");
   };
   const lacking = typed && balance !== null && amountUnits! + fastFee > balance;
@@ -277,7 +317,13 @@ export default function UnlockToken({ initial }: { initial: Net }) {
           ? tb("unlockNoneLocked", { symbol: asset.symbol, network: nameOf(heldOn) })
           : !typed
             ? tb("enterAmount")
-            : lacking
+            : fast === undefined
+              ? tb("loading")
+              : fast === null
+              ? tb("unlockNotFast", { to: nameOf(home) })
+              : overFast
+                ? tb("unlockOverFast", { max: fmtFast(fastCap!), symbol: asset.symbol })
+                : lacking
               ? tb("notEnough", { symbol: asset.symbol })
               : lacksSol
                 ? tb("notEnough", { symbol: "SOL" })
@@ -456,6 +502,7 @@ export default function UnlockToken({ initial }: { initial: Net }) {
               </div>
               {heldConnected && nothingHeld && <Caution text={tb("unlockNoneLocked", { symbol: asset.symbol, network: nameOf(heldOn) })} />}
               {heldConnected && !nothingHeld && lacking && <Caution text={notEnough(asset.symbol)} />}
+              {heldConnected && !nothingHeld && fastCap !== null && <span className="text-[11px] opacity-60">{tb("lockFastUpTo", { max: fmtFast(fastCap), symbol: asset.symbol })}</span>}
             </div>
           </div>
 

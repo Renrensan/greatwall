@@ -424,7 +424,7 @@ function describe(role: string, name: string, a: Record<string, any>, c: Ctx): [
       return [`Credit withdrawn`, `${short(String(a.to))} withdrew ${coin(a.amount)}`];
     // The vault: locks here, receipts of the peer's, and the claims between them.
     case "vaultHome.Locked":
-      return [`${amount(a.asset, a.amount)} locked for ${c.peer}`, `Lock #${a.lockId} by ${short(String(a.owner))}; its receipt is issued on ${c.peer}`];
+      return [`${amount(a.asset, a.amount)} locked for ${c.peer}`, `Lock #${a.lockId} by ${short(String(a.owner))}, to be received on ${c.peer}`];
     case "vaultHome.FastPaid":
       return [`Paid at once (fast path)`, `${amount(a.asset, a.amount)} to ${short(String(a.to))}, backed by attester ${short(String(a.attester))}`];
     case "vaultHome.RequestPaid":

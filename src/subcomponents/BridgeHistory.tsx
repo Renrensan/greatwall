@@ -13,13 +13,18 @@ import { burnsOf, locksOf, type BurnState, type LockState } from "@ipow/sdk";
 import { ConnectNetworkButton, Notice, TICKER, coin, errorText } from "./ipow/common";
 import { EmptyPanel, IconPicture, ListSkeleton, emptyAction } from "./ipow/EmptyPanel";
 import { HistoryList } from "./ipow/HistoryList";
-import { deploymentOf, readProvider, type EvmChain } from "@/components/integrator/ipow/sdk";
+import { deploymentOf, readProvider, solanaVaultOf, type EvmChain } from "@/components/integrator/ipow/sdk";
 import { evmAssetName, solanaAssetName, solanaPairOf, type AssetName } from "@/components/integrator/ipow/vaultAssetName";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import { lockPath, lockTxPath } from "@/components/integrator/ipow/lockPaths";
 
 /** A transfer, with the asset it moved named (`name`). */
-type Item = ({ kind: "lock"; at: number; x: LockState } | { kind: "burn"; at: number; x: BurnState }) & { name?: AssetName };
+type Item = ({ kind: "lock"; at: number; x: LockState } | { kind: "burn"; at: number; x: BurnState }) & {
+  name?: AssetName;
+  /** In the recipient's wallet on Solana: a lock issued or delivered at once
+   *  (attested), a burn paid. Undefined when it could not be read. */
+  received?: boolean;
+};
 
 export default function BridgeHistory({ chain }: { chain: EvmChain }) {
   const t = useTranslations("Bridge");
@@ -44,10 +49,17 @@ export default function BridgeHistory({ chain }: { chain: EvmChain }) {
         ];
         // Each named by its asset: a lock moves this network's asset, a burn a Solana asset's receipt.
         return Promise.all(
-          all.map(async (it): Promise<Item> => ({
-            ...it,
-            name: await (it.kind === "lock" ? evmAssetName(chain, solanaPairOf(chain), it.x.asset) : solanaAssetName(chain, it.x.asset)).catch(() => undefined),
-          }))
+          all.map(async (it): Promise<Item> => {
+            const vault = solanaVaultOf(chain);
+            const [name, received] = await Promise.all([
+              (it.kind === "lock" ? evmAssetName(chain, solanaPairOf(chain), it.x.asset) : solanaAssetName(chain, it.x.asset)).catch(() => undefined),
+              (it.kind === "lock"
+                ? vault.evmLockMark(it.x.lockId).then((m) => !!m && (m.issued || m.attests > 0))
+                : vault.evmBurnPaid(it.x.requestId)
+              ).catch(() => undefined),
+            ]);
+            return { ...it, name, received };
+          })
         ).then((named) => live && setItems(named.sort((a, b) => b.at - a.at)));
       })
       .catch((e) => live && setError(errorText(e)));
@@ -94,8 +106,14 @@ export default function BridgeHistory({ chain }: { chain: EvmChain }) {
           to: "solana",
           id,
           at: it.at,
-          state: it.x.stage === "Returned" ? "Refunded" : it.x.stage,
-          stateLabel: t(`stage${it.x.stage}`),
+          // Received once it is in the wallet on Solana, as the transfer's own page says.
+          state: it.x.stage === "Returned" ? "Refunded" : it.received ? "Done" : "Open",
+          stateLabel:
+            it.x.stage === "Returned"
+              ? t("stageReturned")
+              : it.received
+                ? t(it.kind === "lock" ? "stageReceived" : "stagePaidOut")
+                : t(it.kind === "lock" ? "stageOnItsWay" : "stageBackOnItsWay"),
           chain,
         };
       })}

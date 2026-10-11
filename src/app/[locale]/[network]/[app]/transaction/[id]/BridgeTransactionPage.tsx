@@ -41,6 +41,8 @@ type View = {
   stage: string;
   steps: { label: string; done: boolean }[];
   note: string | null;
+  /** The settlement behind a fast delivery, between operators: shown, not waited for. */
+  settled: boolean | null;
   amount: string;
   fee: bigint;
   fastFee: bigint;
@@ -97,14 +99,16 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
           title: t("lockTitle", { ticker: a.symbol }),
           // Given up is not yet returned: the coin is back only once that is
           // carried here and the lock is returned.
-          chip: j.stage === "Issued" ? "Done" : j.stage === "Returned" ? "Refunded" : "Open",
-          stage: j.stage,
-          steps: [
-            { label: t("stepLocked", { network: nameOf(chain) }), done: true },
-            { label: t("stepIssued"), done: j.stage === "Issued" },
-            { label: t("stepCarried"), done: j.lock.stage === "Carried" },
-          ],
-          note: lockNote(t, j.stage, j.attests),
+          ...lockStatus(t, {
+            stage: j.stage,
+            attests: j.attests,
+            carried: j.lock.stage === "Carried",
+            from: nameOf(chain),
+            to: "Solana",
+            amount: `${coin(j.lock.amount, a.decimals)} ${a.symbol}`,
+            recipient: to,
+            at: j.lock.lockedAt,
+          }),
           amount: `${coin(j.lock.amount, a.decimals)} ${a.symbol}`,
           fee: j.lock.fee,
           fastFee: j.lock.fastFee,
@@ -119,14 +123,15 @@ function EvmTransfer({ chain }: { chain: EvmChain }) {
       const a = await solanaAssetName(chain, b.asset);
       return {
         title: t("receiptBack", { ticker: a.symbol }),
-        chip: paid ? "Done" : "Open",
-        stage: paid ? "Paid" : b.stage,
-        steps: [
-          { label: t("stepBurned"), done: true },
-          { label: t("stepBurnCarried"), done: b.stage === "Carried" },
-          { label: t("stepPaidOn", { network: "Solana" }), done: paid },
-        ],
-        note: paid ? null : b.stage === "Carried" ? t("noteBurnCarried") : t("noteWaitingBurn"),
+        ...burnStatus(t, {
+          paid,
+          carried: b.stage === "Carried",
+          from: nameOf(chain),
+          to: "Solana",
+          amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
+          recipient: to,
+          at: b.at,
+        }),
         amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
         fee: b.fee,
         fastFee: b.fastFee,
@@ -162,14 +167,16 @@ function SolanaTransfer() {
         const stage = l.stage === "Returned" ? "Returned" : mark?.givenUp ? "GivenUp" : mark?.issued ? "Issued" : l.stage;
         return {
           title: t("lockAssetFor", { symbol: a.symbol, network: nameOf(peer) }),
-          chip: stage === "Issued" ? "Done" : stage === "Returned" ? "Refunded" : "Open",
-          stage,
-          steps: [
-            { label: t("stepLocked", { network: "Solana" }), done: true },
-            { label: t("stepIssuedOn", { network: nameOf(peer) }), done: stage === "Issued" },
-            { label: t("stepCarried"), done: l.stage === "Carried" },
-          ],
-          note: lockNote(t, stage, mark?.attests ?? 0),
+          ...lockStatus(t, {
+            stage,
+            attests: mark?.attests ?? 0,
+            carried: l.stage === "Carried",
+            from: "Solana",
+            to: nameOf(peer),
+            amount: `${coin(l.amount, a.decimals)} ${a.symbol}`,
+            recipient: l.recipient,
+            at: l.lockedAt,
+          }),
           amount: `${coin(l.amount, a.decimals)} ${a.symbol}`,
           fee: l.fee,
           fastFee: l.fastFee,
@@ -183,18 +190,16 @@ function SolanaTransfer() {
       const a = await evmAssetName(peer, solanaPairOf(peer), b.asset);
       return {
         title: t("receiptBack", { ticker: a.symbol }),
-        chip: paid ? "Done" : "Open",
-        stage: paid ? "Paid" : b.stage,
-        steps: [
-          { label: t("stepBurnedHere", { symbol: a.symbol }), done: true },
-          { label: t("stepBurnCarried"), done: b.stage === "Carried" },
-          { label: t("stepPaidOn", { network: nameOf(peer) }), done: paid },
-        ],
-        note: paid
-          ? null
-          : b.stage === "Carried"
-            ? t("noteBurnCarriedEvm", { network: nameOf(peer), ticker: a.symbol })
-            : t("noteWaitingBurnEvm", { network: nameOf(peer) }),
+        ...burnStatus(t, {
+          paid,
+          carried: b.stage === "Carried",
+          from: "Solana",
+          to: nameOf(peer),
+          amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
+          recipient: b.to,
+          at: b.at,
+          stepSent: t("stepBurnedHere", { symbol: a.symbol }),
+        }),
         amount: `${coin(b.amount, a.decimals)} ${a.symbol}`,
         fee: b.fee,
         fastFee: b.fastFee,
@@ -209,11 +214,64 @@ function SolanaTransfer() {
   return <TransferView chain="solana" read={read} />;
 }
 
-function lockNote(t: (key: string, values?: Record<string, string | number>) => string, stage: string, attests: number): string | null {
-  if (stage === "GivenUp") return t("noteGivenUp");
-  if (stage === "Returned") return t("noteReturned");
-  if (stage === "Issued") return null;
-  return attests > 0 ? t("noteAttested", { n: attests }) : t("noteWaitingLock");
+type T = (key: string, values?: Record<string, string | number>) => string;
+/** Past this, a transfer still on its way says it is slow, and why it is safe. */
+const SLOW_AFTER_S = 30 * 60;
+const short = (a: string | null) => (a ? shortHash(a) : "—");
+
+/**
+ * A lock as its user reads it: locked here, then received there. A fast
+ * delivery (an operator's attest, section 11.7 of the design) puts the
+ * receipt in the recipient's wallet at once, before the lock is settled
+ * between operators: received is either, and the settlement is shown
+ * apart, as nothing the user waits for.
+ */
+function lockStatus(
+  t: T,
+  x: { stage: string; attests: number; carried: boolean; from: string; to: string; amount: string; recipient: string | null; at: number }
+): Pick<View, "chip" | "stage" | "steps" | "note" | "settled"> {
+  if (x.stage === "Returned") return { chip: "Refunded", stage: "Returned", steps: [{ label: t("stepLocked", { network: x.from }), done: true }], note: t("noteReturned"), settled: null };
+  if (x.stage === "GivenUp") return { chip: "Open", stage: "GivenUp", steps: [{ label: t("stepLocked", { network: x.from }), done: true }], note: t("noteGivenUp"), settled: null };
+  const received = x.stage === "Issued" || x.attests > 0;
+  const slow = !received && Date.now() / 1000 - x.at > SLOW_AFTER_S;
+  return {
+    chip: received ? "Done" : "Open",
+    stage: received ? "Received" : "OnItsWay",
+    steps: [
+      { label: t("stepLocked", { network: x.from }), done: true },
+      { label: t("stepReceivedOn", { network: x.to }), done: received },
+    ],
+    note: received ? t("noteReceived", { amount: x.amount, to: short(x.recipient), network: x.to }) : t(slow ? "noteSlow" : "noteOnItsWay", { network: slow ? x.from : x.to }),
+    // Only a fast delivery has a settlement still to come.
+    settled: received && x.stage !== "Issued" ? x.carried : null,
+  };
+}
+
+/** A return (a burn of a receipt): sent back here, then received there. */
+function burnStatus(
+  t: T,
+  x: { paid: boolean; carried: boolean; from: string; to: string; amount: string; recipient: string | null; at: number; stepSent?: string }
+): Pick<View, "chip" | "stage" | "steps" | "note" | "settled"> {
+  const slow = !x.paid && Date.now() / 1000 - x.at > SLOW_AFTER_S;
+  return {
+    chip: x.paid ? "Done" : "Open",
+    stage: x.paid ? "PaidOut" : "BackOnItsWay",
+    steps: [
+      { label: x.stepSent ?? t("stepBurned"), done: true },
+      { label: t("stepReceivedOn", { network: x.to }), done: x.paid },
+    ],
+    note: x.paid ? t("noteReceived", { amount: x.amount, to: short(x.recipient), network: x.to }) : t(slow ? "noteSlow" : "noteOnItsWay", { network: slow ? x.from : x.to }),
+    settled: x.paid ? x.carried : null,
+  };
+}
+
+/** "3 min ago", "2 h ago", "4 days ago". */
+function ago(at: number): string {
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - at));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} days ago`;
 }
 
 function evmAddressLink(chain: EvmChain, address: string): string {
@@ -266,6 +324,12 @@ function TransferView({ chain, read }: { chain: string; read: (() => Promise<Vie
           ))}
         </ol>
         {view.note && <p className="text-xs sm:text-sm opacity-80">{view.note}</p>}
+        {view.settled !== null && (
+          <p className="flex items-center gap-1.5 text-[11px] opacity-60">
+            <span className="font-semibold">{t("settlement")}:</span>
+            {view.settled ? t("settlementDone") : t("settlementPending")}
+          </p>
+        )}
 
         <div className="flex flex-col gap-2 text-xs sm:text-sm border-t border-black/10 pt-3">
           <Row label={t("amount")} value={view.amount} />
@@ -288,7 +352,7 @@ function TransferView({ chain, read }: { chain: string; read: (() => Promise<Vie
             }
           />
           <Row label={t("from")} value={shortHash(view.from)} />
-          <Row label={t("when")} value={new Date(view.at * 1000).toLocaleString(locale)} />
+          <Row label={t("when")} value={`${new Date(view.at * 1000).toLocaleString(locale)} · ${t("sentAgo", { ago: ago(view.at) })}`} />
         </div>
       </div>
     </div>

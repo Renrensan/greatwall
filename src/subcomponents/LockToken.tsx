@@ -38,6 +38,7 @@ import { EVM_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnecti
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
 import { balanceOf } from "@/components/integrator/ipow/tokens";
+import { lockFastTerms, type FastTerms } from "@/components/integrator/ipow/fastPath";
 import { useEvmWallet } from "@/components/integrator/ipow/useEvmWallet";
 import { useEthereumWallet } from "@/components/ethereum/ethereum-provider";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
@@ -237,6 +238,22 @@ export default function LockToken({ initial }: { initial: Net }) {
     };
   }, [src, dst, asset.token, asset.decimals, refresh]);
 
+  // The most the operator delivers at once right now, in record units: its
+  // limit for the asset on this pair, and the receipts it holds there.
+  // undefined while read; null when it does not deliver this asset fast.
+  const [fast, setFast] = useState<FastTerms | null | undefined>(undefined);
+  useEffect(() => {
+    setFast(undefined);
+    if (info?.number == null) return;
+    let live = true;
+    lockFastTerms(src, dst, info.number)
+      .then((m) => live && setFast(m))
+      .catch(() => live && setFast(undefined));
+    return () => {
+      live = false;
+    };
+  }, [src, dst, info?.number, refresh]);
+
   // Amounts in the asset's units; a lock counts whole record units.
   const places = Math.min(asset.decimals, info?.recordDecimals ?? 9);
   useEffect(() => setAmount((a) => clean(a, places)), [places]);
@@ -249,8 +266,13 @@ export default function LockToken({ initial }: { initial: Net }) {
   const spendable = balance === null ? null : src === "solana" && asset.token === NATIVE ? (balance > SOL_RESERVE ? balance - SOL_RESERVE : ZERO) : balance;
   const unit = info?.unit && info.unit > ZERO ? info.unit : BigInt(1);
   /** The fast fee for an amount, rounded up to whole record units. */
+  /** The fast fee for an amount: Greatwall's share, at least the operator's
+   *  least fast fee (so the operator always pays it at once), rounded up to
+   *  whole record units. */
   const fastFeeOf = (x: bigint) => {
-    const f = (x * FAST_BPS + BigInt(9_999)) / BigInt(10_000);
+    const share = (x * FAST_BPS + BigInt(9_999)) / BigInt(10_000);
+    const least = fast ? fast.minFee * unit : ZERO;
+    const f = share > least ? share : least;
     return ((f + unit - BigInt(1)) / unit) * unit;
   };
   const fastFee = amountUnits && amountUnits > ZERO ? fastFeeOf(amountUnits) : ZERO;
@@ -265,10 +287,15 @@ export default function LockToken({ initial }: { initial: Net }) {
     while (most > ZERO && most + fastFeeOf(most) > left) most -= unit;
     return most;
   })();
+  /** The fast path's cap in the asset's units, when known. */
+  const fastCap = fast === undefined || fast === null ? null : fast.max * unit;
+  const fmtFast = (v: bigint) => formatUnits(v, asset.decimals).replace(/\.0$/, "");
+  const overFast = fastCap !== null && !!amountUnits && amountUnits > fastCap;
+  const maxLockFast = maxLock !== null && fastCap !== null && fastCap < maxLock ? fastCap : maxLock;
   const fmtBalance = (v: bigint) => (Number(v) / 10 ** asset.decimals).toLocaleString("en-US", { maximumFractionDigits: 6 });
   const setFraction = (f: number) => {
-    if (maxLock === null) return;
-    const v = (((maxLock * BigInt(Math.round(f * 100))) / BigInt(100)) / unit) * unit;
+    if (maxLockFast === null) return;
+    const v = (((maxLockFast * BigInt(Math.round(f * 100))) / BigInt(100)) / unit) * unit;
     setAmount(v > ZERO ? clean(formatUnits(v, asset.decimals).replace(/\.0$/, ""), places) : "");
   };
   // A token lock on Solana still pays SOL: fees, the lock's rent and, the first time, the registration's.
@@ -280,7 +307,11 @@ export default function LockToken({ initial }: { initial: Net }) {
     ? tb("lockConnect", { network: nameOf(src) })
     : !amountUnits || amountUnits <= ZERO
       ? null
-      : spendable !== null && amountUnits + fastFee > spendable
+      : fast === null && info !== null && info.number !== null
+        ? tb("lockNotFast", { from: nameOf(src), to: nameOf(dst) })
+        : overFast
+          ? tb("lockOverFast", { max: fmtFast(fastCap!), symbol: asset.symbol })
+          : spendable !== null && amountUnits + fastFee > spendable
         ? tb("notEnough", { symbol: asset.symbol })
         : lacksSol
           ? tb("notEnough", { symbol: "SOL" })
@@ -295,7 +326,8 @@ export default function LockToken({ initial }: { initial: Net }) {
                 : src !== "solana" && info !== null && info.number === null
                   ? tb("lockNotCarried", { network: nameOf(dst) })
                   : null;
-  const canLock = !problem && !!amountUnits && amountUnits > ZERO && info !== null;
+  // Locked only once the fast path's cap is known: never one that would wait a week.
+  const canLock = !problem && !!amountUnits && amountUnits > ZERO && info !== null && (info.number === null || fast !== undefined);
   const usd = (() => {
     const p = prices.priceOf(asset.symbol);
     const n = Number(amount);
@@ -496,6 +528,7 @@ export default function LockToken({ initial }: { initial: Net }) {
                 )}
               </div>
               {srcConnected && lacking && <Caution text={notEnough(asset.symbol)} />}
+              {fastCap !== null && <span className="text-[11px] opacity-60">{tb("lockFastUpTo", { max: fmtFast(fastCap), symbol: asset.symbol })}</span>}
             </div>
           </div>
 
