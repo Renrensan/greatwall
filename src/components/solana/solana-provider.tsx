@@ -50,8 +50,9 @@ import { solanaConvertMethods } from "../integrator/ipow/solanaConvertMethods";
 import { NO_CONVERT } from "../integrator/ipow/convertMethods";
 import { rwaTokensOf } from "../integrator/ipow/rwaTokens";
 
-/** Greatwall's own test tokens on Solana (its faucet's mints): always shown. */
-const GREATWALL_MINTS = new Set(rwaTokensOf("solana").map((t) => t.token));
+/** Greatwall's own test tokens on Solana (its faucet's mints), by mint:
+ *  always shown, under their own name and ticker. */
+const GREATWALL_MINTS = new Map(rwaTokensOf("solana").map((t) => [t.token, t]));
 
 
 // The RPC calls for this provider go through the /api/rpc proxy (see fullRpcUrl below),
@@ -408,6 +409,8 @@ const checkAtaRequired = async (
               return null;
             }
             // No metadata pass follows on devnet, so this placeholder is not "still loading".
+            const own = GREATWALL_MINTS.get(mint);
+            if (own) return { mint, amount, decimals, symbol: own.symbol, name: own.name, logo: own.logo ?? null, price: "0", change: "0%", isNative: false, metaLoading: false };
             return { mint, amount, decimals, symbol: `${mint.slice(0, 4)}`, name: "Loading...", price: "0", change: "0%", isNative: false, metaLoading: false };
           };
 

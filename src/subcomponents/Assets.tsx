@@ -524,7 +524,12 @@ const baseTokens = useMemo(() => {
     const have = new Set((baseTokens as any[]).map((t) => String(t.mint ?? "").toLowerCase()));
     const priced = (baseTokens as any[]).map((t) => {
       const r = rwa.find((x) => x.token.toLowerCase() === String(t.mint ?? "").toLowerCase());
-      return r ? { ...t, rwa: r, price: String(rwaPrices[r.token.toLowerCase()] ?? 0), logo: t.logo ?? r.logo ?? null } : t;
+      // Greatwall's own test tokens are official on every network: their name,
+      // ticker, logo and decimals are Greatwall's, whatever the wallet's
+      // balance reader called the holding (often only its address).
+      return r
+        ? { ...t, name: r.name, symbol: r.symbol, decimals: r.decimals, logo: r.logo ?? t.logo ?? null, metaLoading: false, rwa: r, price: String(rwaPrices[r.token.toLowerCase()] ?? 0) }
+        : t;
     });
     const missing = rwa
       .filter((r) => !have.has(r.token.toLowerCase()))
