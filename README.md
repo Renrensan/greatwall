@@ -127,18 +127,21 @@ src/
   app/
     [locale]/about           the About page, the front page (/ and /en open it)
     [locale]/(general)/...   pages of no network: Docs and the legal pages (/en/docs, /en/terms, ...)
-    [locale]/[network]/...   the app's pages (Explore, Create, Lock, Convert, Portfolio, Live (/explorer))
+    [locale]/[network]/...   the app's pages (Explore, Create, Lock, Convert, Portfolio, Live (/explorer), Pay with ZEC (/zec))
     api/rpc/*                RPC proxies, rate-limited, keys kept server-side
     api/bitcoin/*            Bitcoin's explorer API through this server, for networks that block mempool.space
     api/prices, api/history  coin prices now, and a year of the real assets' prices for past performance
     api/explorer/*           the Explorer's readers (EVM events, Solana programs, Bitcoin tip)
     api/baskets, api/beta    index-token listings and metadata
     api/faucet, api/tunnel   test-token faucet, operator tunnel
+    api/zec/*                Pay with ZEC: indexes, prices, orders and deliveries on every network
   components/
     <network>/               one wallet provider per network
     integrator/ipow/         Greatwall's use of @ipow/sdk (vaults, baskets, conversion, tunnel)
   subcomponents/             the pages' components
 messages/en.json             all user-facing text
+zec-lane/lane.mjs            the ZEC lane's watch-only Zcash service, run beside the server
+docs/zec-lane.md             how Pay with ZEC works, its decisions, and how to run it
 ```
 
 ## Status
