@@ -462,13 +462,8 @@ export default function ConvertToken() {
     return () => clearTimeout(timer);
   }, [fromAmount, pathname, router, searchParams]);
 
-  // Into SOL waits for the user's own payment proof on Solana
-  // (solanaConvertMethods.ts).
-  const intoSolana = toChain === "solana";
-
   const isSupportedRoute = useMemo(() => {
     if (fromChain === toChain) return false;
-    if (toChain === "solana") return false;
 
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
@@ -573,11 +568,10 @@ export default function ConvertToken() {
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
     return (
-      intoSolana ||
       fromConfig?.ipowConvert === "comingsoon" ||
       toConfig?.ipowConvert === "comingsoon"
     );
-  }, [fromChain, toChain, networkOptions, intoSolana]);
+  }, [fromChain, toChain, networkOptions]);
 
   const buttonText = useMemo(() => {
     if (isComingSoon) return "Coming Soon";
