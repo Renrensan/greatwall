@@ -32,7 +32,7 @@ networks put up stake that is slashed if they lie.
 | **Lock / Unlock** | Lock any listed asset on its own network and receive it on a paired network, paid on the fast path in about 1–2 minutes from Solana or about 15 from Ethereum; unlock it back the same way |
 | **Convert** | Move value between networks, or to and from Bitcoin, through an operator's quote |
 | **Portfolio** | Everything your wallets hold, by network and in dollars, plus your index tokens |
-| **Pay with ZEC** | Buy an index token on Solana with **shielded ZEC** from a Zcash phone wallet: scan a QR code, no wallet to connect. Real ZEC (Zcash mainnet) for a test token, capped at $20 an order; see [docs/zec-lane.md](docs/zec-lane.md) |
+| **Pay with ZEC** | Buy an index token on any network with **shielded ZEC** from a Zcash phone wallet: scan a QR code, no wallet to connect. Real ZEC (Zcash mainnet) for a test token, capped at $20 an order; see [docs/zec-lane.md](docs/zec-lane.md) |
 | **Live** | The Explorer: a live view of iPoW itself: every protocol transaction on every network, who made it (an operator, a user, a guardian) and what it did. Open any row for what it means and why the protocol does it |
 
 Index tokens and Lock run on all seven networks, Tempo included; Convert on

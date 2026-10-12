@@ -1,11 +1,13 @@
 // The ZEC lane's orders (docs/zec-lane.md): Pay with ZEC. An order is a
-// quote for an index token on Solana (GREAT and the others, indexes.ts),
-// paid in real, shielded ZEC on Zcash mainnet with the memo `gw1:<id>`. The
+// quote for an index token on Solana or an EVM test network (GREAT and the
+// others, indexes.ts), paid in real, shielded ZEC on Zcash mainnet with the
+// memo `gw1:<id>`. The
 // lane's Zcash wallet (zec-lane/, beside this server) holds only a viewing
 // key: it sees payments and can never send ZEC, so the lane only takes ZEC
 // in, never pays any out, and nothing is refunded. Once a payment has its
-// confirmations the lane's Solana key (the faucet key) mints the index from
-// the parts it holds and sends it to the order's recipient: what was paid
+// confirmations the lane mints the index from the parts it holds and sends
+// it to the order's recipient, with the faucet's key of that network (its
+// Solana key, or its EVM key, taking turns with the faucet): what was paid
 // for, never more than was ordered. Orders are kept on disk, one file each,
 // and moved on by `advance`, called on each read of an order and every 15
 // seconds.
@@ -20,10 +22,12 @@ import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Keypair, PublicKey, Transaction, sendAndConfirmTransaction, type VersionedTransaction } from "@solana/web3.js";
 import { createAssociatedTokenAccountIdempotentInstruction, createTransferInstruction, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { SolanaBeta } from "@ipow/sdk";
+import { Contract, NonceManager, Wallet } from "ethers";
+import { SolanaBeta, getBasket, mintBeta, network, quoteMint, type NetworkName } from "@ipow/sdk";
 
 import { dataDir } from "../beta/metadata/store";
-import { indexOf, solanaConnection } from "./indexes";
+import { evmProvider, indexOf, solanaConnection, type IndexInfo } from "./indexes";
+import { CHAINS, ERC20, inTurn, nonces, provider } from "../faucet/evmWallet";
 
 /** Z5: a quote holds 15 minutes. */
 export const QUOTE_MS = 15 * 60_000;
@@ -63,9 +67,10 @@ export type Order = {
   /** Buy: ZEC in, the index out. Sell (demo): the index in and back out. */
   side?: "buy" | "sell";
   memo: string;
-  /** Always "solana": the indexes are there. */
+  /** Where the index is: "solana", or an EVM test network. */
   chain: string;
-  /** The index (its basket's address), its token's symbol and name. */
+  /** The index (its basket's address on Solana, its key on an EVM network),
+   *  its token's symbol and name. */
   token: string;
   symbol: string;
   name: string;
@@ -174,13 +179,36 @@ const asWallet = (k: Keypair) => ({
   },
 });
 
-/** Whole tokens as the index's smallest units (9 decimals). */
-const unitsOf = (whole: number) => BigInt(Math.round(whole * 1e9));
+/** Whole tokens (to 9 decimals) as the index's smallest units. */
+const unitsOf = (whole: number, decimals = 9) => {
+  const nine = BigInt(Math.round(whole * 1e9));
+  return decimals >= 9 ? nine * BigInt(10) ** BigInt(decimals - 9) : nine / BigInt(10) ** BigInt(9 - decimals);
+};
 
-/** Makes an order for `amount` of index `index`: checked against the caps
+/** The faucet's EVM wallet: the lane's on every EVM test network. */
+function evmKey(): string {
+  const key = process.env.FAUCET_EVM_KEY;
+  if (!key) throw new Error("the lane has no EVM key on this server");
+  return key;
+}
+
+/** Throws unless the lane holds every part of `units` of EVM index `ix`, with the creator's fee. */
+async function checkEvmStock(ix: IndexInfo, units: bigint) {
+  const p = evmProvider(ix.chain);
+  const d: any = network(`${ix.chain}-testnet` as NetworkName);
+  const q = await quoteMint(p as any, d, ix.address, units);
+  const me = new Wallet(evmKey()).address;
+  for (let i = 0; i < q.parts.length; i++) {
+    const coin = /^0x0+$/.test(q.parts[i]);
+    const have: bigint = coin ? await p.getBalance(me) : await new Contract(q.parts[i], ERC20, p).balanceOf(me);
+    if (have < q.need[i] + q.fee[i]) throw new Error(`The lane is short of ${ix.parts[i]?.symbol ?? "a part"} for this much ${ix.symbol} right now`);
+  }
+}
+
+/** Makes an order for `amount` of index `index` on `chain`: checked against the caps
  *  (Z6) and the parts the lane holds to mint it (Z8). */
-export async function createOrder(input: { index: string; amount: string; recipient: string }): Promise<Order> {
-  const ix = await indexOf(input.index);
+export async function createOrder(input: { chain?: string; index: string; amount: string; recipient: string }): Promise<Order> {
+  const ix = await indexOf(input.index, input.chain ?? "solana");
   if (!ix) throw new Error("Not one of the indexes the lane sells");
   const amount = Number(input.amount);
   if (!(amount > 0) || !/^\d+(\.\d+)?$/.test(input.amount)) throw new Error("Enter an amount above zero");
@@ -189,13 +217,17 @@ export async function createOrder(input: { index: string; amount: string; recipi
   const open = (await all()).filter((o) => o.side !== "sell" && OPEN.includes(o.state) && o.state !== "waiting");
   if (open.reduce((s, o) => s + o.usd, 0) + usd > MAX_OPEN_USD) throw new Error("The lane is busy right now: try again in a few minutes");
   // Every part, with the creator's fee, held by the lane now.
-  const key = laneKey();
-  const sb = new SolanaBeta(solanaConnection(), asWallet(key) as any);
-  const q = await sb.quoteMint(input.index, unitsOf(amount));
-  const basket: any = await sb.getBasket(input.index);
-  for (let i = 0; i < basket.parts.length; i++) {
-    const have = await sb.tokenBalance(key.publicKey, new PublicKey(basket.parts[i].mint)).catch(() => BigInt(0));
-    if (have < q.need[i] + q.fee[i]) throw new Error(`The lane is short of ${ix.parts[i]?.symbol ?? "a part"} for this much ${ix.symbol} right now`);
+  if (ix.chain === "solana") {
+    const key = laneKey();
+    const sb = new SolanaBeta(solanaConnection(), asWallet(key) as any);
+    const q = await sb.quoteMint(input.index, unitsOf(amount));
+    const basket: any = await sb.getBasket(input.index);
+    for (let i = 0; i < basket.parts.length; i++) {
+      const have = await sb.tokenBalance(key.publicKey, new PublicKey(basket.parts[i].mint)).catch(() => BigInt(0));
+      if (have < q.need[i] + q.fee[i]) throw new Error(`The lane is short of ${ix.parts[i]?.symbol ?? "a part"} for this much ${ix.symbol} right now`);
+    }
+  } else {
+    await checkEvmStock(ix, unitsOf(amount, ix.decimals));
   }
   const zecUsdNow = await zecUsd();
   const id = randomBytes(5).toString("hex");
@@ -203,11 +235,11 @@ export async function createOrder(input: { index: string; amount: string; recipi
   const o: Order = {
     id,
     memo: `gw1:${id}`,
-    chain: "solana",
+    chain: ix.chain,
     token: ix.address,
     symbol: ix.symbol,
     name: ix.name,
-    decimals: 9,
+    decimals: ix.decimals,
     amount: input.amount,
     recipient: input.recipient,
     usd,
@@ -230,6 +262,44 @@ export async function createOrder(input: { index: string; amount: string; recipi
 /** Mints `amountWhole` of the order's index with the lane's key, from the
  *  parts it holds, and sends it to the order's recipient. */
 async function deliver(o: Order, amountWhole: number): Promise<string> {
+  return o.chain === "solana" ? deliverSolana(o, amountWhole) : deliverEvm(o, amountWhole);
+}
+
+/** On an EVM network: minted with the faucet's EVM wallet (approve each part,
+ *  then mint), then the index token sent, in the faucet's turn on that
+ *  network so the two never take the same nonce. */
+async function deliverEvm(o: Order, amountWhole: number): Promise<string> {
+  const c = CHAINS[o.chain];
+  const rpc = c?.rpc();
+  if (!c || !rpc) throw new Error(`${o.chain} is not set up on this server`);
+  const read = evmProvider(o.chain);
+  const d: any = network(`${o.chain}-testnet` as NetworkName);
+  const wallet = new Wallet(evmKey(), provider(c.send ?? rpc, c.chainId));
+  const units = unitsOf(amountWhole, o.decimals);
+  return inTurn(o.chain, async () => {
+    // Nonces counted here, from the faucet's last send on this network.
+    const signer = new NonceManager(wallet);
+    const pending = await wallet.getNonce("pending");
+    for (let n = pending; n < (nonces.get(o.chain) ?? 0); n++) signer.increment();
+    try {
+      const { beta } = await getBasket(read as any, d, o.token);
+      const before: bigint = await new Contract(beta, ERC20, read).balanceOf(wallet.address);
+      // Minted only when what it holds of the index is short: a retry after a
+      // mint that went through sends, it does not mint again.
+      if (before < units) await mintBeta(signer, d, await quoteMint(read as any, d, o.token, units - before));
+      const sent = await (new Contract(beta, ERC20, signer) as Contract).transfer(o.recipient, units);
+      await sent.wait();
+      nonces.set(o.chain, await signer.getNonce("pending"));
+      return sent.hash as string;
+    } catch (e) {
+      nonces.delete(o.chain);
+      throw e;
+    }
+  });
+}
+
+/** On Solana: minted with the faucet's Solana key, then sent. */
+async function deliverSolana(o: Order, amountWhole: number): Promise<string> {
   const key = laneKey();
   const conn = solanaConnection();
   const sb = new SolanaBeta(conn, asWallet(key) as any);
@@ -306,7 +376,7 @@ async function advance(o: Order, received: Received, used: Set<string>) {
     const paid = o.payment!.zat;
     let amount = ordered * Math.min(1, paid / o.zat);
     if (o.payment!.seenAt > o.expiresAt) {
-      const price = (await indexOf(o.token))?.usdPerToken ?? o.usd / ordered;
+      const price = (await indexOf(o.token, o.chain))?.usdPerToken ?? o.usd / ordered;
       amount = Math.min(ordered, ((paid / ZAT) * (await zecUsd())) / price);
     }
     amount = Math.floor(amount * 1e9) / 1e9;
@@ -454,11 +524,12 @@ async function advanceSell(o: Order) {
 
 // ---------------------------------------------------------------- a wallet's orders
 
-/** The orders of a Solana address, newest first: buys delivered to it and
- *  sales sent from it. */
+/** The orders of an address (Solana, or 0x on the EVM networks), newest
+ *  first: buys delivered to it and sales sent from it. */
 export async function ordersOf(address: string, limit = 50): Promise<Order[]> {
+  const same = (a?: string) => !!a && (/^0x/i.test(address) ? a.toLowerCase() === address.toLowerCase() : a === address);
   return (await all())
-    .filter((o) => o.recipient === address || o.owner === address)
+    .filter((o) => same(o.recipient) || same(o.owner))
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, limit);
 }

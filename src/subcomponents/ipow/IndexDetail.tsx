@@ -123,7 +123,7 @@ export function IndexDetail(props: {
   /** What the wallet can collect: each on its own, or all one after another. */
   collect?: { items: CollectItem[]; busy: string | null; onCollect: (item: CollectItem) => void; onCollectAll: () => void; progress?: string | null } | null;
   extras?: ReactNode;
-  /** Buying it with ZEC (Solana indexes): shown as a third tab, "ZEC". */
+  /** Buying it with ZEC: shown as a third tab, "ZEC". */
   zec?: ReactNode;
   /** "What one token holds now", or before any mint "the mix it starts with". */
   compositionNote: string;

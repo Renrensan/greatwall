@@ -12,6 +12,7 @@ import { Contract, ZeroAddress, parseUnits, formatUnits } from "ethers";
 import { ABIS, burnBeta, collectFees, collectOwed, getBasket, mintBeta, quoteMint, type Basket, type MintQuote } from "@ipow/sdk";
 
 import { ComingSoon, ConnectNetworkButton, Notice, coin, errorText, evmAddressLink } from "@/subcomponents/ipow/common";
+import PayWithZec from "@/subcomponents/PayWithZec";
 import { IndexDetail, IndexDetailSkeleton, type CollectItem, type DetailPart } from "@/subcomponents/ipow/IndexDetail";
 import { ActivityCharts } from "@/subcomponents/ipow/ActivityCharts";
 import { evmActivity, type Activity } from "@/components/integrator/ipow/indexActivity";
@@ -404,6 +405,7 @@ function BasketView({ chain }: { chain: BasketChain }) {
       backHref={`/${locale}/${chain}/index`}
       history={<ActivityCharts events={history.events} supply={supply} symbol={named ? basket.symbol : "BETA"} status={history.status} />}
       connected={wallet.connected}
+      zec={<PayWithZec embedded only="buy" chain={chain} indexAddress={key} evmAddress={wallet.address ?? null} />}
       connectButton={<ConnectNetworkButton chain={chain} />}
       onSubmit={() =>
         act(side, async () => (side === "mint" ? mintBeta(await signer(), d, await quoteMint(provider, d, key, amountUnits!)) : burnBeta(await signer(), d, key, amountUnits!)))

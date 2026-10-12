@@ -2,8 +2,9 @@
 
 **Status: built, and verified end to end on Zcash testnet on 2026-10-11;
 switched to Zcash mainnet, buying only, on 2026-10-12; not yet deployed
-or run on mainnet.** It sells **index tokens on Solana** (GREAT and the
-others), not single tokens, for real ZEC. The Zcash side is `zec-lane/`
+or run on mainnet.** It sells **index tokens on Solana and on the EVM test
+networks** (GREAT and the others; EVM since 2026-10-12, Z2), not single
+tokens, for real ZEC. The Zcash side is `zec-lane/`
 (a service beside Greatwall's server); the orders, prices, deliveries and
 the page (`/<locale>/<network>/zec`, "Pay with ZEC") are Greatwall's. It
 touches nothing of the iPoW protocol or its operator.
@@ -12,12 +13,13 @@ touches nothing of the iPoW protocol or its operator.
 
 The user scans a QR code with a Zcash phone wallet (Zashi, Ywallet) and
 sends shielded ZEC; the lane sees the payment with its viewing key and
-sends the index they chose to their Solana address. The user connects no
+sends the index they chose to their address on the index's network. The user connects no
 wallet to pay. On Zcash the payment is private: outsiders see neither
 party, amount nor memo.
 
 **Real ZEC for a test token.** The ZEC is real (Zcash mainnet); the index
-is on Solana devnet and holds test tokens with no value. The page says so
+is on a test network (Solana devnet, Sepolia, …) and holds test tokens with
+no value. The page says so
 before the user pays, and the caps are small (Z6).
 
 **Buying only, for real.** The lane takes ZEC in and never pays ZEC out:
@@ -27,8 +29,8 @@ no refund, and selling an index for ZEC is a demo (below). Its Zcash wallet is
 the ZEC it receives; the seed stays with its owner, off the server.
 
 It is **Greatwall's own service, beside the protocol**, with wallets of
-its own (the watch-only Zcash wallet, and the Solana wallet holding the
-index parts), apart from the iPoW operator's keys: no contract, program,
+its own (the watch-only Zcash wallet, and the faucet's Solana and EVM
+wallets holding the index parts), apart from the iPoW operator's keys: no contract, program,
 light client, vault or operator changes, and the Bitcoin side is
 untouched. It is not verified on chain; it is **accountable by a
 published viewing key** (Z7) and capped (Z6).
@@ -36,7 +38,8 @@ published viewing key** (Z7) and capped (Z6).
 ## How a purchase goes
 
 1. **Quote.** The user picks an index and an amount, and where it arrives
-   on Solana (the connected wallet, or a typed address). Greatwall's
+   on its network: on Solana the connected wallet; on an EVM network a 0x
+   address (the index page's connected wallet, or typed). Greatwall's
    server makes an order: its id, the ZEC amount, the lane's Zcash
    address, the memo `gw1:<id>` and an expiry (Z5).
 2. **Pay.** Greatwall shows a ZIP-321 payment request as a QR code
@@ -47,7 +50,7 @@ published viewing key** (Z7) and capped (Z6).
    memo (compact blocks carry none). Greatwall finds the order by memo.
 4. **Confirm.** Greatwall waits for 3 Zcash blocks (Z5).
 5. **Deliver.** Greatwall mints the index from the parts the lane holds on
-   Solana and sends it to the order's address (Z4, Z8). The page follows
+   its network and sends it to the order's address (Z4, Z8). The page follows
    the order to "Received", with the delivery's transaction.
 
 ## Sell for ZEC (demo)
@@ -71,7 +74,7 @@ ZEC, and says so before the user sells and while the order runs:
 |---|---|---|
 | Zcash wallet: sync, payments received with their memos | `zec-lane/lane.mjs`, a service on 127.0.0.1 with a key | Drives Zcash's own `zcash-devtool` (the official `zcash_client_backend` libraries) and reads its SQLite wallet; holds no Zcash code of its own, and no spending key |
 | Orders, quotes, prices | Greatwall's server (`/api/zec/…`) | Index prices as the index page works them out, ZEC/USD from CoinGecko; orders kept on disk so a restart loses none |
-| Delivery | Greatwall's server, with the lane's Solana key (the faucet's) | Mints the index from parts it holds, then a plain SPL transfer |
+| Delivery | Greatwall's server, with the faucet's keys: `FAUCET_SOLANA_KEY` on Solana, `FAUCET_EVM_KEY` on the EVM networks | Mints the index from parts it holds, then a plain token transfer. On EVM it approves each part, mints and sends in the faucet's turn on that network, so the two never take the same nonce |
 | Page: "Pay with ZEC" (QR, status) | Greatwall | Follows the order through Greatwall's server |
 
 ## Decisions
@@ -80,8 +83,12 @@ ZEC, and says so before the user sells and while the order runs:
   Zcash testnet has no phone wallet a user can pay from. Through the
   public light-wallet server `zec.rocks`. (Built and run first on testnet,
   see below.)
-- **Z2. Indexes on Solana only.** The indexes the lane sells are minted on
-  Solana devnet from the parts the lane holds there.
+- **Z2. Indexes on every network** (revised 2026-10-12; Solana only
+  before). The lane sells an index on Solana devnet or on any EVM test
+  network, minted there from the parts the lane holds there. The ZEC page
+  lists Solana's and those the app indexes (Ethereum, Base, Tempo); an
+  index on Arbitrum, Robinhood Chain or Hyperliquid is bought from its own
+  page's ZEC tab. Selling for ZEC (the demo) stays on Solana.
 - **Z3. Shielded only.** The lane's Zcash address is a unified address
   with an Orchard receiver, so payments are shielded and carry a memo. A
   transparent payment has no memo and is not matched.
@@ -106,8 +113,8 @@ ZEC, and says so before the user sells and while the order runs:
   work.
 - **Z7. Accountability.** Greatwall publishes the lane's **full viewing
   key** (`/api/zec/info`): with it anyone can list every ZEC payment the
-  lane received, with its memo, and match each to its delivery on Solana,
-  which is public. A viewing key cannot spend.
+  lane received, with its memo, and match each to its delivery on its
+  network, which is public. A viewing key cannot spend.
 - **Z8. Stock.** The lane delivers only from what it holds: a quote is
   refused when the lane is short of a part, so an order never waits for
   one.

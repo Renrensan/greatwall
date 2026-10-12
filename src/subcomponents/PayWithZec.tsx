@@ -1,7 +1,9 @@
 "use client";
 
-// Pay with ZEC (docs/zec-lane.md): buy an index token on Solana, GREAT and
-// the others, with real shielded ZEC (Zcash mainnet) from a phone. The lane
+// Pay with ZEC (docs/zec-lane.md): buy an index token on Solana or an EVM
+// test network, GREAT and the others, with real shielded ZEC (Zcash mainnet)
+// from a phone. A Solana index arrives at the connected Solana wallet; an
+// EVM one at the 0x address given (the index page's connected wallet). The lane
 // takes ZEC in and never pays it out: "Sell for ZEC" is a demo, the index is
 // checked on Solana and sent back, with no ZEC paid. Laid out as Convert is: what
 // you get on top, what you pay tucked under it, the ZEC worked out as you
@@ -9,7 +11,7 @@
 // (Zashi, Ywallet) and follows the order to "Received". The order's id is
 // kept in the URL, so a reload keeps following it.
 //
-// Embedded (`embedded`), for one index (`indexAddress`) and one side
+// Embedded (`embedded`), for one index (`indexAddress` on `chain`) and one side
 // (`only`): the "ZEC" tab of an index's Mint panel buys it, and Portfolio's
 // index dialog sells it; there the order is followed in place, not in the URL.
 // On the ZEC page (`onPage`), ZecApp holds the tabs and the order stays in the URL.
@@ -19,7 +21,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
-import { solananetwork, zcash, zcashnetwork } from "@/index";
+import { arbitrumnetwork, basenetwork, ethereumnetwork, hyperliquidnetwork, robinhoodnetwork, solananetwork, temponetwork, zcash, zcashnetwork } from "@/index";
+import { isAddress } from "ethers";
 import { SolanaConnectButton } from "./SolanaConnectButton";
 import QRCode from "qrcode";
 
@@ -31,9 +34,10 @@ import { solanaConnection } from "@/components/integrator/ipow/sdk";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { txLink } from "@/components/ui/txToast";
 
-type Index = { address: string; beta: string; symbol: string; name: string; image: string | null; usdPerToken: number; parts: { symbol: string }[] };
+type Index = { chain: string; address: string; beta: string; symbol: string; name: string; image: string | null; usdPerToken: number; parts: { symbol: string }[] };
 type Order = {
   id: string;
+  chain: string;
   side?: "buy" | "sell";
   transfer?: string | null;
   returnTx?: string | null;
@@ -57,6 +61,18 @@ type Order = {
 };
 
 const MAX_USD = 20;
+/** The networks an index can be bought on, as the app names and shows them. */
+const NETWORKS: Record<string, { name: string; logo: typeof zcash }> = {
+  solana: { name: "Solana", logo: solananetwork },
+  ethereum: { name: "Ethereum", logo: ethereumnetwork },
+  base: { name: "Base", logo: basenetwork },
+  arbitrum: { name: "Arbitrum", logo: arbitrumnetwork },
+  robinhood: { name: "Robinhood Chain", logo: robinhoodnetwork },
+  hyperliquid: { name: "Hyperliquid", logo: hyperliquidnetwork },
+  tempo: { name: "Tempo", logo: temponetwork },
+};
+const nameOf = (chain: string) => NETWORKS[chain]?.name ?? chain;
+const sameIndex = (i: Index, chain: string, address: string) => i.chain === chain && i.address.toLowerCase() === address.toLowerCase();
 const short = (s: string) => (s.length > 18 ? `${s.slice(0, 8)}…${s.slice(-6)}` : s);
 const mmss = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -64,7 +80,14 @@ const mmss = (ms: number) => {
 };
 const usdText = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function PayWithZec({ indexAddress, only, embedded = false, onPage = false }: { indexAddress?: string; only?: "buy" | "sell"; embedded?: boolean; onPage?: boolean } = {}) {
+export default function PayWithZec({
+  indexAddress,
+  chain = "solana",
+  evmAddress = null,
+  only,
+  embedded = false,
+  onPage = false,
+}: { indexAddress?: string; chain?: string; evmAddress?: string | null; only?: "buy" | "sell"; embedded?: boolean; onPage?: boolean } = {}) {
   // Followed in place, and linking to the ZEC page: away from that page.
   const away = embedded && !onPage;
   const { locale } = useParams<{ locale: string }>();
@@ -75,7 +98,9 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
   const [indexes, setIndexes] = useState<Index[] | null>(null);
   const [zecUsd, setZecUsd] = useState<number | null>(null);
   useEffect(() => {
-    fetch("/api/zec/indexes")
+    // One index (its page): asked for by itself, so an EVM index the app
+    // doesn't list (Arbitrum, Robinhood, Hyperliquid) is found too.
+    fetch(indexAddress ? `/api/zec/indexes?chain=${chain}&index=${indexAddress}` : "/api/zec/indexes")
       .then((r) => r.json())
       .then((l) => setIndexes(Array.isArray(l) ? l : []))
       .catch(() => setIndexes([]));
@@ -83,16 +108,21 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
       .then((r) => r.json())
       .then((p) => setZecUsd(Number(p?.ZEC) > 0 ? Number(p.ZEC) : null))
       .catch(() => setZecUsd(null));
-  }, []);
-  const [pick, setPick] = useState<string | null>(indexAddress ?? null);
+  }, [indexAddress, chain]);
+  const [side, setSide] = useState<"buy" | "sell">(only ?? (query.get("sell") ? "sell" : "buy"));
+  // Selling (a demo) is on Solana only: the picker offers Solana's then.
+  const offered = useMemo(() => (indexes ?? []).filter((i) => side === "buy" || i.chain === "solana"), [indexes, side]);
+  const [pick, setPick] = useState<{ chain: string; address: string } | null>(indexAddress ? { chain, address: indexAddress } : null);
   const index = useMemo(
-    () => (indexAddress ? (indexes?.find((i) => i.address === indexAddress) ?? null) : (indexes?.find((i) => i.address === pick) ?? indexes?.[0] ?? null)),
-    [indexes, pick, indexAddress]
+    () =>
+      indexAddress
+        ? (indexes?.find((i) => sameIndex(i, chain, indexAddress)) ?? null)
+        : ((pick && offered.find((i) => sameIndex(i, pick.chain, pick.address))) ?? offered[0] ?? null),
+    [indexes, offered, pick, indexAddress, chain]
   );
   /** This index can't be had for ZEC (not minted yet, or the lane lacks a part). */
   const unavailable = !!indexAddress && indexes !== null && !index;
 
-  const [side, setSide] = useState<"buy" | "sell">(only ?? (query.get("sell") ? "sell" : "buy"));
   const [amount, setAmount] = useState("");
   // The standalone page's third tab: the wallet's ZEC orders.
   const [history, setHistory] = useState(!embedded && query.has("history"));
@@ -118,8 +148,14 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
       live = false;
     };
   }, [side, sol.address, index?.beta]);
-  // Where a bought index goes: the connected Solana wallet, as on Convert.
-  const recipient = sol.address ?? "";
+  // Where a bought index goes: on Solana the connected wallet, as on Convert;
+  // on an EVM network the 0x address given, the page's connected wallet first.
+  const evm = !!index && index.chain !== "solana";
+  const [evmTo, setEvmTo] = useState(evmAddress ?? "");
+  useEffect(() => {
+    if (evmAddress) setEvmTo((t) => t || evmAddress);
+  }, [evmAddress]);
+  const recipient = evm ? evmTo.trim() : (sol.address ?? "");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +200,7 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
       const r = await fetch("/api/zec/order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ index: index.address, amount: amount.trim(), recipient: recipient.trim() }),
+        body: JSON.stringify({ chain: index.chain, index: index.address, amount: amount.trim(), recipient: recipient.trim() }),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(body?.error ?? `The lane refused (${r.status})`);
@@ -225,7 +261,9 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
             ? `You hold ${(Number(held) / 1e9).toLocaleString("en-US", { maximumFractionDigits: 6 })} ${index.symbol}`
             : side === "sell" && !/^(u1|zs)[0-9a-z]{20,}$/.test(zaddr.trim())
               ? "Enter a shielded Zcash address (u1… or zs…)"
-              : side === "buy" && !recipient
+              : side === "buy" && evm && !(isAddress(recipient) && !/^0x0{40}$/i.test(recipient))
+                ? `Enter your 0x address on ${nameOf(index.chain)} to receive it`
+                : side === "buy" && !recipient
           ? "Connect your Solana wallet to receive it"
           : !zecUsd
             ? "Reading ZEC's price…"
@@ -264,7 +302,7 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
       ? [
           ["ZEC payment seen", o.state !== "waiting" && o.state !== "expired"],
           [`Confirmed on Zcash (${Math.min(o.payment?.confirmations ?? 0, o.confirmationsNeeded)} of ${o.confirmationsNeeded})`, ["delivering", "delivered"].includes(o.state)],
-          [`${o.symbol} in your Solana wallet`, o.state === "delivered"],
+          [`${o.symbol} in your ${nameOf(o.chain ?? "solana")} wallet`, o.state === "delivered"],
         ]
       : [];
     const title = !o
@@ -349,12 +387,12 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
           )}
           {o?.state === "delivered" && (
             <div className="flex flex-wrap gap-3 text-xs font-semibold">
-              {o.delivered?.tx && txLink("solana", o.delivered.tx) && (
-                <a href={txLink("solana", o.delivered.tx)!} target="_blank" rel="noreferrer" className="underline">
-                  See the delivery on Solana
+              {o.delivered?.tx && txLink(o.chain ?? "solana", o.delivered.tx) && (
+                <a href={txLink(o.chain ?? "solana", o.delivered.tx)!} target="_blank" rel="noreferrer" className="underline">
+                  See the delivery on {nameOf(o.chain ?? "solana")}
                 </a>
               )}
-              <Link href={`/${locale}/solana/index/${o.token}`} className="underline">
+              <Link href={`/${locale}/${o.chain ?? "solana"}/index/${o.token}`} className="underline">
                 Open {o.symbol}
               </Link>
             </div>
@@ -402,9 +440,9 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
           sol.address ? null : <p className="text-sm opacity-70">Connect your Solana wallet to see your ZEC orders: the ones bought to it and sold from it.</p>
         ) : side === "buy" ? (
           <>
-            <p className="text-sm opacity-70">Buy an index privately: pay shielded ZEC from your phone, receive the index in your Solana wallet in a few minutes. {embedded ? "" : "Every index made of assets from all of Greatwall's networks is here."}</p>
+            <p className="text-sm opacity-70">Buy an index privately: pay shielded ZEC from your phone, receive the index in your wallet in a few minutes. {embedded ? "" : "Indexes from every network Greatwall runs on are here."}</p>
             <p className="text-xs rounded-lg bg-amber-500/10 border border-amber-600/30 px-3 py-2">
-              <b>Real ZEC.</b> You pay real ZEC on Zcash mainnet, and the index you get is on Solana devnet, holding test tokens with no value. Greatwall never sends ZEC back: nothing is refunded.
+              <b>Real ZEC.</b> You pay real ZEC on Zcash mainnet, and the index you get is on a test network, holding test tokens with no value. Greatwall never sends ZEC back: nothing is refunded.
             </p>
           </>
         ) : (
@@ -424,7 +462,12 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
           <>
             <NetworkCard logo={zcashnetwork} label="Pay from" name="Zcash" right={<ScanChip />} />
             <ArrowBadge />
-            <NetworkCard logo={solananetwork} label="Receive on" name="Solana" right={<SolanaConnectButton />} />
+            <NetworkCard
+              logo={NETWORKS[index?.chain ?? "solana"]?.logo ?? solananetwork}
+              label="Receive on"
+              name={nameOf(index?.chain ?? "solana")}
+              right={evm ? null : <SolanaConnectButton />}
+            />
           </>
         ) : (
           <>
@@ -484,7 +527,12 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
             <span className="tabular-nums">${usdText(usd)}</span>
             <span>{zecUsd ? `1 ZEC = $${usdText(zecUsd)}` : bar("w-24")}</span>
           </div>
-          {side === "sell" ? (
+          {side === "buy" && evm ? (
+            <label className="flex flex-col gap-1.5 text-xs md:text-sm border-t border-ink/10 pt-3">
+              <span className="opacity-60">To your address on {nameOf(index!.chain)}</span>
+              <input id="zec-evm-to" value={evmTo} onChange={(e) => setEvmTo(e.target.value)} placeholder="0x…" spellCheck={false} className="rounded-md bg-paper px-2 py-1.5 font-mono text-xs outline-none border border-ink/20" />
+            </label>
+          ) : side === "sell" ? (
             <label className="flex flex-col gap-1.5 text-xs md:text-sm border-t border-ink/10 pt-3">
               <span className="opacity-60">To your Zcash address</span>
               <input id="zec-zaddr" value={zaddr} onChange={(e) => setZaddr(e.target.value)} placeholder="u1… (shielded)" className="rounded-md bg-paper px-2 py-1.5 font-mono text-xs outline-none border border-ink/20" />
@@ -511,20 +559,23 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
       <AnimatedModal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} maxWidthClass="lg:w-120">
         <div className="p-6 flex flex-col gap-3">
           <h2 className="text-lg font-bold">Choose an index</h2>
-          {(indexes ?? []).map((i) => (
+          {offered.map((i) => (
             <button
-              key={i.address}
+              key={`${i.chain}:${i.address}`}
               type="button"
               onClick={() => {
-                setPick(i.address);
+                setPick({ chain: i.chain, address: i.address });
                 setPickerOpen(false);
               }}
-              className={`w-full text-left p-4 border rounded-xl flex items-center gap-3 bgBox glass-card transition-all ${index?.address === i.address ? "border-ink" : "border-black/5 hover:border-ink/40"}`}
+              className={`w-full text-left p-4 border rounded-xl flex items-center gap-3 bgBox glass-card transition-all ${index && sameIndex(index, i.chain, i.address) ? "border-ink" : "border-black/5 hover:border-ink/40"}`}
             >
               {i.image ? <img src={i.image} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" /> : <span className="w-11 h-11 rounded-full bg-black/10 shrink-0" />}
               <span className="flex flex-col min-w-0 flex-1">
-                <span className="font-bold">
-                  {i.symbol} <span className="font-normal opacity-60">· {i.name}</span>
+                <span className="font-bold flex items-center gap-1.5 min-w-0">
+                  <span className="truncate">
+                    {i.symbol} <span className="font-normal opacity-60">· {i.name}</span>
+                  </span>
+                  <Image src={NETWORKS[i.chain]?.logo ?? solananetwork} alt={nameOf(i.chain)} title={nameOf(i.chain)} width={16} height={16} className="size-4 rounded-[3px] shrink-0" />
                 </span>
                 <span className="text-[11px] opacity-60 truncate">{i.parts.map((p) => p.symbol).join(" · ")}</span>
               </span>
@@ -539,7 +590,7 @@ export default function PayWithZec({ indexAddress, only, embedded = false, onPag
                 {bar("w-12", "h-4")}
               </div>
             ))}
-          {indexes && indexes.length === 0 && <p className="text-sm opacity-70">No index can be bought right now.</p>}
+          {indexes && offered.length === 0 && <p className="text-sm opacity-70">No index can be bought right now.</p>}
         </div>
       </AnimatedModal>
     </div>

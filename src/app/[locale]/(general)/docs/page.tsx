@@ -244,8 +244,9 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
       <section className="flex flex-col gap-4">
         <H2 id="zec">Pay with ZEC</H2>
         <p>
-          Pay with ZEC sells index tokens on Solana for shielded ZEC, from a Zcash phone wallet such as Zashi or Ywallet. You connect no wallet
-          to pay: pick an index and an amount, give the Solana address it should arrive at, then scan the QR code. Your wallet fills in the
+          Pay with ZEC sells index tokens, on Solana or an EVM network, for shielded ZEC from a Zcash phone wallet such as Zashi or Ywallet.
+          You connect no wallet to pay: pick an index and an amount, give the address it should arrive at on its network, then scan the QR
+          code. On an index&rsquo;s own page, the ZEC tab buys that index. Your wallet fills in the
           address, the amount and a memo that names your order; you tap Send.
         </p>
         <List
@@ -259,7 +260,7 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
         <p>
           This part is run by Greatwall, not verified on chain like the protocol&rsquo;s Bitcoin side. To keep it accountable, Greatwall publishes
           the lane&rsquo;s viewing key: with it anyone can list every payment it received and match each to its delivery on Solana. The viewing
-          key cannot spend.
+          key cannot spend. Each delivery is public on the index&rsquo;s network.
         </p>
       </section>
 
