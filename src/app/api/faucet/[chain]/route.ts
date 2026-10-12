@@ -14,57 +14,13 @@
 // each address once a day per token and once a day for gas.
 
 import { NextResponse } from "next/server";
-import { Contract, FetchRequest, JsonRpcProvider, Wallet, formatUnits, getAddress, isAddress, parseUnits, type TransactionResponse } from "ethers";
+import { Contract, Wallet, formatUnits, getAddress, isAddress, parseUnits, type TransactionResponse } from "ethers";
 
 import { RWA_TOKENS } from "@/components/integrator/ipow/rwaTokens";
-import { PATH_USD } from "@/components/integrator/ipow/sdk";
 import { PUBLIC_FAUCET, refused, take, takeDrip, type Hold } from "../limits";
+import { CHAINS, ERC20, WAIT_MS, inTurn, nonces, provider } from "../evmWallet";
 
 export const runtime = "nodejs";
-
-type Gas = {
-  symbol: string;
-  decimals: number;
-  /** What one drip sends, and the balance under which an address gets one. */
-  drip: string;
-  below: string;
-  /** The gas token, on a network whose gas is a token (Tempo's PathUSD). */
-  token?: string;
-};
-type Chain = { rpc: () => string | undefined; send?: string; chainId: number; gas: Gas };
-
-const ETH_L2: Gas = { symbol: "ETH", decimals: 18, drip: "0.0005", below: "0.0002" };
-const CHAINS: Record<string, Chain> = {
-  ethereum: { rpc: () => process.env.ETH_TESTNET_RPC_URL, chainId: 11155111, gas: { symbol: "ETH", decimals: 18, drip: "0.002", below: "0.001" } },
-  base: { rpc: () => process.env.BASE_TESTNET_RPC_URL, chainId: 84532, gas: ETH_L2 },
-  arbitrum: { rpc: () => process.env.ARBITRUM_TESTNET_RPC_URL, chainId: 421614, gas: ETH_L2 },
-  robinhood: { rpc: () => process.env.ROBINHOOD_TESTNET_RPC_URL, chainId: 46630, gas: ETH_L2 },
-  // Its provider refuses sends: they go to the network's own endpoint.
-  hyperliquid: { rpc: () => process.env.HYPERLIQUID_TESTNET_RPC_URL, send: "https://rpc.hyperliquid-testnet.xyz/evm", chainId: 998, gas: { symbol: "HYPE", decimals: 18, drip: "0.002", below: "0.001" } },
-  // Fees are paid in PathUSD (6 decimals); there is no native coin to send.
-  tempo: { rpc: () => process.env.TEMPO_TESTNET_RPC_URL, chainId: 42431, gas: { symbol: "PathUSD", decimals: 6, drip: "1", below: "0.5", token: PATH_USD } },
-};
-
-const ERC20 = ["function balanceOf(address) view returns (uint256)", "function transfer(address to, uint256 amount) returns (bool)"];
-/** How long the server waits for a send to be mined before answering. */
-const WAIT_MS = 90_000;
-
-function provider(url: string, chainId: number) {
-  const r = new FetchRequest(url);
-  r.timeout = 20_000;
-  return new JsonRpcProvider(r, chainId, { staticNetwork: true });
-}
-
-/** One send at a time per network, so two claims never take the same nonce. */
-const turns = new Map<string, Promise<unknown>>();
-function inTurn<T>(chain: string, run: () => Promise<T>): Promise<T> {
-  const next = (turns.get(chain) ?? Promise.resolve()).catch(() => {}).then(run);
-  turns.set(chain, next);
-  return next;
-}
-/** The next nonce per network, kept here: a load-balanced RPC's "pending"
- *  count can trail a send made a moment ago. Forgotten after a failed send. */
-const nonces = new Map<string, number>();
 
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) => NextResponse.json({ error, ...extra }, { status });
 /** A failure as the user sees it: plain words; the details in the server's log. */

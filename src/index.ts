@@ -15,6 +15,8 @@ import solananetwork from "@/assets/solana-network.png";
 
 
 import temponetwork from "@/assets/tempo-network.svg";
+import zcash from "@/assets/zcash.png";
+import zcashnetwork from "@/assets/zcash-network.png";
 
 import hyperliquid from "@/assets/hyperliquid.png";
 import hyperliquidnetwork from "@/assets/hyperliquid-network.png";
@@ -65,6 +67,8 @@ export {
   solananetwork,
   bitcoinnetwork,
   temponetwork,
+  zcash,
+  zcashnetwork,
   hyperliquid,
   hyperliquidnetwork,
   robinhood,

@@ -13,7 +13,7 @@ import { Icon } from "@iconify/react";
 
 import { AnimatedModal } from "@/subcomponents/AnimatedModal";
 import { getPreferredChain, savePreferredChain, type SupportedChain } from "@/app/network-provider";
-import { arbitrumnetwork, basenetwork, bitcoinnetwork, ethereumnetwork, hyperliquidnetwork, robinhoodnetwork, solananetwork, temponetwork } from "@/index";
+import { arbitrumnetwork, basenetwork, bitcoinnetwork, ethereumnetwork, hyperliquidnetwork, robinhoodnetwork, solananetwork, temponetwork, zcashnetwork } from "@/index";
 
 const PROGRAMMABLE: { key: SupportedChain; name: string; logo: StaticImageData; line: string }[] = [
   { key: "ethereum", name: "Ethereum", logo: ethereumnetwork, line: "Index tokens, lock and convert" },
@@ -30,6 +30,7 @@ type Launch = (path: string) => void;
 const LaunchContext = createContext<Launch>(() => {});
 
 /** Opens the network chooser, then goes to `path` (e.g. "/index") on the network picked. */
+
 export const useLaunch = () => useContext(LaunchContext);
 
 export function LaunchProvider({ children }: { children: ReactNode }) {
@@ -85,6 +86,26 @@ function NetworkChooser({ target, onClose }: { target: string | null; onClose: (
         <div className="flex flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone">Bitcoin · settlement</p>
           {row(SETTLEMENT)}
+        </div>
+        {/* Zcash: its own page, every index in one place, bought with ZEC (and the sell demo). */}
+        <div className="flex flex-col gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-stone">Zcash · private</p>
+          <button
+            type="button"
+            onClick={() => {
+              savePreferredChain("solana");
+              onClose();
+              router.push(`/${locale}/solana/zec`);
+            }}
+            className="group flex w-full items-center gap-3 rounded-xl border border-ink/10 bg-paper px-3 py-2.5 text-left transition-colors hover:border-ink/40 hover:bg-snow"
+          >
+            <Image src={zcashnetwork} alt="" width={36} height={36} className="size-9 shrink-0 rounded-lg" />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-semibold text-ink">Zcash</span>
+              <span className="truncate text-xs text-stone">Buy any index privately with shielded ZEC</span>
+            </span>
+            <Icon icon="solar:arrow-right-linear" className="shrink-0 text-lg text-stone transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
+          </button>
         </div>
       </div>
     </AnimatedModal>

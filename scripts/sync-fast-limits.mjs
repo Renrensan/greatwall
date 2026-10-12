@@ -80,10 +80,14 @@ for (const raw of text.split("\n")) {
 }
 close();
 
+// The operator's Bitcoin address: public, but kept only in the node's
+// git-ignored env file beside its key; only that one variable is read.
+const btcEnv = readFileSync(join(ipow, "node", ".env.operator-btc"), "utf8").match(/^OPERATOR_BTC_WALLET_ADDRESS=["']?(bc1[0-9a-z]+)/m);
 const operator = {
   evm: JSON.parse(readFileSync(join(ipow, "evm", "deployments", "ethereum-testnet-rwa.json"), "utf8")).operator,
   solana: JSON.parse(readFileSync(join(ipow, "solana", "testnet-rwa.json"), "utf8")).operator,
+  bitcoin: btcEnv ? btcEnv[1] : null,
 };
 const count = Object.values(pairs).reduce((n, p) => n + Object.keys(p).length, 0);
 writeFileSync(OUT, JSON.stringify({ source: "ipow/node/node.testnet.yml", operator, pairs }, null, 2) + "\n");
-console.log(`wrote ${OUT}: ${Object.keys(pairs).length} pairs, ${count} fast limits, operator ${operator.evm} / ${operator.solana}`);
+console.log(`wrote ${OUT}: ${Object.keys(pairs).length} pairs, ${count} fast limits, operator ${operator.evm} / ${operator.solana} / ${operator.bitcoin}`);

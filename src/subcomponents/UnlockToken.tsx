@@ -36,7 +36,7 @@ import { HyperliquidConnectButton } from "./HyperliquidConnectButton";
 import { ArbitrumConnectButton } from "./ArbitrumConnectButton";
 import { TempoConnectButton } from "./TempoConnectButton";
 import { useUsdValue } from "./ipow/useUsdValue";
-import { Caution, useNotEnoughText } from "./ipow/Faucet";
+import { Caution, rwaOf, useNotEnoughText } from "./ipow/Faucet";
 import { BASKET_CHAINS, deploymentOf, isSolanaAddress, readProvider, solanaConnection, solanaVaultOf, solanaVaultWith, type BasketChain, PATH_USD } from "@/components/integrator/ipow/sdk";
 import { chainOfNumber } from "@/components/integrator/ipow/crossAssets";
 import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
@@ -301,7 +301,13 @@ export default function UnlockToken({ initial }: { initial: Net }) {
     while (most > ZERO && most + fastFeeOf(most) > balance) most -= BigInt(1);
     return most;
   })();
-  const fastCap = fast === undefined || fast === null ? null : fast.max;
+  /** A test token's cap: one faucet claim's worth, in record units. */
+  const faucetCap = (() => {
+    const r = rwaOf(home, asset.token);
+    return r ? parseUnits(String(r.faucet), decimals) : null;
+  })();
+  const operatorCap = fast === undefined || fast === null ? null : fast.max;
+  const fastCap = operatorCap !== null && faucetCap !== null ? (faucetCap < operatorCap ? faucetCap : operatorCap) : operatorCap;
   const overFast = fastCap !== null && typed && amountUnits! > fastCap;
   const maxUnlockFast = maxUnlock !== null && fastCap !== null && fastCap < maxUnlock ? fastCap : maxUnlock;
   const fmtFast = (v: bigint) => formatUnits(v, decimals).replace(/\.0$/, "");

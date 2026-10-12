@@ -20,7 +20,7 @@ import { BASKET_NAMING, createBasket } from "@ipow/sdk";
 import { ConnectNetworkButton, TICKER, errorText } from "./ipow/common";
 import { PATH_USD, deploymentOf, readProvider, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { balanceOf, tokenInfo, type TokenInfo } from "@/components/integrator/ipow/tokens";
-import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
+import { rwaTokensOf, starterTokenOf } from "@/components/integrator/ipow/rwaTokens";
 import { crossChoicesOn, pairedWith, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { PartPicker, pendingKey, type PickGroup, type PickItem } from "./ipow/PartPicker";
 import { CreateIndex, FEE_MAX_BPS, limitsFor, storeMetadata, type IndexMeta, type Ingredient } from "./ipow/CreateIndex";
@@ -80,8 +80,9 @@ export default function BetaCreate({ chain }: { chain: BasketChain }) {
   const prices = useUsdValue();
   const limits = limitsFor(BASKET_NAMING);
 
-  // Tempo has no coin of its own: its first part is PathUSD, its money.
-  const [parts, setParts] = useState<Part[]>([{ token: chain === "tempo" ? PATH_USD : ZeroAddress, amount: "", info: null, error: null, balance: null }]);
+  // A new index starts with a test stock token, not the network's coin
+  // (starterTokenOf); with none, the coin (Tempo's money is PathUSD).
+  const [parts, setParts] = useState<Part[]>([{ token: starterTokenOf(chain)?.token ?? (chain === "tempo" ? PATH_USD : ZeroAddress), amount: "", info: null, error: null, balance: null }]);
   /** The row being chosen for; "new" for one made once a token is picked. */
   const [picking, setPicking] = useState<number | "new" | null>(null);
   const [cross, setCross] = useState<CrossChoice[]>([]);

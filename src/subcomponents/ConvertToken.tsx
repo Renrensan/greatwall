@@ -495,7 +495,12 @@ export default function ConvertToken() {
     if (fromChain === "bitcoin") return { min: 0, max: Infinity };
     if (fromToken !== NATIVE) {
       const a = operatorAssets.byChain[fromChain]?.find((x) => x.token === fromToken);
-      if (a) return tokenLimit(a.paySats, toChain !== "bitcoin");
+      if (a) {
+        // A test token sent: at most one faucet claim's worth.
+        const t = tokenLimit(a.paySats, toChain !== "bitcoin");
+        const src = rwaOf(fromChain, fromToken);
+        return src ? { min: t.min, max: Math.min(t.max, src.faucet) } : t;
+      }
     }
 
     return TESTNET_LIMITS[fromChain] || { min: 0, max: Infinity };
@@ -503,16 +508,22 @@ export default function ConvertToken() {
 
   const destLimit = useMemo(() => {
     if (toChain === "bitcoin") return { min: 0, max: Infinity };
+    // A test token received: at most one faucet claim's worth.
+    const destRwa = rwaOf(toChain, toToken);
+    const stockMax = destRwa ? destRwa.faucet : Infinity;
     if (toToken !== NATIVE) {
       const a = operatorAssets.byChain[toChain]?.find((x) => x.token === toToken);
-      if (a) return tokenLimit(a.askSats, fromChain !== "bitcoin");
+      if (a) {
+        const t = tokenLimit(a.askSats, fromChain !== "bitcoin");
+        return { min: t.min, max: Math.min(t.max, stockMax) };
+      }
     }
 
     const limits = TESTNET_LIMITS[toChain] ?? { min: 0, max: Infinity };
 
     return {
       min: limits.min * 1.05,
-      max: limits.max * 0.95,
+      max: Math.min(limits.max * 0.95, stockMax),
     };
   }, [
     toToken,

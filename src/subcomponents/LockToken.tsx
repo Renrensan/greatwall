@@ -301,7 +301,14 @@ export default function LockToken({ initial }: { initial: Net }) {
     return most;
   })();
   /** The fast path's cap in the asset's units, when known. */
-  const fastCap = fast === undefined || fast === null ? null : fast.max * unit;
+  /** A test token's cap: one faucet claim's worth, a transfer the operator
+   *  always pays at once (and as much as a user is given to try with). */
+  const faucetCap = (() => {
+    const r = rwaOf(src, asset.token);
+    return r ? parseUnits(String(r.faucet), asset.decimals) : null;
+  })();
+  const operatorCap = fast === undefined || fast === null ? null : fast.max * unit;
+  const fastCap = operatorCap !== null && faucetCap !== null ? (faucetCap < operatorCap ? faucetCap : operatorCap) : operatorCap;
   const fmtFast = (v: bigint) => formatUnits(v, asset.decimals).replace(/\.0$/, "");
   const overFast = fastCap !== null && !!amountUnits && amountUnits > fastCap;
   const maxLockFast = maxLock !== null && fastCap !== null && fastCap < maxLock ? fastCap : maxLock;

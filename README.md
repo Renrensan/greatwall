@@ -32,10 +32,11 @@ networks put up stake that is slashed if they lie.
 | **Lock / Unlock** | Lock any listed asset on its own network and receive it on a paired network, paid on the fast path in about 1–2 minutes from Solana or about 15 from Ethereum; unlock it back the same way |
 | **Convert** | Move value between networks, or to and from Bitcoin, through an operator's quote |
 | **Portfolio** | Everything your wallets hold, by network and in dollars, plus your index tokens |
+| **Pay with ZEC** | Buy an index token on Solana with **shielded ZEC** from a Zcash phone wallet: scan a QR code, no wallet to connect. Real ZEC (Zcash mainnet) for a test token, capped at $20 an order; see [docs/zec-lane.md](docs/zec-lane.md) |
 | **Live** | The Explorer: a live view of iPoW itself: every protocol transaction on every network, who made it (an operator, a user, a guardian) and what it did. Open any row for what it means and why the protocol does it |
 
-Index tokens run on all seven networks, Tempo included; Lock and Convert on
-six (Tempo's are coming). Every on-chain action shows its progress in a toast,
+Index tokens and Lock run on all seven networks, Tempo included; Convert on
+six (Tempo's is coming). Every on-chain action shows its progress in a toast,
 with a link to the transaction.
 
 ### Try it in three minutes
@@ -107,6 +108,8 @@ Set in `.env.local` (never commit it):
 | `TUNNEL_API_URL`, `TUNNEL_API_KEY` | The iPoW operator node's tunnel API, for conversions between two networks. Called only from this app's server |
 | `FAUCET_EVM_KEY`, `FAUCET_SOLANA_KEY` | The server faucet's own test keys (`/api/faucet/*`): it sends test tokens and a little gas, paying the fee. The EVM key holds each network's gas coin and a stock of the tokens; the Solana key is the test mints' authority and holds devnet SOL. Never the deployer's or the operator's keys |
 | `PINATA_JWT`, `IPFS_GATEWAY` | Where index-token images and metadata are pinned (IPFS). Without them, files are kept in `GREATWALL_DATA_DIR` |
+| `GREATWALL_DATA_DIR` | This server's own files: index metadata when there is no Pinata key, and the ZEC lane's orders. In Docker, put it on a volume, or a redeploy loses them |
+| `ZEC_LANE_URL`, `ZEC_LANE_API_KEY` | The ZEC lane's Zcash service (`zec-lane/lane.mjs`, on 127.0.0.1:8790 by default) and its key, for Pay with ZEC. Unset, Pay with ZEC says it is not set up on this server. The service's own settings are in [docs/zec-lane.md](docs/zec-lane.md) |
 | `PUBLIC_ORIGIN` | This site's public address, written into index metadata (set it in production) |
 | `NEXT_PUBLIC_GA_ID` | Optional: Google Analytics |
 

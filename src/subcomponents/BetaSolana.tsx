@@ -17,7 +17,7 @@ import { SolanaConnectButton } from "./SolanaConnectButton";
 import { Notice, coin, errorText, shortHash } from "./ipow/common";
 import { solanaBeta } from "@/components/integrator/ipow/sdk";
 import { solanaToken, type SolanaToken } from "@/components/integrator/ipow/solanaTokens";
-import { rwaTokensOf } from "@/components/integrator/ipow/rwaTokens";
+import { rwaTokensOf, starterTokenOf } from "@/components/integrator/ipow/rwaTokens";
 import { crossChoicesOn, pairedWith, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { PartPicker, pendingKey, type PickGroup, type PickItem } from "./ipow/PartPicker";
 import { CreateIndex, FEE_MAX_BPS, limitsFor, storeMetadata, type IndexMeta, type Ingredient } from "./ipow/CreateIndex";
@@ -124,7 +124,8 @@ export function SolanaBetaCreate() {
   const sol = useSolanaWallet();
   const prices = useUsdValue();
   const limits = limitsFor(SOLANA_BASKET_NAMING);
-  const [parts, setParts] = useState<Part[]>([{ mint: WRAPPED_SOL, amount: "", info: null, error: null }]);
+  // A new index starts with a test stock token, not SOL (starterTokenOf).
+  const [parts, setParts] = useState<Part[]>([{ mint: starterTokenOf("solana")?.token ?? WRAPPED_SOL, amount: "", info: null, error: null }]);
   const [cross, setCross] = useState<CrossChoice[]>([]);
   const [crossLoading, setCrossLoading] = useState(true);
   /** The row being chosen for; "new" for one made once a token is picked. */

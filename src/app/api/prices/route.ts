@@ -2,13 +2,13 @@
 // kept a minute: what the wallet providers show a native coin's value with,
 // and what the Create page values a coin with (coinPrices.ts reads it).
 //
-//   GET /api/prices -> { BTC, ETH, SOL, HYPE } (a missing one is left out)
+//   GET /api/prices -> { BTC, ETH, SOL, HYPE, ZEC } (a missing one is left out)
 
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const IDS: Record<string, string> = { bitcoin: "BTC", ethereum: "ETH", solana: "SOL", hyperliquid: "HYPE" };
+const IDS: Record<string, string> = { bitcoin: "BTC", ethereum: "ETH", solana: "SOL", hyperliquid: "HYPE", zcash: "ZEC" };
 let cached: { at: number; prices: Record<string, number> } | null = null;
 let failedAt = 0;
 

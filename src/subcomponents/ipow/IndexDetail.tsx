@@ -7,10 +7,11 @@
 // pages (BasketPage, SolanaBasketPage) own the reads and the chain calls;
 // this draws them.
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Icon } from "@iconify/react";
+import { zcash } from "@/index";
 import { yieldText } from "@/components/integrator/ipow/performance";
 import { PerformanceBlock, usePerformance } from "./PerformanceBlock";
 
@@ -122,6 +123,8 @@ export function IndexDetail(props: {
   /** What the wallet can collect: each on its own, or all one after another. */
   collect?: { items: CollectItem[]; busy: string | null; onCollect: (item: CollectItem) => void; onCollectAll: () => void; progress?: string | null } | null;
   extras?: ReactNode;
+  /** Buying it with ZEC (Solana indexes): shown as a third tab, "ZEC". */
+  zec?: ReactNode;
   /** "What one token holds now", or before any mint "the mix it starts with". */
   compositionNote: string;
   backHref: string;
@@ -132,6 +135,12 @@ export function IndexDetail(props: {
   const perf = usePerformance(props.parts.map((p) => ({ symbol: p.symbol, amount: p.perTokenExact ?? Number(p.perToken.replace(/,/g, "")) })));
   const t = useTranslations("Beta");
   const [shared, setShared] = useState(false);
+  // The "ZEC" tab: opened from a link with ?zec (the About page's Zcash).
+  const [zecTab, setZecTab] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("zec")) setZecTab(true);
+  }, []);
+  const onZec = !!props.zec && zecTab;
   const [copied, setCopied] = useState<string | null>(null);
   const copy = async (value: string) => {
     try {
@@ -336,22 +345,29 @@ export function IndexDetail(props: {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <h2 className="font-display text-2xl">
-                {props.side === "mint" ? t("mintTitle", { symbol: props.symbol }) : t("redeemTitle", { symbol: props.symbol })}
+                {onZec ? `Buy $${props.symbol} with ZEC` : props.side === "mint" ? t("mintTitle", { symbol: props.symbol }) : t("redeemTitle", { symbol: props.symbol })}
               </h2>
               <span className="flex items-center gap-1.5 text-xs opacity-70">
-                <Image src={props.networkLogo} alt="" width={14} height={14} unoptimized className="rounded-full" style={{ width: 14, height: 14 }} />
-                {t("onNetworkLabel", { network: props.networkName })}
+                <Image src={onZec ? zcash : props.networkLogo} alt="" width={14} height={14} unoptimized className="rounded-full" style={{ width: 14, height: 14 }} />
+                {onZec ? "Paid privately from any Zcash wallet" : t("onNetworkLabel", { network: props.networkName })}
               </span>
             </div>
             <span className="inline-flex rounded-full bg-black/5 p-0.5 text-xs font-semibold shrink-0" role="group">
               {(["mint", "burn"] as const).map((s) => (
-                <button key={s} type="button" aria-pressed={props.side === s} onClick={() => props.setSide(s)} className={`px-3 py-1 rounded-full transition-colors ${props.side === s ? "bg-ink text-snow" : "opacity-60 hover:opacity-100"}`}>
+                <button key={s} type="button" aria-pressed={!onZec && props.side === s} onClick={() => { setZecTab(false); props.setSide(s); }} className={`px-3 py-1 rounded-full transition-colors ${!onZec && props.side === s ? "bg-ink text-snow" : "opacity-60 hover:opacity-100"}`}>
                   {s === "mint" ? t("mintTab") : t("burnTab")}
                 </button>
               ))}
+              {props.zec && (
+                <button type="button" aria-pressed={onZec} onClick={() => setZecTab(true)} className={`flex items-center gap-1 px-3 py-1 rounded-full transition-colors ${onZec ? "bg-ink text-snow" : "opacity-60 hover:opacity-100"}`}>
+                  <Image src={zcash} alt="" width={12} height={12} className="size-3 rounded-full" />
+                  ZEC
+                </button>
+              )}
             </span>
           </div>
 
+          {onZec ? props.zec : (<>
           {/* How much, as the Create page's value field. */}
           <label htmlFor="index-amount" className="flex flex-col gap-1 rounded-xl bg-black/5 px-3 py-2.5">
             <span className="flex items-center justify-between gap-3">
@@ -433,6 +449,7 @@ export function IndexDetail(props: {
               {props.busy ? t("confirming") : (props.problem ?? (props.side === "mint" ? t("mintButtonOf", { symbol: props.symbol }) : t("redeemButtonOf", { symbol: props.symbol })))}
             </button>
           )}
+          </>)}
         </div>
 
         {props.collect && props.collect.items.length > 0 && <CollectCard {...props.collect} parts={props.parts} />}

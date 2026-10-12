@@ -27,6 +27,7 @@ import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/c
 import { isSolanaBasket, rememberBasket } from "@/components/integrator/ipow/basketList";
 import { useSolanaWallet } from "@/components/solana/solana-provider";
 import { serverFaucet } from "@/subcomponents/ipow/Faucet";
+import PayWithZec from "@/subcomponents/PayWithZec";
 
 const ZERO = BigInt(0);
 const ONE = BigInt(1_000_000_000);
@@ -360,6 +361,7 @@ export default function SolanaBasketPage() {
 
   return (
     <IndexDetail
+      zec={<PayWithZec embedded only="buy" indexAddress={address} />}
       name={named ? basket.name : t("basketName", { id: String(basket.id) })}
       symbol={named ? basket.symbol : "BETA"}
       image={meta?.image ?? null}

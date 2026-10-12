@@ -2,11 +2,13 @@
 // can name it, for the indexes' past performance (/api/history): a stock,
 // ETF, future or currency pair on Yahoo Finance (dividend-adjusted, so
 // total return), a coin on CoinGecko, or a dollar token, held at $1 and
-// growing at its reference yield (referenceYields.ts). A token with no
-// public price (SpaceX, a Korean-listed stock, a fund too new) is left out,
+// growing at its reference yield (referenceYields.ts). A stock listed only
+// abroad is priced in its own currency and turned into dollars each day by
+// that currency's rate (`fx`: Yahoo's pair, units of it per dollar). A token
+// with no public price (SpaceX) is left out,
 // and an index holding one shows no performance rather than a guess.
 
-export type Ticker = { yahoo: string } | { coingecko: string } | { dollar: true } | { euro: true };
+export type Ticker = { yahoo: string; fx?: string } | { coingecko: string } | { dollar: true } | { euro: true };
 
 export const REFERENCE_TICKER: Record<string, Ticker> = {
   // Coins.
@@ -70,6 +72,10 @@ export const REFERENCE_TICKER: Record<string, Ticker> = {
   CRCLx: { yahoo: "CRCL" },
   GOOGLx: { yahoo: "GOOGL" },
   HOODx: { yahoo: "HOOD" },
+  // Listed in Seoul only, in won.
+  SKHYx: { yahoo: "000660.KS", fx: "KRW=X" },
+  // Listed 2026-04-02: less than a year of history.
+  rDRAM: { yahoo: "DRAM" },
   // Currencies other than the dollar.
   EURC: { euro: true },
   AUDD: { yahoo: "AUDUSD=X" },
@@ -91,5 +97,8 @@ export const REFERENCE_TICKER: Record<string, Ticker> = {
 export const sourceKey = (t: Ticker): string =>
   "yahoo" in t ? `y:${t.yahoo}` : "coingecko" in t ? `c:${t.coingecko}` : "euro" in t ? "y:EURUSD=X" : "dollar";
 
+/** The source key of a foreign-listed stock's currency rate, if it has one. */
+export const fxKey = (t: Ticker): string | null => ("yahoo" in t && t.fx ? `y:${t.fx}` : null);
+
 /** Every source key the app may ask for: /api/history serves only these. */
-export const SOURCE_KEYS = new Set(Object.values(REFERENCE_TICKER).map(sourceKey).filter((k) => k !== "dollar"));
+export const SOURCE_KEYS = new Set(Object.values(REFERENCE_TICKER).flatMap((t) => [sourceKey(t), ...(fxKey(t) ? [fxKey(t)!] : [])]).filter((k) => k !== "dollar"));

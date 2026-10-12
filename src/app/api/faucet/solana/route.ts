@@ -21,8 +21,8 @@ import { PUBLIC_FAUCET, refused, take, takeDrip, type Hold } from "../limits";
 export const runtime = "nodejs";
 
 /** One drip of SOL, and the balance under which an address gets one. */
-const DRIP = 0.05 * LAMPORTS_PER_SOL;
-const BELOW = 0.01 * LAMPORTS_PER_SOL;
+const DRIP = 0.1 * LAMPORTS_PER_SOL;
+const BELOW = 0.03 * LAMPORTS_PER_SOL;
 
 function faucetKey(): Keypair | null {
   const raw = process.env.FAUCET_SOLANA_KEY;

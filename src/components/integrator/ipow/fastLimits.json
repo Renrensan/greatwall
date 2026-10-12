@@ -2,7 +2,8 @@
   "source": "ipow/node/node.testnet.yml",
   "operator": {
     "evm": "0x9784B80BC7b95753f2a2732649F3a1136b4c2BF1",
-    "solana": "G8vkKtPzQfm8dTVnFcgFis5LgRHqwCk2bT29731sXU6D"
+    "solana": "G8vkKtPzQfm8dTVnFcgFis5LgRHqwCk2bT29731sXU6D",
+    "bitcoin": "bc1q7hyq44nph46tjv9m0jzwtgqld029tuem7u5syx"
   },
   "pairs": {
     "ethereum|solana": {

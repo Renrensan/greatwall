@@ -10,7 +10,7 @@ import { gsap } from "gsap";
 import { CustomEase } from "gsap/CustomEase";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
-import { arbitrumnetwork, basenetwork, bitcoinnetwork, ethereumnetwork, hyperliquidnetwork, robinhoodnetwork, solananetwork, temponetwork } from "@/index";
+import { arbitrumnetwork, basenetwork, bitcoinnetwork, ethereumnetwork, hyperliquidnetwork, robinhoodnetwork, solananetwork, temponetwork, zcashnetwork } from "@/index";
 import { useLaunch } from "@/components/NetworkChooser";
 
 gsap.registerPlugin(ScrollTrigger, CustomEase);
@@ -32,6 +32,7 @@ const NETWORKS = [
   { name: "Base", logo: basenetwork },
   { name: "Tempo", logo: temponetwork },
   { name: "Arbitrum", logo: arbitrumnetwork },
+  { name: "Zcash", logo: zcashnetwork },
 ];
 
 export default function NetworksSection() {
@@ -124,7 +125,8 @@ export default function NetworksSection() {
         </h2>
         <p className="n-reveal opacity-0 font-sans text-base leading-normal text-ink">
           Put assets from Ethereum, Solana, Base, Robinhood Chain, Hyperliquid,
-          Arbitrum and Tempo into the same index token.
+          Arbitrum and Tempo into the same index token, and buy one privately
+          with Zcash.
         </p>
       </div>
 

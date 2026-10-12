@@ -49,6 +49,9 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
   const [networkOpen, setNetworkOpen] = useState(false);
   const [defaultNetworkOpen, setDefaultNetworkOpen] = useState(false);
   const [networkSearchQuery, setNetworkSearchQuery] = useState("");
+  // Phones: the bottom bar's "More" panel (Lock, Convert, Live).
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => setMoreOpen(false), [pathname]);
 
   const globalPreferenceRef = useRef<HTMLDivElement>(null);
   const walletRef = useRef<HTMLDivElement>(null);
@@ -419,30 +422,81 @@ function Navbar({ forceShow = false }: NavbarProps = {}) {
           </div>
         </header>
       )}
-      {(app || forceShow) && (
-        // On phones the sections are a floating bar at the bottom, as the
-        // desktop's menu; the preferences stay under the header's dots.
-        <nav
-          className="md:hidden fixed inset-x-0 bottom-0 z-30 px-4"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
-          aria-label="Main"
-        >
-          <div className="gw-glass mx-auto max-w-md flex items-center justify-between gap-1 rounded-2xl p-1.5">
-            {navItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={item.active ? "page" : undefined}
-                aria-label={item.label}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl transition-colors ${item.active ? "bg-ink text-snow" : "text-ink/80 hover:bg-black/5"}`}
-              >
-                <Icon icon={item.icon} className="text-[22px]" />
-                <span className="text-[10px] font-medium leading-none">{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </nav>
-      )}
+      {(app || forceShow) && (() => {
+        // On phones the sections are a floating bar at the bottom: Explore,
+        // Create and Portfolio, and "More" for Lock, Convert and Live; the
+        // preferences stay under the header's dots.
+        const MAIN = ["explore", "create", "portfolio"];
+        const main = navItems.filter((i) => MAIN.includes(i.key));
+        const more = navItems.filter((i) => !MAIN.includes(i.key));
+        const onMore = more.some((i) => i.active);
+        const tab = "flex-1 flex flex-col items-center justify-center gap-0.5 h-12 rounded-xl transition-colors";
+        return (
+          <>
+          <nav className="md:hidden fixed inset-x-0 bottom-0 z-30 px-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }} aria-label="Main">
+            <div className="mx-auto max-w-md">
+              <div className="gw-glass flex items-center justify-between gap-1 rounded-2xl p-1.5">
+                {main.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    aria-current={item.active ? "page" : undefined}
+                    aria-label={item.label}
+                    className={`${tab} ${item.active ? "bg-ink text-snow" : "text-ink/80 hover:bg-black/5"}`}
+                  >
+                    <Icon icon={item.icon} className="text-[22px]" />
+                    <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                  </Link>
+                ))}
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded={moreOpen}
+                  onClick={() => setMoreOpen(true)}
+                  className={`${tab} ${onMore || moreOpen ? "bg-ink text-snow" : "text-ink/80 hover:bg-black/5"}`}
+                >
+                  <Icon icon="solar:hamburger-menu-linear" className="text-[22px]" />
+                  <span className="text-[10px] font-medium leading-none">More</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+          {/* The rest of the sections, in the same sheet as the preferences. */}
+          <AnimatedModalNavbar isOpen={moreOpen} onClose={() => setMoreOpen(false)} maxWidthClass="lg:w-[280px]">
+            <div className="flex flex-col p-6 overflow-y-auto flex-1">
+              <div className="flex flex-col gap-1 pb-5">
+                <h2 className="text-xl font-bold">More</h2>
+                <p className="text-[12px] opacity-70">Move assets between networks, and watch the protocol live.</p>
+              </div>
+              <div className="flex flex-col gap-3 py-2">
+                {more.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    aria-current={item.active ? "page" : undefined}
+                    onClick={() => setMoreOpen(false)}
+                    className="gw-row flex items-center gap-3"
+                  >
+                    <Icon icon={item.icon} className="text-lg shrink-0" />
+                    <p className="flex-1 text-left">{item.label}</p>
+                    {item.key === "protocol" && (
+                      <span className="relative flex h-2 w-2" aria-hidden>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60 motion-reduce:animate-none" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                      </span>
+                    )}
+                    {item.active && <FaCheckCircle className="shrink-0" aria-label="You are here" />}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-5 border-t border-black/5 bg-white block lg:hidden">
+              <ButtonContrast buttonText={t("text22")} onClick={() => setMoreOpen(false)} />
+            </div>
+          </AnimatedModalNavbar>
+          </>
+        );
+      })()}
     </>
   );
 }

@@ -21,6 +21,7 @@ const SECTIONS = [
   { id: "lock", title: "Lock and Unlock" },
   { id: "convert", title: "Convert" },
   { id: "indexes", title: "Index tokens" },
+  { id: "zec", title: "Pay with ZEC" },
   { id: "explorer", title: "Explorer" },
   { id: "how", title: "How it works" },
   { id: "node", title: "Run a node" },
@@ -210,7 +211,7 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
               <strong>Growth:</strong> the change in one token&rsquo;s value, price only.
             </>,
             <>
-              <strong>Yield (APY):</strong> the dividends and interest its assets paid over the past 12 months, weighted by their value today.
+              <strong>Yield (APY):</strong> the dividends and interest its assets paid over the past 12 months (an asset listed more recently: since its listing, annualized), weighted by their value today.
               Bitcoin and gold pay none; stock funds pay dividends; dollar funds pay interest.
             </>,
             <>
@@ -237,6 +238,28 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
           Minting shows what each asset the amount takes, and what your wallet holds; the mint fee is included. Burning pays you each asset back,
           after the burn fee. As the creator, you collect your fees from the token&rsquo;s page: one part at a time, or every part at once with
           Collect all, signed in a single approval on Solana.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <H2 id="zec">Pay with ZEC</H2>
+        <p>
+          Pay with ZEC sells index tokens on Solana for shielded ZEC, from a Zcash phone wallet such as Zashi or Ywallet. You connect no wallet
+          to pay: pick an index and an amount, give the Solana address it should arrive at, then scan the QR code. Your wallet fills in the
+          address, the amount and a memo that names your order; you tap Send.
+        </p>
+        <List
+          items={[
+            <>The ZEC is real (Zcash mainnet) and the index token is a test token with no value. Orders are capped at $20 each.</>,
+            <>A quote holds its price for 15 minutes. A payment counts after 3 Zcash blocks, about 4 minutes, then the index is minted and sent to your address.</>,
+            <>Nothing is refunded: a payment below the quote gets that share of the order, and one above it gets the order.</>,
+            <>Only shielded payments with the memo are matched: a transparent payment carries no memo.</>,
+          ]}
+        />
+        <p>
+          This part is run by Greatwall, not verified on chain like the protocol&rsquo;s Bitcoin side. To keep it accountable, Greatwall publishes
+          the lane&rsquo;s viewing key: with it anyone can list every payment it received and match each to its delivery on Solana. The viewing
+          key cannot spend.
         </p>
       </section>
 

@@ -32,6 +32,7 @@ import { balanceOf } from "@/components/integrator/ipow/tokens";
 import { knownBaskets } from "@/components/integrator/ipow/basketList";
 import { fromUnits } from "@/components/integrator/ipow/tunnel";
 import { AnimatedModal } from "./AnimatedModal";
+import PayWithZec from "./PayWithZec";
 import Button from "./Button";
 import { SettlementPanel } from "./ipow/SettlementPanel";
 import ButtonContrast from "./ButtonContrast";
@@ -139,7 +140,7 @@ export default function PortfolioBeta() {
 
   // The pop-up: Send or Receive, of the index picked.
   const [showModal, setShowModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"send" | "receive">("send");
+  const [activeTab, setActiveTab] = useState<"send" | "receive" | "zec">("send");
   const [modalStep, setModalStep] = useState<"form" | "selectToken">("form");
   const [selected, setSelected] = useState<Held | null>(null);
   const [sendAddress, setSendAddress] = useState("");
@@ -166,7 +167,7 @@ export default function PortfolioBeta() {
     }
   };
 
-  const openModal = (h: Held, tab: "send" | "receive" = "send") => {
+  const openModal = (h: Held, tab: "send" | "receive" | "zec" = "send") => {
     setSelected(h);
     setActiveTab(tab);
     setModalStep("form");
@@ -351,9 +352,9 @@ export default function PortfolioBeta() {
               <motion.div key="form-step" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }} className="flex flex-col h-full min-h-0">
                 <div className="flex flex-col gap-5 pb-3 shrink-0">
                   <div className="flex flex-col gap-0">
-                    <h2 className="text-xl font-bold">{activeTab === "send" ? t("text116") : "Receive"} Token</h2>
+                    <h2 className="text-xl font-bold">{activeTab === "zec" ? `Sell ${selected?.symbol ?? "it"} for ZEC` : `${activeTab === "send" ? t("text116") : "Receive"} Token`}</h2>
                     <p className="text-[12px] opacity-70">
-                      {activeTab === "send" ? t("text29") : "Receive index tokens at this wallet's address, or mint them on the index's page."}
+                      {activeTab === "send" ? t("text29") : activeTab === "zec" ? "Get shielded ZEC at your Zcash address for this index." : "Receive index tokens at this wallet's address, or mint them on the index's page."}
                     </p>
                   </div>
 
@@ -361,13 +362,14 @@ export default function PortfolioBeta() {
                     {[
                       { label: t("text116"), id: "send" },
                       { label: "Receive", id: "receive" },
+                      ...(network === "solana" ? [{ label: "Sell for ZEC", id: "zec" }] : []),
                     ].map((tab) => {
                       const isActive = activeTab === tab.id;
                       return (
                         <button
                           key={tab.id}
                           type="button"
-                          onClick={() => setActiveTab(tab.id as "send" | "receive")}
+                          onClick={() => setActiveTab(tab.id as "send" | "receive" | "zec")}
                           className={`flex items-center justify-center gap-2 w-full p-2.5 text-center rounded-full text-xs sm:text-sm transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                             isActive ? "font-bold bg-black text-white shadow-md" : "font-medium hover:bg-black/5 opacity-60"
                           }`}
@@ -380,7 +382,11 @@ export default function PortfolioBeta() {
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar -mx-1 px-1">
-                  {activeTab === "receive" ? (
+                  {activeTab === "zec" && selected ? (
+                    <div className="py-4">
+                      <PayWithZec key={selected.key} embedded only="sell" indexAddress={selected.key} />
+                    </div>
+                  ) : activeTab === "receive" ? (
                     <div className="flex flex-col gap-5 py-4">
                       {/* 1. To this wallet's address. */}
                       <div className="flex flex-col gap-3">
@@ -582,7 +588,7 @@ export default function PortfolioBeta() {
           {modalStep === "form" ? (
             <div className="flex flex-row justify-center gap-3 w-full">
               <div className="flex-1">
-                <ButtonContrast onClick={handleCloseModal} buttonText={activeTab === "receive" ? t("text128") : t("text55")} />
+                <ButtonContrast onClick={handleCloseModal} buttonText={activeTab !== "send" ? t("text128") : t("text55")} />
               </div>
               {activeTab === "send" && (
                 <div className="flex-1">

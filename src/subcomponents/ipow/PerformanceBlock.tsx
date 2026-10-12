@@ -135,7 +135,9 @@ export function PerformanceBlock({ perf }: { perf: Performance | null | undefine
       )}
       <p className="text-[11px] opacity-60 leading-relaxed">
         Growth is the change in one token&rsquo;s value; yield is the dividends and interest its assets paid; total return is both, with the
-        income reinvested. Past performance is not a promise.
+        income reinvested.
+        {perf?.since ? ` One of its parts was listed less than a year ago: 1Y is since ${new Date(perf.since * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.` : ""}{" "}
+        Past performance is not a promise.
       </p>
     </section>
   );

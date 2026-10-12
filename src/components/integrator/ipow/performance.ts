@@ -6,7 +6,7 @@
 // funds at dividend-adjusted prices, dollar tokens growing at their
 // reference yield.
 
-import { REFERENCE_TICKER, sourceKey } from "./referenceTickers";
+import { REFERENCE_TICKER, fxKey, sourceKey } from "./referenceTickers";
 import { REFERENCE_APY } from "./referenceYields";
 
 const DAY = 86_400;
@@ -47,6 +47,9 @@ export type Performance = {
   /** The yearly yield, as a fraction: dividends and interest of the last 12
    *  months, weighted by value today. Null when a part's year is too short. */
   apy: number | null;
+  /** Set when a part was listed less than a year ago: the day the history
+   *  starts, which 1Y is measured from instead of a year back (unix seconds). */
+  since: number | null;
 };
 
 /** A series may start this much after the day asked for: its first price
@@ -68,12 +71,32 @@ function at(s: [number, ...number[]][], t: number, col = 1): number | null {
   return s[lo][col];
 }
 
+/** A history shorter than this gives no yield: too little to annualize. */
+const MIN_YIELD_SPAN = 90 * DAY;
+
 /** An asset's income over the year to `today`: its total return beyond its
- *  price's (dividend-adjusted against plain close). Null with a short year. */
+ *  price's (dividend-adjusted against plain close). An asset listed less
+ *  than a year ago: over its history, annualized. Null when that history is
+ *  shorter than MIN_YIELD_SPAN. */
 function trailingYield(h: History, today: number): number | null {
-  const [a0, c0, a1, c1] = [at(h, today - YEAR, 1), at(h, today - YEAR, 2), at(h, today, 1), at(h, today, 2)];
+  const from = Math.max(today - YEAR, h[0][0]);
+  if (today - from < MIN_YIELD_SPAN) return null;
+  const [a0, c0, a1, c1] = [at(h, from, 1), at(h, from, 2), at(h, today, 1), at(h, today, 2)];
   if (!a0 || !c0 || !a1 || !c1) return null;
-  return Math.max(0, a1 / a0 / (c1 / c0) - 1);
+  const income = Math.max(0, a1 / a0 / (c1 / c0) - 1);
+  return Math.pow(1 + income, YEAR / (today - from)) - 1;
+}
+
+/** A history priced in another currency, in dollars: each day divided by
+ *  that day's rate (units per dollar). Days with no rate are left out. */
+function inDollars(h: History | null | undefined, rate: History | null | undefined): History | null {
+  if (!h?.length || !rate?.length) return null;
+  const out: History = [];
+  for (const [t, adj, close] of h) {
+    const r = at(rate, t, 2);
+    if (r && r > 0) out.push([t, adj / r, close / r]);
+  }
+  return out.length ? out : null;
 }
 
 /**
@@ -92,7 +115,9 @@ export function performanceOf(parts: { symbol: string; amount: number }[], price
       // Its price stays $1; its income makes its total return.
       return { amount: p.amount, price: (t: number, col = 1) => (col === 1 ? Math.pow(1 + apy, (t - today) / YEAR) : 1), first: 0, yield: apy as number | null };
     }
-    const h = prices.get(sourceKey(ticker));
+    const own = prices.get(sourceKey(ticker));
+    const fx = fxKey(ticker);
+    const h = fx ? inDollars(own, prices.get(fx)) : own;
     if (!h || !h.length) return null;
     // A currency pair earns nothing in itself.
     const income = "euro" in ticker || ("yahoo" in ticker && ticker.yahoo.endsWith("=X")) ? 0 : trailingYield(h, today);
@@ -129,7 +154,10 @@ export function performanceOf(parts: { symbol: string; amount: number }[], price
       const then = at(s, t);
       return then ? now / then - 1 : null;
     };
-    return { m1: back(30), m3: back(91), m6: back(182), y1: back(365) };
+    // 1Y: a year back, or, when a part was listed less than a year ago,
+    // since the history starts (`since` says when).
+    const first = s[0][1];
+    return { m1: back(30), m3: back(91), m6: back(182), y1: back(365) ?? (first ? now / first - 1 : null) };
   };
   // Each part's yield weighted by what it is worth in one token today.
   let worth = 0;
@@ -142,13 +170,15 @@ export function performanceOf(parts: { symbol: string; amount: number }[], price
     else earning += v * l.yield;
   }
   if (apy !== null) apy = worth > 0 ? earning / worth : null;
-  return { series, growth: returnsOf(series), returns: returnsOf(total), apy };
+  // When 1Y covers less than a year: the day the history starts.
+  const since = series[0][0] > today - YEAR + GRACE ? series[0][0] : null;
+  return { series, growth: returnsOf(series), returns: returnsOf(total), apy, since };
 }
 
 /** The performance of one token holding `parts`, read and worked out. */
 export async function loadPerformance(parts: { symbol: string; amount: number }[]): Promise<Performance | null> {
   if (parts.some((p) => !REFERENCE_TICKER[p.symbol])) return null;
-  const keys = [...new Set(parts.map((p) => sourceKey(REFERENCE_TICKER[p.symbol])).filter((k) => k !== "dollar"))];
+  const keys = [...new Set(parts.flatMap((p) => [sourceKey(REFERENCE_TICKER[p.symbol]), fxKey(REFERENCE_TICKER[p.symbol])]).filter((k): k is string => !!k && k !== "dollar"))];
   return performanceOf(parts, await histories(keys));
 }
 

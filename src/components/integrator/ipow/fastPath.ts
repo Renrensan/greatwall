@@ -66,3 +66,4 @@ export function unlockFastTerms(src: string, home: string, asset: number, held: 
   if (terms === null) return null;
   return { max: held < terms.max ? held : terms.max, minFee: terms.minFee };
 }
+

@@ -119,3 +119,13 @@ export const RWA_TOKENS: Partial<Record<SupportedChain, RwaToken[]>> = {
 /** A network's tokens that are deployed: one listed ahead of its deployment
  *  has no address yet and is left out. */
 export const rwaTokensOf = (chain: SupportedChain): RwaToken[] => (RWA_TOKENS[chain] ?? []).filter((t) => t.token !== "");
+
+/** The token a new index starts with on the Create page: the network's
+ *  S&P 500 token where it has one, else its first test token. Not the
+ *  network's coin, which the operator's fast path carries in small amounts
+ *  only; the coin stays one pick away. */
+const STARTER = ["SPYx", "IVVon", "JSPX", "rSPY", "SPYr", "EURC"];
+export const starterTokenOf = (chain: SupportedChain): RwaToken | null => {
+  const list = rwaTokensOf(chain);
+  return STARTER.map((s) => list.find((t) => t.symbol === s)).find(Boolean) ?? list[0] ?? null;
+};

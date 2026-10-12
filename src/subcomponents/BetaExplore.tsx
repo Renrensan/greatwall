@@ -1,8 +1,11 @@
 "use client";
 
-// Every index on the network, as cards: on Solana from the program's
-// accounts, on the EVM networks from the app's index of the contract's
-// events (where it has one), else the indexes this browser knows. A card
+// Every index on every network, as one list of cards: on Solana from the
+// program's accounts, on the EVM networks from the app's index of the
+// contract's events (where it has one), else the indexes this browser knows.
+// Each card says the network it is minted on, and opening it goes to that
+// network. Searched by name, symbol or address; filtered by network; the
+// largest market cap first. A card
 // shows the token's image and name (its metadata, E4), its creator, the
 // networks its assets live on, the assets behind it, what one token holds
 // is worth today, its market cap, its past year and its yield
@@ -20,7 +23,8 @@ import { ZeroAddress } from "ethers";
 import { getBasket } from "@ipow/sdk";
 import { loadPerformance, returnText, yieldText } from "@/components/integrator/ipow/performance";
 
-import { Notice, errorText, shortHash } from "./ipow/common";
+import { shortHash } from "./ipow/common";
+import { savePreferredChain, type SupportedChain } from "@/app/network-provider";
 import { useUsdValue } from "./ipow/useUsdValue";
 import { deploymentOf, isBasketChain, readProvider, solanaBeta, type BasketChain } from "@/components/integrator/ipow/sdk";
 import { tokenInfo } from "@/components/integrator/ipow/tokens";
@@ -37,6 +41,8 @@ const ONE = 1e9;
 export type Part = { symbol: string; logo: string | null; network: string; amount: number; known: boolean };
 export type Card = {
   key: string;
+  /** The index token: an ERC-20 address, or a mint. */
+  beta: string;
   name: string;
   symbol: string;
   image: string | null;
@@ -68,7 +74,7 @@ export async function evmCard(chain: BasketChain, key: string, cross: CrossChoic
       return { symbol: local.symbol, logo: local.logo, network: chain, amount, known: local.known && !(p.receipts && p.receipts !== ZeroAddress) };
     })
   );
-  return { key, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
+  return { key, beta: b.beta, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
 }
 
 /** A Solana index as a card (also read by the Portfolio's summary). */
@@ -84,7 +90,7 @@ export async function solanaCard(address: string, cross: CrossChoice[]): Promise
       return { symbol: local.symbol, logo: local.logo, network: "solana", amount, known: local.known };
     })
   );
-  return { key: address, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
+  return { key: address, beta: b.beta, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
 }
 
 /** Logos overlapping in a row, a "+n" for the rest. */
@@ -106,99 +112,92 @@ function Stack({ items, size = 20, max = 5 }: { items: { key: string; logo: stri
   );
 }
 
+/** The networks, in the activity explorer's order. */
+const NETWORKS = ["ethereum", "solana", "base", "robinhood", "hyperliquid", "arbitrum", "tempo"] as const;
+type Listed = Card & { home: string };
+/** A network not read in this long is left out this time, not waited on. */
+const NETWORK_WAIT_MS = 45_000;
+/** An address as its start and end: "H5jmGE…JD7e4". */
+const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-5)}` : a);
+
+/** Every index's address on one network, as the explore list reads it. */
+async function keysOn(chain: string, onPartial: () => void): Promise<string[]> {
+  if (chain === "solana") return solanaBeta(null).allBaskets();
+  if (!isBasketChain(chain)) return [];
+  // The app's index reads history in steps: ask again until it has all.
+  let index: any = null;
+  for (let i = 0; i < 20; i++) {
+    const r = await fetch(`/api/baskets/${chain}`);
+    index = await r.json();
+    if (!r.ok) throw new Error(index?.error ?? `index: ${r.status}`);
+    if (!index.supported || index.complete) break;
+    onPartial();
+  }
+  return index?.supported ? index.baskets.map((b: { key: string }) => b.key) : knownBaskets(deploymentOf(chain)!.betaBaskets);
+}
+
 export default function BetaExplore() {
   const t = useTranslations("Beta");
   const { locale, network } = useParams<{ locale: string; network: string }>();
   const prices = useUsdValue();
-  const [keys, setKeys] = useState<string[] | null>(null);
-  const [cross, setCross] = useState<CrossChoice[]>([]);
-  const [page, setPage] = useState(0);
-  const [cards, setCards] = useState<Card[] | null>(null);
+  // Every network's cards, added as each network is read.
+  const [cards, setCards] = useState<Listed[] | null>(null);
+  // The networks read so far (or given up on): a network's list is final once in here.
+  const [done, setDone] = useState<string[]>([]);
   // Indexes made with assets Greatwall can no longer name (e.g. receipts of
   // a retired vault): still on chain, and reachable by their own page, but
   // not listed, since nothing about them can be shown or priced.
   const [retired, setRetired] = useState(0);
-  const [note, setNote] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string[]>([]);
 
-  // Every index's address on the network.
-  useEffect(() => {
-    let live = true;
-    setKeys(null);
-    setNote(null);
-    setError(null);
-    setPage(0);
-    (async () => {
-      let found: string[];
-      if (network === "solana") {
-        found = await solanaBeta(null).allBaskets();
-      } else if (isBasketChain(network)) {
-        // The app's index reads history in steps: ask again until it has all.
-        let index: any = null;
-        for (let i = 0; i < 20; i++) {
-          const r = await fetch(`/api/baskets/${network}`);
-          index = await r.json();
-          if (!r.ok) throw new Error(index?.error ?? `index: ${r.status}`);
-          if (!index.supported || index.complete) break;
-          if (live) setNote(t("exploreReading"));
-        }
-        if (index?.supported) {
-          found = index.baskets.map((b: { key: string }) => b.key);
-          if (live) setNote(index.complete ? null : t("exploreReading"));
-        } else {
-          found = knownBaskets(deploymentOf(network)!.betaBaskets);
-          if (live) setNote(t("exploreKnownOnly"));
-        }
-      } else {
-        found = [];
-        if (live) setNote(t("exploreNotHere"));
-      }
-      const c = found.length ? await within(crossChoicesOn(network as any), 20_000, [] as CrossChoice[]) : [];
-      if (live) {
-        setCross(c);
-        setKeys(found);
-      }
-    })().catch((e) => live && setError(errorText(e)));
-    return () => {
-      live = false;
-    };
-  }, [network, t]);
+  const [query, setQuery] = useState("");
+  const [net, setNet] = useState<string>("all");
+  const [page, setPage] = useState(0);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  // The cards of the page shown.
   useEffect(() => {
-    if (!keys) return;
     let live = true;
     setCards(null);
+    setDone([]);
     setRetired(0);
-    const shown = keys.slice(page * PAGE, page * PAGE + PAGE);
-    Promise.all(shown.map((k) => (network === "solana" ? solanaCard(k, cross) : evmCard(network as BasketChain, k, cross)).catch(() => null))).then((found) => {
-      if (!live) return;
-      const read = found.filter((c): c is Card => c !== null);
-      const listed = read.filter((c) => c.parts.every((p) => p.known));
-      setCards(listed);
-      setRetired(read.length - listed.length);
-    });
+    setFailed([]);
+    for (const chain of NETWORKS) {
+      within((async () => {
+        const keys = await keysOn(chain, () => {});
+        const cross = keys.length ? await within(crossChoicesOn(chain as any), 20_000, [] as CrossChoice[]) : [];
+        const read = await Promise.all(keys.map((k) => (chain === "solana" ? solanaCard(k, cross) : evmCard(chain as BasketChain, k, cross)).catch(() => null)));
+        const found = read.filter((c): c is Card => c !== null);
+        const listed = found.filter((c) => c.parts.every((p) => p.known)).map((c) => ({ ...c, home: chain }));
+        if (!live) return;
+        setCards((all) => [...(all ?? []), ...listed]);
+        setRetired((r) => r + found.length - listed.length);
+        return true;
+      })(), NETWORK_WAIT_MS, false)
+        .then((ok) => !ok && live && setFailed((f) => [...f, chain]))
+        .catch(() => live && setFailed((f) => [...f, chain]))
+        .finally(() => live && setDone((d) => [...d, chain]));
+    }
     return () => {
       live = false;
     };
-  }, [keys, page, cross, network]);
+  }, []);
 
   // Each card's past year and yield (performance.ts), from its mix.
   const [yearOf, setYearOf] = useState<Record<string, { y1: number | null; apy: number | null }>>({});
   useEffect(() => {
     let live = true;
     for (const c of cards ?? []) {
-      if (c.parts.some((p) => !p.known)) continue;
+      const id = `${c.home}:${c.key}`;
+      if (yearOf[id]) continue;
       loadPerformance(c.parts.map((p) => ({ symbol: p.symbol, amount: p.amount })))
-        .then((perf) => live && setYearOf((y) => ({ ...y, [c.key]: { y1: perf?.growth.y1 ?? null, apy: perf?.apy ?? null } })))
+        .then((perf) => live && setYearOf((y) => ({ ...y, [id]: { y1: perf?.growth.y1 ?? null, apy: perf?.apy ?? null } })))
         .catch(() => {});
     }
     return () => {
       live = false;
     };
-  }, [cards]);
+  }, [cards]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pages = keys ? Math.max(1, Math.ceil(keys.length / PAGE)) : 1;
   /** What one token's assets are worth now, when every part has a price. */
   const valueOf = (c: Card): number | null => {
     let total = 0;
@@ -211,15 +210,71 @@ export default function BetaExplore() {
     return total;
   };
 
+  // Searched and filtered; the largest market cap first, an unknown one last.
+  const q = query.trim().toLowerCase();
+  const shown = (cards ?? [])
+    .filter((c) => net === "all" || c.home === net)
+    .filter((c) => !q || [c.name, c.symbol, c.key, c.beta, c.creator].some((v) => v?.toLowerCase().includes(q)))
+    .map((c) => {
+      const value = valueOf(c);
+      const y = yearOf[`${c.home}:${c.key}`];
+      return { c, value, cap: value === null ? null : value * c.supply, y1: y?.y1 ?? null, apy: y?.apy ?? null };
+    })
+    .sort((a, b) => (b.cap ?? -Infinity) - (a.cap ?? -Infinity));
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE));
+  const onPage = shown.slice(page * PAGE, page * PAGE + PAGE);
+  useEffect(() => setPage(0), [query, net]);
+  // Still reading what the filter shows: one network, or (for all) any.
+  const pending = net === "all" ? done.length < NETWORKS.length : !done.includes(net);
+
+  const copy = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied((c) => (c === text ? null : c)), 1500);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <Poster image={poster} title={t("exploreTitle")} text={t("exploreText")} />
 
-      {error && <Notice text={error} error />}
-      {note && <p className="text-xs sm:text-sm text-stone">{note}</p>}
+      {/* Filters: network, and a name, symbol or address to look for. */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Minted on">
+          {["all", ...NETWORKS].map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setNet(c)}
+              aria-pressed={net === c}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${net === c ? "bg-ink text-snow" : "bg-black/5 hover:bg-black/10"}`}
+            >
+              {c !== "all" && <img src={`/assets/networks/${c}.png`} alt="" className="w-4 h-4 rounded-full" />}
+              {c === "all" ? "All networks" : cap(c)}
+            </button>
+          ))}
+        </div>
+        <div className="flex">
+          <label className="relative sm:w-72">
+            <span className="sr-only">Search by name, symbol or address</span>
+            <Icon icon="solar:magnifer-linear" className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50" aria-hidden />
+            <input
+              id="explore-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Name, symbol or address"
+              spellCheck={false}
+              className="w-full rounded-xl bg-well border border-ink/10 pl-9 pr-3 py-2 text-sm outline-none focus:border-ink/40"
+            />
+          </label>
+        </div>
+      </div>
+
+      {failed.length > 0 && <p className="text-xs sm:text-sm text-stone">Couldn&rsquo;t read {failed.map(cap).join(", ")} right now; their indexes are left out this time.</p>}
       {retired > 0 && <p className="text-xs sm:text-sm text-stone">{t("exploreRetired", { count: retired })}</p>}
 
-      {!error && (!keys || !cards) ? (
+      {onPage.length === 0 && pending ? (
         // Skeleton cards while reading, not an empty page.
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
@@ -237,87 +292,109 @@ export default function BetaExplore() {
             </div>
           ))}
         </div>
-      ) : !error && cards && cards.length === 0 ? (
+      ) : !cards || (net === "all" && !q && cards.length === 0) ? (
         <EmptyExplore href={`/${locale}/${network}/index/create`} />
+      ) : onPage.length === 0 && !q && net !== "all" ? (
+        // A network with no index yet: the invitation to create its first.
+        <EmptyExplore href={`/${locale}/${net}/index/create`} network={net} />
+      ) : onPage.length === 0 ? (
+        <div className="rounded-2xl bg-paper border border-ink/10 p-8 flex flex-col items-center gap-2 text-center">
+          <Icon icon="solar:magnifer-linear" className="text-2xl opacity-40" />
+          <p className="text-sm font-semibold">No index matches</p>
+          <p className="text-xs opacity-60">Try another name or address, or another network.</p>
+        </div>
       ) : (
-        cards && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cards.map((c) => {
-              const value = valueOf(c);
-              const y1 = yearOf[c.key]?.y1 ?? null;
-              const apy = yearOf[c.key]?.apy ?? null;
-              const networks = [...new Set(c.parts.map((p) => p.network))];
-              const named = c.name && c.name !== "BETA";
-              return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {onPage.map(({ c, value, y1, apy }) => {
+            const networks = [...new Set(c.parts.map((p) => p.network))];
+            const named = c.name && c.name !== "BETA";
+            return (
+              // The card is a box with its link stretched over it, so the
+              // copy button above the link is not inside it.
+              <div key={`${c.home}:${c.key}`} className="relative rounded-2xl bg-paper border border-ink/10 p-5 flex flex-col gap-4 hover:border-ink/30 hover:shadow-sm transition-all">
                 <Link
-                  key={c.key}
-                  href={`/${locale}/${network}/index/${c.key}`}
-                  className="rounded-2xl bg-paper border border-ink/10 p-5 flex flex-col gap-4 hover:border-ink/30 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[11px] font-medium opacity-70 truncate">${named ? c.symbol : "BETA"}</span>
-                      <span className="text-xl font-bold leading-tight truncate">{named ? c.name : t("basketName", { id: shortHash(c.key) })}</span>
-                      <span className="mt-1.5 flex flex-wrap gap-1.5">
-                        {y1 !== null && (
-                          <span
-                            className={`w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${y1 >= 0 ? "bg-green-600/10 text-green-700" : "bg-red-600/10 text-red-700"}`}
-                            title="Growth over the past year: the change in one token's value. Past performance is not a promise."
-                          >
-                            1Y {returnText(y1)}
-                          </span>
-                        )}
-                        {apy !== null && apy > 0 && (
-                          <span className="w-fit rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold tabular-nums" title={t("apyHint")}>
-                            {t("apyChip", { apy: yieldText(apy) })}
-                          </span>
-                        )}
+                  href={`/${locale}/${c.home}/index/${c.key}`}
+                  // Opening an index goes to the network it is minted on.
+                  onClick={() => savePreferredChain(c.home as SupportedChain)}
+                  aria-label={`${named ? c.name : "Index"} on ${cap(c.home)}`}
+                  className="absolute inset-0 rounded-2xl"
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] font-medium opacity-70 truncate">${named ? c.symbol : "BETA"}</span>
+                    <span className="text-xl font-bold leading-tight truncate">{named ? c.name : t("basketName", { id: shortHash(c.key) })}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => copy(e, c.beta)}
+                      title={`Copy the token address: ${c.beta}`}
+                      className="relative z-10 mt-1 flex w-fit items-center gap-1 rounded font-mono text-[11px] opacity-70 hover:opacity-100"
+                    >
+                      {shortAddress(c.beta)}
+                      <Icon icon={copied === c.beta ? "solar:check-circle-linear" : "solar:copy-linear"} className="text-xs" />
+                    </button>
+                    <span className="mt-1.5 flex flex-wrap gap-1.5">
+                      <span className="w-fit inline-flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-semibold" title={`Minted on ${cap(c.home)}: opening it switches there`}>
+                        <img src={`/assets/networks/${c.home}.png`} alt="" className="w-3.5 h-3.5 rounded-full" />
+                        {cap(c.home)}
                       </span>
-                    </div>
-                    <span className="w-16 h-16 rounded-full overflow-hidden border border-ink/10 bg-black/5 flex items-center justify-center shrink-0">
-                      {c.image ? (
-                        <img src={c.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xl font-bold opacity-50">{(named ? c.symbol : "B").charAt(0)}</span>
+                      {y1 !== null && (
+                        <span
+                          className={`w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${y1 >= 0 ? "bg-green-600/10 text-green-700" : "bg-red-600/10 text-red-700"}`}
+                          title="Growth over the past year: the change in one token's value. Past performance is not a promise."
+                        >
+                          1Y {returnText(y1)}
+                        </span>
+                      )}
+                      {apy !== null && apy > 0 && (
+                        <span className="w-fit rounded-full bg-sand px-2 py-0.5 text-[11px] font-semibold tabular-nums" title={t("apyHint")}>
+                          {t("apyChip", { apy: yieldText(apy) })}
+                        </span>
                       )}
                     </span>
                   </div>
-                  <div className="flex items-end justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] font-semibold">{t("networkSupport")}</span>
-                      <Stack items={networks.map((n) => ({ key: n, logo: `/assets/networks/${n}.png`, label: cap(n) }))} size={18} max={7} />
-                    </div>
-                    <div className="flex flex-col items-end gap-1 min-w-0">
-                      <span className="text-[11px] font-semibold">{t("creator")}</span>
-                      <span className="flex items-center gap-1 text-[11px] opacity-80">
-                        <Icon icon="solar:user-bold" className="text-xs" />
-                        {shortHash(c.creator)}
-                      </span>
-                    </div>
+                  <span className="w-16 h-16 rounded-full overflow-hidden border border-ink/10 bg-black/5 flex items-center justify-center shrink-0">
+                    {c.image ? (
+                      <img src={c.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-bold opacity-50">{(named ? c.symbol : "B").charAt(0)}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-end justify-between gap-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold">{t("networkSupport")}</span>
+                    <Stack items={networks.map((n) => ({ key: n, logo: `/assets/networks/${n}.png`, label: cap(n) }))} size={18} max={7} />
                   </div>
-                  <div className="h-px bg-ink/10" />
-                  <div className="grid grid-cols-3 gap-2 items-end">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm">{t("valuePerToken")}</span>
-                      <span className="text-sm font-semibold tabular-nums">{value === null ? "—" : usd(value)}</span>
-                    </div>
-                    <div className="flex flex-col gap-1 items-center">
-                      <span className="text-sm">{t("marketCap")}</span>
-                      <span className="text-sm font-semibold tabular-nums">{value === null ? "—" : usd(value * c.supply)}</span>
-                    </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      <span className="text-sm">{t("backedBy")}</span>
-                      <Stack items={c.parts.map((p, i) => ({ key: `${p.network}-${p.symbol}-${i}`, logo: p.logo, label: `${p.symbol} · ${cap(p.network)}` }))} size={18} max={5} />
-                    </div>
+                  <div className="flex flex-col items-end gap-1 min-w-0">
+                    <span className="text-[11px] font-semibold">{t("creator")}</span>
+                    <span className="flex items-center gap-1 text-[11px] opacity-80">
+                      <Icon icon="solar:user-bold" className="text-xs" />
+                      {shortHash(c.creator)}
+                    </span>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        )
+                </div>
+                <div className="h-px bg-ink/10" />
+                <div className="grid grid-cols-3 gap-2 items-end">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm">{t("valuePerToken")}</span>
+                    <span className="text-sm font-semibold tabular-nums">{value === null ? "—" : usd(value)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 items-center">
+                    <span className="text-sm">{t("marketCap")}</span>
+                    <span className="text-sm font-semibold tabular-nums">{value === null ? "—" : usd(value * c.supply)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end">
+                    <span className="text-sm">{t("backedBy")}</span>
+                    <Stack items={c.parts.map((p, i) => ({ key: `${p.network}-${p.symbol}-${i}`, logo: p.logo, label: `${p.symbol} · ${cap(p.network)}` }))} size={18} max={5} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {keys && keys.length > PAGE && (
+      {shown.length > PAGE && (
         <div className="flex items-center justify-center gap-4">
           <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="flex items-center gap-1 rounded-md bg-paper border border-ink/10 px-4 py-2 text-sm hover:bg-black/5 disabled:opacity-40">
             <Icon icon="solar:alt-arrow-left-linear" />
@@ -334,8 +411,9 @@ export default function BetaExplore() {
   );
 }
 
-/** No index on this network yet: what one looks like, and the way to make the first. */
-function EmptyExplore({ href }: { href: string }) {
+/** No index on a network yet: what one looks like, and the way to make the
+ *  first. With `network`, it names that network and switches to it. */
+function EmptyExplore({ href, network }: { href: string; network?: string }) {
   const t = useTranslations("Beta");
   const nets = ["ethereum", "solana", "base", "arbitrum", "hyperliquid", "robinhood", "tempo"];
   return (
@@ -343,16 +421,17 @@ function EmptyExplore({ href }: { href: string }) {
       <div className="flex flex-col gap-4 md:flex-1 min-w-0">
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">{t("exploreEmptyEyebrow")}</span>
         <h2 className="font-display text-3xl sm:text-4xl leading-[1.05]" style={{ textWrap: "balance" }}>
-          {t("exploreEmptyTitle")}
+          {network ? `Be the first to create an index on ${cap(network)}` : t("exploreEmptyTitle")}
         </h2>
         <p className="text-sm sm:text-base opacity-75 max-w-md">{t("exploreEmptyText")}</p>
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <Link
             href={href}
+            onClick={() => network && savePreferredChain(network as SupportedChain)}
             className="inline-flex items-center gap-2 rounded-xl bg-ink text-snow px-5 py-3 text-sm font-semibold hover:bg-pitch transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            <Icon icon="solar:add-circle-bold" className="text-lg" />
-            {t("createOne")}
+            {network ? <img src={`/assets/networks/${network}.png`} alt="" className="w-5 h-5 rounded-full" /> : <Icon icon="solar:add-circle-bold" className="text-lg" />}
+            {network ? `Create an index on ${cap(network)}` : t("createOne")}
           </Link>
         </div>
       </div>
