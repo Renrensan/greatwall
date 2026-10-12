@@ -48,6 +48,10 @@ import { AddressCheckResult } from "@/subcomponents/wallet-connect/address-valid
 import type { SolanaWallet } from "@ipow/sdk";
 import { solanaConvertMethods } from "../integrator/ipow/solanaConvertMethods";
 import { NO_CONVERT } from "../integrator/ipow/convertMethods";
+import { rwaTokensOf } from "../integrator/ipow/rwaTokens";
+
+/** Greatwall's own test tokens on Solana (its faucet's mints): always shown. */
+const GREATWALL_MINTS = new Set(rwaTokensOf("solana").map((t) => t.token));
 
 
 // The RPC calls for this provider go through the /api/rpc proxy (see fullRpcUrl below),
@@ -394,9 +398,13 @@ const checkAtaRequired = async (
               return { ...prevEntry, amount, decimals };
             }
             // A genuinely new mint (never seen before): if the verified-token list is already
-            // loaded and this mint isn't on it, it is treated as spam/dust and skipped, so a
-            // held spam token doesn't flicker in and out of the list every poll.
-            if (!prevEntry && verifiedTokensRef.current.length > 0 && !verifiedTokensRef.current.some((v: any) => v.id === mint)) {
+            // loaded and this mint is neither on it nor one of Greatwall's own test tokens, it
+            // is treated as spam/dust and skipped, so a held spam token doesn't flicker in and
+            // out of the list every poll. Compared by mint: the list's `id` is a short name
+            // ("sol", "usdc"), which no mint ever equals, and matching on it dropped every
+            // token the wallet held.
+            const known = verifiedTokensRef.current.some((v: any) => v.mint === mint) || GREATWALL_MINTS.has(mint);
+            if (!prevEntry && verifiedTokensRef.current.length > 0 && !known) {
               return null;
             }
             // No metadata pass follows on devnet, so this placeholder is not "still loading".
