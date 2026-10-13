@@ -102,7 +102,7 @@ export default async function Docs({ params }: { params: Promise<{ locale: strin
           rows={[
             ["Bitcoin", "Bitcoin itself", "Convert BTC. Bitcoin runs no programs: it is the record the other networks check"],
             ["Ethereum", "Sepolia", "Lock, Convert, index tokens"],
-            ["Solana", "Devnet", "Lock, index tokens, Convert out of Solana (into Solana is coming)"],
+            ["Solana", "Devnet", "Lock, index tokens, Convert out of Solana (into Solana opens as the operator serves it)"],
             ["Base", "Base Sepolia", "Lock, Convert, index tokens"],
             ["Arbitrum", "Arbitrum Sepolia", "Lock, Convert, index tokens"],
             ["Robinhood Chain", "Testnet", "Lock, Convert, index tokens"],

@@ -462,8 +462,17 @@ export default function ConvertToken() {
     return () => clearTimeout(timer);
   }, [fromAmount, pathname, router, searchParams]);
 
+  // Into Solana: a conversion from another network, once the operator serves
+  // it. An operator that does lists Solana's tokens (the node's build that
+  // reads a Solana buy's memo ships with those settings); one that lists SOL
+  // alone would leave the conversion unfinished. A buy paid from the user's
+  // own Bitcoin wallet is not open on Solana (solanaConvertMethods.ts).
+  const intoSolanaClosed =
+    toChain === "solana" && (fromChain === "bitcoin" || !(operatorAssets.byChain.solana ?? []).some((a) => a.token !== NATIVE));
+
   const isSupportedRoute = useMemo(() => {
     if (fromChain === toChain) return false;
+    if (intoSolanaClosed) return false;
 
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
@@ -472,7 +481,7 @@ export default function ConvertToken() {
     if (!toConfig || toConfig.ipowConvert === "comingsoon") return false;
 
     return true;
-  }, [fromChain, toChain, networkOptions]);
+  }, [fromChain, toChain, networkOptions, intoSolanaClosed]);
 
 
   /** A token's limits at the operator's price: from Bitcoin's dust (546
@@ -568,10 +577,11 @@ export default function ConvertToken() {
     const fromConfig = networkOptions.find((n) => n.key === fromChain);
     const toConfig = networkOptions.find((n) => n.key === toChain);
     return (
+      intoSolanaClosed ||
       fromConfig?.ipowConvert === "comingsoon" ||
       toConfig?.ipowConvert === "comingsoon"
     );
-  }, [fromChain, toChain, networkOptions]);
+  }, [fromChain, toChain, networkOptions, intoSolanaClosed]);
 
   const buttonText = useMemo(() => {
     if (isComingSoon) return "Coming Soon";
