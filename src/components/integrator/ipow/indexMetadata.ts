@@ -29,18 +29,29 @@ export function ownHosted(url: string): string | null {
   }
 }
 
+/** An IPFS gateway's link as this site's own (/api/ipfs/<cid>), which
+ *  fetches the file once and keeps it: the public gateways take about 5
+ *  seconds a file, or refuse. Null for a link that is not one. */
+export function viaOwnIpfs(url: string): string | null {
+  const m = /^https:\/\/[^/]+\/ipfs\/(baf[a-z2-7]{50,100}|Qm[1-9A-HJ-NP-Za-km-z]{44})\/?$/.exec(url);
+  return m ? `/api/ipfs/${m[1]}` : null;
+}
+
 const httpsOrNull = (v: unknown) => (typeof v === "string" && /^https:\/\/\S+$/.test(v) ? v : null);
 
-/** The metadata at `uri`, or nothing known when it cannot be read (a few
- *  seconds at most). */
+/** The metadata at `uri`, or nothing known when it cannot be read. A file
+ *  on IPFS is read through this site, which may be fetching it for the
+ *  first time: half a minute at most. */
 export async function readMetadata(uri: string): Promise<IndexMetadata> {
   const none: IndexMetadata = { image: null, description: "", website: null, twitter: null, telegram: null };
   if (!uri) return none;
   try {
-    const r = await fetch(ownHosted(uri) ?? uri, { signal: AbortSignal.timeout(5_000) });
+    const own = viaOwnIpfs(uri);
+    const r = await fetch(ownHosted(uri) ?? own ?? uri, { signal: AbortSignal.timeout(own ? 30_000 : 5_000) });
+    if (!r.ok) return none;
     const meta = await r.json();
     let image: string | null = null;
-    if (typeof meta?.image === "string") image = ownHosted(meta.image) ?? (/^(https:|data:image\/)/.test(meta.image) ? meta.image : null);
+    if (typeof meta?.image === "string") image = ownHosted(meta.image) ?? viaOwnIpfs(meta.image) ?? (/^(https:|data:image\/)/.test(meta.image) ? meta.image : null);
     return {
       image,
       description: typeof meta?.description === "string" ? meta.description : "",

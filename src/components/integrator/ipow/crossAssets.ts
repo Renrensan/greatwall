@@ -182,17 +182,23 @@ async function evmAssetsOnSolana(peer: SupportedChain): Promise<CrossChoice[]> {
  *  vault makes meanwhile shows once the list is read again; a page that
  *  needs it now (Unlock) forgets the list first (`forgetCrossChoices`). */
 const CACHE_MS = 5 * 60_000;
-const cache = new Map<string, { at: number; list: Promise<CrossChoice[]> }>();
+const cache = new Map<string, { at: number; read: Promise<{ list: CrossChoice[]; complete: boolean }> }>();
+
+/** The other networks' assets available on `chain`, those bridged first,
+ *  and whether every network answered: a list that is not complete may lack
+ *  assets that exist, so nothing can be concluded from one missing in it. */
+export function crossChoicesRead(chain: SupportedChain): Promise<{ list: CrossChoice[]; complete: boolean }> {
+  const hit = cache.get(chain);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.read;
+  const read = readCrossChoices(chain);
+  cache.set(chain, { at: Date.now(), read });
+  read.then((r) => !r.complete && cache.delete(chain)).catch(() => cache.delete(chain));
+  return read;
+}
 
 /** The other networks' assets available on `chain`, those bridged first. */
 export function crossChoicesOn(chain: SupportedChain): Promise<CrossChoice[]> {
-  const hit = cache.get(chain);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.list;
-  const read = readCrossChoices(chain);
-  const list = read.then((r) => r.list);
-  cache.set(chain, { at: Date.now(), list });
-  read.then((r) => !r.complete && cache.delete(chain)).catch(() => cache.delete(chain));
-  return list;
+  return crossChoicesRead(chain).then((r) => r.list);
 }
 
 /** Drops `chain`'s list, so the next read is fresh. */

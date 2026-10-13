@@ -30,7 +30,7 @@ import { deploymentOf, isBasketChain, readProvider, solanaBeta, type BasketChain
 import { tokenInfo } from "@/components/integrator/ipow/tokens";
 import { solanaToken } from "@/components/integrator/ipow/solanaTokens";
 import { knownBaskets } from "@/components/integrator/ipow/basketList";
-import { crossChoicesOn, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
+import { crossChoicesRead, type CrossChoice } from "@/components/integrator/ipow/crossAssets";
 import { localAsset, readMetadata, within } from "@/components/integrator/ipow/indexMetadata";
 
 /** Cards on a page. */
@@ -46,6 +46,9 @@ export type Card = {
   name: string;
   symbol: string;
   image: string | null;
+  /** The token's metadata URI (E4): its image and description are read
+   *  from it. */
+  uri: string;
   creator: string;
   supply: number;
   parts: Part[];
@@ -59,7 +62,7 @@ const usd = (n: number) =>
 const imageOf = async (uri: string) => (await readMetadata(uri)).image;
 
 /** An EVM index as a card (also read by the Portfolio's summary). */
-export async function evmCard(chain: BasketChain, key: string, cross: CrossChoice[]): Promise<Card> {
+export async function evmCard(chain: BasketChain, key: string, cross: CrossChoice[], withImage = true): Promise<Card> {
   const b = await getBasket(readProvider(chain), deploymentOf(chain)!, key);
   const parts = await Promise.all(
     b.parts.map(async (p): Promise<Part> => {
@@ -74,11 +77,13 @@ export async function evmCard(chain: BasketChain, key: string, cross: CrossChoic
       return { symbol: local.symbol, logo: local.logo, network: chain, amount, known: local.known && !(p.receipts && p.receipts !== ZeroAddress) };
     })
   );
-  return { key, beta: b.beta, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
+  // The image is one more read, from IPFS: left for later when the caller
+  // shows the card first (`withImage` false).
+  return { key, beta: b.beta, name: b.name, symbol: b.symbol, image: withImage ? await imageOf(b.uri) : null, uri: b.uri, creator: b.creator, supply: Number(b.supply) / ONE, parts };
 }
 
 /** A Solana index as a card (also read by the Portfolio's summary). */
-export async function solanaCard(address: string, cross: CrossChoice[]): Promise<Card> {
+export async function solanaCard(address: string, cross: CrossChoice[], withImage = true): Promise<Card> {
   const b = await solanaBeta(null).getBasket(address);
   const parts = await Promise.all(
     b.parts.map(async (p): Promise<Part> => {
@@ -90,7 +95,7 @@ export async function solanaCard(address: string, cross: CrossChoice[]): Promise
       return { symbol: local.symbol, logo: local.logo, network: "solana", amount, known: local.known };
     })
   );
-  return { key: address, beta: b.beta, name: b.name, symbol: b.symbol, image: await imageOf(b.uri), creator: b.creator, supply: Number(b.supply) / ONE, parts };
+  return { key: address, beta: b.beta, name: b.name, symbol: b.symbol, image: withImage ? await imageOf(b.uri) : null, uri: b.uri, creator: b.creator, supply: Number(b.supply) / ONE, parts };
 }
 
 /** Logos overlapping in a row, a "+n" for the rest. */
@@ -115,8 +120,14 @@ function Stack({ items, size = 20, max = 5 }: { items: { key: string; logo: stri
 /** The networks, in the activity explorer's order. */
 const NETWORKS = ["ethereum", "solana", "base", "robinhood", "hyperliquid", "arbitrum", "tempo"] as const;
 type Listed = Card & { home: string };
-/** A network not read in this long is left out this time, not waited on. */
-const NETWORK_WAIT_MS = 45_000;
+/** A network not read in this long is given up on for this load: the list
+ *  is shown once every network has answered or run out of time. Long, since
+ *  a network's list may be built in steps (/api/baskets) and its assets on
+ *  other networks read from each of them. */
+const NETWORK_WAIT_MS = 60_000;
+/** The last list read, kept in the browser: shown at once on a return
+ *  visit while it is read again, and kept for a network that fails then. */
+const CACHE_KEY = "gw.explore.v3";
 /** An address as its start and end: "H5jmGE…JD7e4". */
 const shortAddress = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-5)}` : a);
 
@@ -140,15 +151,22 @@ export default function BetaExplore() {
   const t = useTranslations("Beta");
   const { locale, network } = useParams<{ locale: string; network: string }>();
   const prices = useUsdValue();
-  // Every network's cards, added as each network is read.
+  // The list shown: null until there is one (the first read, or the last
+  // one kept in this browser).
   const [cards, setCards] = useState<Listed[] | null>(null);
-  // The networks read so far (or given up on): a network's list is final once in here.
-  const [done, setDone] = useState<string[]>([]);
+  // Whether every network has been read (or given up on) in this load, and
+  // how many have so far.
+  const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState(0);
   // Indexes made with assets Greatwall can no longer name (e.g. receipts of
   // a retired vault): still on chain, and reachable by their own page, but
   // not listed, since nothing about them can be shown or priced.
   const [retired, setRetired] = useState(0);
+  // Networks that could not be read in this load; `stale`, those among them
+  // still shown as read earlier.
   const [failed, setFailed] = useState<string[]>([]);
+  const [stale, setStale] = useState<string[]>([]);
+  const [round, setRound] = useState(0);
 
   const [query, setQuery] = useState("");
   const [net, setNet] = useState<string>("all");
@@ -157,30 +175,103 @@ export default function BetaExplore() {
 
   useEffect(() => {
     let live = true;
-    setCards(null);
-    setDone([]);
-    setRetired(0);
-    setFailed([]);
-    for (const chain of NETWORKS) {
-      within((async () => {
-        const keys = await keysOn(chain, () => {});
-        const cross = keys.length ? await within(crossChoicesOn(chain as any), 20_000, [] as CrossChoice[]) : [];
-        const read = await Promise.all(keys.map((k) => (chain === "solana" ? solanaCard(k, cross) : evmCard(chain as BasketChain, k, cross)).catch(() => null)));
-        const found = read.filter((c): c is Card => c !== null);
-        const listed = found.filter((c) => c.parts.every((p) => p.known)).map((c) => ({ ...c, home: chain }));
-        if (!live) return;
-        setCards((all) => [...(all ?? []), ...listed]);
-        setRetired((r) => r + found.length - listed.length);
-        return true;
-      })(), NETWORK_WAIT_MS, false)
-        .then((ok) => !ok && live && setFailed((f) => [...f, chain]))
-        .catch(() => live && setFailed((f) => [...f, chain]))
-        .finally(() => live && setDone((d) => [...d, chain]));
+    // The list of the last visit, at once.
+    let kept: Listed[] = [];
+    try {
+      const raw = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null");
+      if (Array.isArray(raw?.cards)) kept = raw.cards;
+    } catch {}
+    if (kept.length) setCards((now) => now ?? kept);
+    setReady(false);
+    setProgress(0);
+
+    /** One network's indexes, or null when it could not be read in full. */
+    const readNetwork = async (chain: string): Promise<{ cards: Listed[]; retired: number } | null> => {
+      const keys = await keysOn(chain, () => {});
+      if (!keys.length) return { cards: [], retired: 0 };
+      const { list: cross, complete } = await crossChoicesRead(chain as any);
+      // Without their images: those come after the cards are shown.
+      const read = await Promise.all(keys.map((k) => (chain === "solana" ? solanaCard(k, cross, false) : evmCard(chain as BasketChain, k, cross, false)).catch(() => null)));
+      // An index that could not be read: the network was not read in full.
+      if (read.some((c) => c === null)) return null;
+      const found = read as Card[];
+      const listed = found.filter((c) => c.parts.every((p) => p.known)).map((c) => ({ ...c, home: chain }));
+      // An index with a part nobody could name is a retired one only when
+      // every network answered: read in part, the part may simply not have
+      // been read, and the index must not be dropped for it.
+      if (listed.length < found.length && !complete) return null;
+      return { cards: listed, retired: found.length - listed.length };
+    };
+
+    Promise.all(
+      NETWORKS.map((chain) =>
+        within(readNetwork(chain), NETWORK_WAIT_MS, null)
+          .catch(() => null)
+          .then((r) => {
+            if (live) setProgress((n) => n + 1);
+            return [chain, r] as const;
+          })
+      )
+    ).then((results) => {
+      if (!live) return;
+      // An image read on an earlier visit is kept: the card shows it at once.
+      const imageBefore = new Map(kept.filter((c) => c.image).map((c) => [`${c.home}:${c.key}`, c.image]));
+      const next: Listed[] = [];
+      const missed: string[] = [];
+      const old: string[] = [];
+      let dropped = 0;
+      for (const [chain, r] of results) {
+        if (r) {
+          next.push(...r.cards.map((c) => ({ ...c, image: c.image ?? imageBefore.get(`${c.home}:${c.key}`) ?? null })));
+          dropped += r.retired;
+          continue;
+        }
+        // Not read this time: what was read of it earlier stays.
+        missed.push(chain);
+        const before = kept.filter((c) => c.home === chain);
+        if (before.length) {
+          next.push(...before);
+          old.push(chain);
+        }
+      }
+      setCards(next);
+      setRetired(dropped);
+      setFailed(missed);
+      setStale(old);
+      setReady(true);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), cards: next }));
+      } catch {}
+    });
+    return () => {
+      live = false;
+    };
+  }, [round]);
+
+  // Each card's image, read after the cards are shown and kept with the
+  // list: a card is never held back for its picture.
+  useEffect(() => {
+    if (!ready) return;
+    let live = true;
+    for (const c of cards ?? []) {
+      if (c.image || !c.uri) continue;
+      imageOf(c.uri)
+        .then((image) => {
+          if (!live || !image) return;
+          setCards((all) => {
+            const next = (all ?? []).map((x) => (x.home === c.home && x.key === c.key ? { ...x, image } : x));
+            try {
+              localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), cards: next }));
+            } catch {}
+            return next;
+          });
+        })
+        .catch(() => {});
     }
     return () => {
       live = false;
     };
-  }, []);
+  }, [ready, round]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Each card's past year and yield (performance.ts), from its mix.
   const [yearOf, setYearOf] = useState<Record<string, { y1: number | null; apy: number | null }>>({});
@@ -224,8 +315,12 @@ export default function BetaExplore() {
   const pages = Math.max(1, Math.ceil(shown.length / PAGE));
   const onPage = shown.slice(page * PAGE, page * PAGE + PAGE);
   useEffect(() => setPage(0), [query, net]);
-  // Still reading what the filter shows: one network, or (for all) any.
-  const pending = net === "all" ? done.length < NETWORKS.length : !done.includes(net);
+  // The list is shown all at once, when every network has been read (or
+  // given up on): shown as each arrived, the cards came in network by
+  // network and the page jumped. Until then the skeleton, or, on a return
+  // visit, the list of the last one while it is read again.
+  const pending = cards === null;
+  const retry = () => setRound((n) => n + 1);
 
   const copy = (e: React.MouseEvent, text: string) => {
     e.stopPropagation();
@@ -271,10 +366,27 @@ export default function BetaExplore() {
         </div>
       </div>
 
-      {failed.length > 0 && <p className="text-xs sm:text-sm text-stone">Couldn&rsquo;t read {failed.map(cap).join(", ")} right now; their indexes are left out this time.</p>}
-      {retired > 0 && <p className="text-xs sm:text-sm text-stone">{t("exploreRetired", { count: retired })}</p>}
+      {/* Where the read is: said while it runs, so a long one is not mistaken for nothing. */}
+      {!ready && (
+        <p className="flex items-center gap-2 text-xs sm:text-sm text-stone" role="status">
+          <Icon icon="svg-spinners:ring-resize" aria-hidden />
+          {pending ? "Reading the indexes" : "Checking for new indexes"} on {NETWORKS.length} networks: {progress} of {NETWORKS.length} read
+        </p>
+      )}
+      {ready && failed.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-stone">
+          <span>
+            Couldn&rsquo;t read {failed.map(cap).join(", ")} just now.{" "}
+            {stale.length > 0 ? `Shown as read earlier: ${stale.map(cap).join(", ")}.` : "Their indexes, if any, are not shown."}
+          </span>
+          <button type="button" onClick={retry} className="font-semibold underline text-ink">
+            Try again
+          </button>
+        </p>
+      )}
+      {ready && retired > 0 && <p className="text-xs sm:text-sm text-stone">{t("exploreRetired", { count: retired })}</p>}
 
-      {onPage.length === 0 && pending ? (
+      {pending ? (
         // Skeleton cards while reading, not an empty page.
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
@@ -292,7 +404,18 @@ export default function BetaExplore() {
             </div>
           ))}
         </div>
-      ) : !cards || (net === "all" && !q && cards.length === 0) ? (
+      ) : onPage.length === 0 && !q && failed.some((f) => net === "all" || f === net) ? (
+        // Nothing to show, and not everything was read: not "none yet".
+        <div className="rounded-2xl bg-paper border border-ink/10 p-8 flex flex-col items-center gap-3 text-center">
+          <Icon icon="solar:cloud-cross-linear" className="text-3xl opacity-40" />
+          <p className="text-sm font-semibold">{net === "all" ? "The indexes couldn\u2019t be read just now" : `${cap(net)} couldn\u2019t be read just now`}</p>
+          <p className="text-xs opacity-60 max-w-sm">The network was slow to answer. Nothing is wrong with your indexes: try again in a moment.</p>
+          <button type="button" onClick={retry} className="rounded-lg bg-ink text-snow px-4 py-2 text-sm font-semibold hover:bg-pitch">
+            Try again
+          </button>
+        </div>
+      ) : net === "all" && !q && cards.length === 0 ? (
+        // Every network read, and none has an index: the invitation to make the first.
         <EmptyExplore href={`/${locale}/${network}/index/create`} />
       ) : onPage.length === 0 && !q && net !== "all" ? (
         // A network with no index yet: the invitation to create its first.
